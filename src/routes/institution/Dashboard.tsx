@@ -1,0 +1,310 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Eye, MessageSquare, Plus, ShieldAlert, ChevronRight } from "lucide-react";
+import { AppShell } from "@/components/shells/AppShell";
+import { PageHeader, Panel, MetricCard, BarRow } from "@/components/dashboard/Panels";
+import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
+import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
+import { SectionLink } from "@/components/primitives/Bits";
+import { LineChart } from "@/components/charts/LineChart";
+import { seededSeries, PERFORMANCE_METRICS, TOP_COUNTRIES, TOPICS_PERFORMANCE, type Metric } from "@/data/analytics";
+import { RECENT_RELEASES, TOP_RELEASES } from "@/data/releases";
+import { rowToRelease, formatCount } from "@/lib/releaseMap";
+import { useInstitutionStats } from "@/lib/useInstitutionStats";
+import { useOrg } from "@/lib/useOrg";
+import { useAuth } from "@/auth/AuthProvider";
+import type { Release } from "@/types";
+
+const X = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5", "Wk 6", "Wk 7", "Wk 8"];
+
+/** The six analytics time ranges (label → number of days). */
+export const RANGES: [string, number][] = [
+  ["Today", 1],
+  ["3D", 3],
+  ["7D", 7],
+  ["1M", 30],
+  ["6M", 180],
+  ["12M", 365],
+];
+export const RANGE_LABEL: Record<number, string> = {
+  1: "today",
+  3: "last 3 days",
+  7: "last 7 days",
+  30: "last 30 days",
+  180: "last 6 months",
+  365: "last 12 months",
+};
+
+function RangeTabs({ days, onChange }: { days: number; onChange: (d: number) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 4, background: "var(--surface-2)", borderRadius: "var(--r-sm)", padding: 3 }}>
+      {RANGES.map(([label, d]) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onChange(d)}
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            padding: "5px 11px",
+            borderRadius: 6,
+            background: days === d ? "var(--surface-3)" : "transparent",
+            color: days === d ? "var(--text)" : "var(--text-muted)",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Legend({ items }: { items: [string, string][] }) {
+  return (
+    <div style={{ display: "flex", gap: 18, marginTop: 12 }}>
+      {items.map(([label, color]) => (
+        <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--text-secondary)" }}>
+          <span style={{ width: 10, height: 3, borderRadius: 2, background: color }} />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function Dashboard() {
+  const { configured } = useAuth();
+  const [days, setDays] = useState(30);
+  const stats = useInstitutionStats(days);
+  const org = useOrg();
+  // A configured (live) account ALWAYS shows real data — 0 while loading, never
+  // seed. Seed/illustrative data is used only in the no-backend demo mode.
+  const showReal = configured;
+
+  const views = seededSeries(3, 8, { base: 56, amp: 16, trend: 22, noise: 6 });
+  const eng = seededSeries(7, 8, { base: 30, amp: 10, trend: 14, noise: 5 });
+
+  const realSeries = stats.viewSeries;
+  const dayLabels = realSeries.map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (realSeries.length - 1 - i));
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: realSeries.length > 60 ? "short" : undefined });
+  });
+  const hasRealSeries = showReal && realSeries.length > 0 && realSeries.some((n) => n > 0);
+  const chartSeries = showReal
+    ? [{ data: realSeries.length ? realSeries : [0], color: "var(--series-1)" }]
+    : [
+        { data: views, color: "var(--series-1)" },
+        { data: eng, color: "var(--series-2)" },
+      ];
+  const chartXLabels = showReal ? (dayLabels.length ? dayLabels : [""]) : X;
+  const chartYMax = showReal ? Math.max(10, Math.ceil(Math.max(...realSeries, 0) * 1.25)) : 100;
+  const chartFormatY = showReal ? (n: number) => `${Math.round(n)}` : (n: number) => `${Math.round(n)}K`;
+  const chartLegend: [string, string][] = showReal
+    ? [[`Views (${RANGE_LABEL[days] ?? "range"})`, "var(--series-1)"]]
+    : [
+        ["Views", "var(--series-1)"],
+        ["Engagements", "var(--series-2)"],
+      ];
+
+  // Metric cards: real totals for live accounts (0 while loading), seed in demo.
+  const metrics: Metric[] = showReal
+    ? [
+        { label: "Total Views", value: formatCount(stats.totalViews), delta: "all time", positive: true, seriesSeed: 3, color: "var(--series-1)" },
+        { label: "Followers", value: formatCount(stats.followers), delta: "all time", positive: true, seriesSeed: 7, color: "var(--series-2)" },
+        { label: "Releases", value: String(stats.releaseCount), delta: `${stats.publishedCount} published`, positive: true, seriesSeed: 11, color: "var(--series-3)" },
+        { label: "Comments", value: formatCount(stats.totalComments), delta: "all time", positive: true, seriesSeed: 15, color: "var(--series-4)" },
+        { label: "Drafts", value: String(stats.draftCount), delta: stats.scheduledCount ? `${stats.scheduledCount} scheduled` : "—", positive: true, seriesSeed: 19, color: "var(--series-5)" },
+      ]
+    : PERFORMANCE_METRICS;
+
+  // Recent + top performing: real releases for live accounts.
+  const recent: Release[] = showReal ? stats.releases.slice(0, 4).map(rowToRelease) : RECENT_RELEASES;
+  const topReleases = showReal
+    ? [...stats.releases]
+        .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+        .slice(0, 5)
+        .map((r, idx) => ({ rank: idx + 1, heading: r.heading, type: r.type, views: formatCount(r.views ?? 0), scene: r.scene as Release["scene"] }))
+    : TOP_RELEASES;
+
+  // Real topic breakdown (by release type) for live accounts.
+  const topicData = showReal
+    ? (() => {
+        const byType = new Map<string, number>();
+        stats.releases.forEach((r) => byType.set(r.type, (byType.get(r.type) ?? 0) + (r.views ?? 0)));
+        const max = Math.max(1, ...byType.values());
+        return [...byType.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([name, v], i) => ({ name, views: formatCount(v), pct: Math.round((v / max) * 100), color: `var(--series-${(i % 5) + 1})` }));
+      })()
+    : TOPICS_PERFORMANCE;
+
+  // Real release-status breakdown (replaces the untracked "country" panel live).
+  const statusData = [
+    { name: "Published", count: stats.publishedCount },
+    { name: "Drafts", count: stats.draftCount },
+    { name: "Scheduled", count: stats.scheduledCount },
+  ];
+  const statusMax = Math.max(1, ...statusData.map((s) => s.count));
+
+  return (
+    <AppShell kind="institution">
+      {org.available && !org.verified && (
+        <Link
+          to={org.role === "owner" ? "/inst/profile" : "/inst/team"}
+          className="pp-card"
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, marginBottom: 18, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}
+        >
+          <ShieldAlert size={20} color="#b45309" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600 }}>Your organisation isn't verified yet</div>
+            <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
+              {org.role === "owner"
+                ? "Verify control of your domain to start publishing and get the verified badge."
+                : "Your owner needs to verify the organisation's domain before you can publish."}
+            </div>
+          </div>
+          <ChevronRight size={18} color="var(--text-muted)" />
+        </Link>
+      )}
+      <PageHeader
+        title="Dashboard"
+        subtitle="Welcome back — here's how Welsh Government is performing."
+        actions={
+          <>
+            <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center", textTransform: "capitalize" }}>
+              {showReal ? RANGE_LABEL[days] : "last 30 days"}
+            </span>
+            <Link to="/inst/publish" className="pp-btn pp-btn-primary">
+              <Plus size={16} /> New Release
+            </Link>
+          </>
+        }
+      />
+
+      {/* metric row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 18 }}>
+        {metrics.map((m) => (
+          <MetricCard key={m.label} metric={m} />
+        ))}
+      </div>
+
+      {/* main grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 18, alignItems: "start" }}>
+        {/* left */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <Panel title="Performance Overview" action={<RangeTabs days={days} onChange={setDays} />}>
+            {showReal && !hasRealSeries ? (
+              <div style={{ height: 236, display: "grid", placeItems: "center", textAlign: "center", color: "var(--text-muted)" }}>
+                <div>
+                  <Eye size={26} style={{ opacity: 0.4, marginBottom: 8 }} />
+                  <div style={{ fontSize: 13.5 }}>No view data yet for {RANGE_LABEL[days]}.</div>
+                  <div style={{ fontSize: 12.5, marginTop: 2 }}>Views appear here once people read your published releases.</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <LineChart
+                  series={chartSeries}
+                  xLabels={chartXLabels}
+                  yMax={chartYMax}
+                  height={236}
+                  formatY={chartFormatY}
+                />
+                <Legend items={chartLegend} />
+              </>
+            )}
+          </Panel>
+
+          <Panel title="Recent Releases" action={<SectionLink>View all</SectionLink>}>
+            {recent.length === 0 ? (
+              <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>
+                No releases yet — head to Publish to create your first.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {recent.map((r) => (
+                  <div key={r.id} style={{ display: "flex", gap: 13, alignItems: "center" }}>
+                    <MediaThumb scene={r.scene} w={68} h={48} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                        <TypeBadge type={r.type} />
+                        <StatusPill status={r.status} />
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {r.heading}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>{r.time}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 14, flexShrink: 0 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}>
+                        <Eye size={14} /> {r.views}
+                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}>
+                        <MessageSquare size={14} /> {r.comments}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {/* right */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <Panel title="Top Performing">
+            {topReleases.length === 0 ? (
+              <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>
+                Once you publish, your best releases appear here.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {topReleases.map((r) => (
+                  <div key={r.rank} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-faint)", width: 16, flexShrink: 0 }}>
+                      {r.rank}
+                    </span>
+                    <MediaThumb scene={r.scene} w={52} h={40} radius={7} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {r.heading}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 3 }}>{r.type}</div>
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-secondary)", flexShrink: 0 }}>{r.views}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel title={showReal ? "Releases by Status" : "Audience by Country"}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+              {showReal
+                ? statusData.map((s) => (
+                    <BarRow key={s.name} label={s.name} value={String(s.count)} pct={Math.round((s.count / statusMax) * 100)} color="var(--series-3)" />
+                  ))
+                : TOP_COUNTRIES.map((c) => (
+                    <BarRow key={c.name} label={c.name} value={`${c.pct}%`} pct={c.pct} color="var(--series-3)" />
+                  ))}
+            </div>
+          </Panel>
+
+          <Panel title="Content by Topic">
+            {showReal && topicData.length === 0 ? (
+              <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>No releases yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                {topicData.map((t) => (
+                  <BarRow key={t.name} label={t.name} value={t.views} pct={t.pct} color={t.color} />
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
+    </AppShell>
+  );
+}

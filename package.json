@@ -1,0 +1,35 @@
+{
+  "name": "presspaper-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Presspaper — clickable demonstration prototype (Statement of Work v1.0)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@supabase/supabase-js": "^2.108.2",
+    "lucide-react": "^0.453.0",
+    "posthog-js": "^1.160.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.27.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.20.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "sharp": "^0.33.5",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}
