@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
@@ -12,9 +12,11 @@ import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
 import { rowToRelease } from "@/lib/releaseMap";
+import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import type { Release } from "@/types";
 
-const FILTERS = ["Latest", "Following", "For You"];
+const FILTERS = ["Latest", "Following", "For You"] as const;
+type FeedTab = (typeof FILTERS)[number];
 
 function SuggestRow({ slug }: { slug: string }) {
   const i = inst(slug);
@@ -49,7 +51,13 @@ export function Home() {
   const followed = useAppStore((s) => s.followedSlugs);
   const navigate = useNavigate();
   const [live, setLive] = useState<Release[]>([]);
-  const [tab, setTab] = useState<string>("Latest");
+  const [params, setParams] = useSearchParams();
+  const tab = optionFromSearchParam(FILTERS, params.get("tab"), "Latest");
+  const setTab = (nextTab: FeedTab) => {
+    const p = new URLSearchParams(params);
+    p.set("tab", searchParamValue(nextTab));
+    setParams(p);
+  };
 
   // LIVE: pull published releases from Postgres (any institution) so a post made
   // on the institution side shows up in a reader's feed and survives refresh.

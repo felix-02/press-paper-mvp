@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Eye } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader, Panel, MetricCard, BarRow, LegendRow } from "@/components/dashboard/Panels";
@@ -45,6 +45,11 @@ const RANGE_LABEL: Record<number, string> = {
   365: "last 12 months",
 };
 
+function rangeFromSearchParam(value: string | null, fallback: number): number {
+  const days = Number(value);
+  return RANGES.some(([, d]) => d === days) ? days : fallback;
+}
+
 function RangeTabs({ days, onChange }: { days: number; onChange: (d: number) => void }) {
   return (
     <div style={{ display: "flex", gap: 4, background: "var(--surface-2)", borderRadius: "var(--r-sm)", padding: 3 }}>
@@ -69,7 +74,13 @@ function HeatLegend() {
 
 export function Analytics() {
   const { configured } = useAuth();
-  const [days, setDays] = useState(365);
+  const [params, setParams] = useSearchParams();
+  const days = rangeFromSearchParam(params.get("range"), 365);
+  const setDays = (nextDays: number) => {
+    const p = new URLSearchParams(params);
+    p.set("range", String(nextDays));
+    setParams(p);
+  };
   const stats = useInstitutionStats(days);
   // Live accounts show REAL data immediately (0 while loading), never seed.
   const showReal = configured;

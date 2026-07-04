@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { AppShell } from "@/components/shells/AppShell";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
@@ -7,9 +7,11 @@ import { Verified } from "@/components/primitives/Bits";
 import { EXPLORE_RELEASES, FEED_RELEASES, PROFILE_RELEASES } from "@/data/releases";
 import { inst } from "@/data/institutions";
 import { useAppStore } from "@/store/useAppStore";
+import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import type { Release } from "@/types";
 
-const CATEGORIES = ["For You", "Government", "Economy", "Environment", "Health", "Education", "Technology"];
+const CATEGORIES = ["For You", "Government", "Economy", "Environment", "Health", "Education", "Technology"] as const;
+type ExploreCategory = (typeof CATEGORIES)[number];
 const DISCOVER = ["imf", "oecd", "ecb", "united-nations", "world-bank", "senedd-cymru"];
 
 const EXPLORE_POOL: Release[] = (() => {
@@ -52,7 +54,13 @@ function DiscoverCard({ slug }: { slug: string }) {
 }
 
 export function Explore() {
-  const [cat, setCat] = useState("For You");
+  const [params, setParams] = useSearchParams();
+  const cat = optionFromSearchParam(CATEGORIES, params.get("category"), "For You");
+  const setCat = (nextCategory: ExploreCategory) => {
+    const p = new URLSearchParams(params);
+    p.set("category", searchParamValue(nextCategory));
+    setParams(p);
+  };
 
   const matches = (text: string) => text.toLowerCase().includes(cat.toLowerCase());
   const all = cat === "For You";

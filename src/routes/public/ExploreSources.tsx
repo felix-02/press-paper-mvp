@@ -1,12 +1,14 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ArrowRight } from "lucide-react";
 import { PublicHeader, PublicFooter } from "@/components/shells/PublicChrome";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
 import { DIRECTORY_SLUGS, inst } from "@/data/institutions";
+import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import type { Institution } from "@/types";
 
-const CATEGORIES = ["All", "Government", "Local Authority", "University", "Health", "Regulator"];
+const CATEGORIES = ["All", "Government", "Local Authority", "University", "Health", "Regulator"] as const;
+type SourceCategory = (typeof CATEGORIES)[number];
 
 function blurb(i: Institution): string {
   const map: Record<string, string> = {
@@ -87,7 +89,22 @@ function SourceCard({ slug }: { slug: string }) {
   );
 }
 
+function matchesCategory(category: string, selected: SourceCategory): boolean {
+  if (selected === "All") return true;
+  if (selected === "Health") return category.toLowerCase().includes("health");
+  return category.toLowerCase() === selected.toLowerCase();
+}
+
 export function ExploreSources() {
+  const [params, setParams] = useSearchParams();
+  const category = optionFromSearchParam(CATEGORIES, params.get("category"), "All");
+  const setCategory = (nextCategory: SourceCategory) => {
+    const p = new URLSearchParams(params);
+    p.set("category", searchParamValue(nextCategory));
+    setParams(p);
+  };
+  const slugs = DIRECTORY_SLUGS.filter((slug) => matchesCategory(inst(slug).category, category));
+
   return (
     <div style={{ background: "#000", minHeight: "100vh", color: "var(--text)" }}>
       <PublicHeader />
@@ -121,34 +138,43 @@ export function ExploreSources() {
             <span>Search institutions…</span>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {CATEGORIES.map((c, i) => (
-              <button
-                key={c}
-                type="button"
-                onClick={(e) => e.preventDefault()}
-                style={{
-                  fontSize: 13,
-                  padding: "7px 14px",
-                  borderRadius: "var(--r-pill)",
-                  border: `1px solid ${i === 0 ? "transparent" : "var(--border)"}`,
-                  background: i === 0 ? "#fff" : "var(--surface-public)",
-                  color: i === 0 ? "#0a0a0a" : "var(--text-secondary)",
-                  fontWeight: i === 0 ? 600 : 500,
-                }}
-              >
-                {c}
-              </button>
-            ))}
+            {CATEGORIES.map((c) => {
+              const active = category === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  style={{
+                    fontSize: 13,
+                    padding: "7px 14px",
+                    borderRadius: "var(--r-pill)",
+                    border: `1px solid ${active ? "transparent" : "var(--border)"}`,
+                    background: active ? "#fff" : "var(--surface-public)",
+                    color: active ? "#0a0a0a" : "var(--text-secondary)",
+                    fontWeight: active ? 600 : 500,
+                  }}
+                >
+                  {c}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
 
       <section style={{ maxWidth: 1120, margin: "0 auto", padding: "8px 28px 64px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
-          {DIRECTORY_SLUGS.map((slug) => (
-            <SourceCard key={slug} slug={slug} />
-          ))}
-        </div>
+        {slugs.length === 0 ? (
+          <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
+            No verified sources in {category} yet.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+            {slugs.map((slug) => (
+              <SourceCard key={slug} slug={slug} />
+            ))}
+          </div>
+        )}
         <div style={{ textAlign: "center", marginTop: 36 }}>
           <Link to="/signup" className="pp-btn pp-btn-outline" style={{ padding: "11px 22px" }}>
             See all institutions <ArrowRight size={16} />

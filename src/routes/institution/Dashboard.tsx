@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Eye, MessageSquare, Plus, ShieldAlert, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader, Panel, MetricCard, BarRow } from "@/components/dashboard/Panels";
@@ -34,6 +33,11 @@ export const RANGE_LABEL: Record<number, string> = {
   180: "last 6 months",
   365: "last 12 months",
 };
+
+function rangeFromSearchParam(value: string | null, fallback: number): number {
+  const days = Number(value);
+  return RANGES.some(([, d]) => d === days) ? days : fallback;
+}
 
 function RangeTabs({ days, onChange }: { days: number; onChange: (d: number) => void }) {
   return (
@@ -74,7 +78,13 @@ function Legend({ items }: { items: [string, string][] }) {
 
 export function Dashboard() {
   const { configured } = useAuth();
-  const [days, setDays] = useState(30);
+  const [params, setParams] = useSearchParams();
+  const days = rangeFromSearchParam(params.get("range"), 30);
+  const setDays = (nextDays: number) => {
+    const p = new URLSearchParams(params);
+    p.set("range", String(nextDays));
+    setParams(p);
+  };
   const stats = useInstitutionStats(days);
   const org = useOrg();
   // A configured (live) account ALWAYS shows real data — 0 while loading, never
