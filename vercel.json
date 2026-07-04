@@ -1,9 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/r/:id", "destination": "/api/r/:id" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
-    { "source": "/((?!api/|r/|sitemap\\.xml$|robots\\.txt$|og\\.png$|favicon\\.svg$).*)", "destination": "/index.html" }
+    { "source": "/:path((?!api/|r/|sitemap\\.xml$|robots\\.txt$|og\\.png$|favicon\\.svg$).*)", "destination": "/index.html" }
   ],
   "cleanUrls": true
 }
