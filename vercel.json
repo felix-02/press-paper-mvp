@@ -6,7 +6,6 @@
   "rewrites": [
     { "source": "/r/:id", "destination": "/api/r/:id" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
-    { "source": "/:path((?!api/|r/|sitemap\\.xml$|robots\\.txt$|og\\.png$|favicon\\.svg$).*)", "destination": "/index.html" }
-  ],
-  "cleanUrls": true
+    { "source": "/((?!api/|r/|sitemap\\.xml$|robots\\.txt$|og\\.png$|favicon\\.svg$).*)", "destination": "/index.html" }
+  ]
 }
