@@ -36,18 +36,26 @@ import { InstitutionTeam } from "@/routes/institution/Team";
 import { PlatformAdmin } from "@/routes/admin/PlatformAdmin";
 import { JoinOrg } from "@/routes/institution/Join";
 import { InstitutionInvite } from "@/routes/institution/InstitutionInvite";
+import { PendingReview } from "@/routes/institution/PendingReview";
 import { useAuth } from "@/auth/AuthProvider";
 import { useOrg } from "@/lib/useOrg";
 import { isReleaseUuid, releasePath } from "@/lib/releaseUrls";
 
-/** Forces institution accounts through guided onboarding before anything else. */
+/**
+ * Forces approved institution owners through guided onboarding before the
+ * workspace. Unapproved accounts never reach onboarding — they see the
+ * under-review screen instead (see ActiveInstitutionRoute).
+ */
 function OnboardingGate() {
   const { profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
     if (!profile) return;
-    const needsOnboarding = profile.role === "institution" && !profile.onboarding_complete;
+    const needsOnboarding =
+      profile.role === "institution"
+      && profile.verification_status === "verified"
+      && !profile.onboarding_complete;
     if (needsOnboarding && location.pathname.startsWith("/inst") && location.pathname !== "/inst/team") {
       navigate("/onboarding", { replace: true });
     }
@@ -69,7 +77,14 @@ function SharedReleaseFallback() {
   return <Navigate to={isReleaseUuid(id) ? releasePath(id) : "/"} replace />;
 }
 
-function ActiveInstitutionRoute({ children }: { children: React.ReactNode }) {
+/**
+ * Wraps every institution screen. Order matters:
+ *   1. wait for organisation data,
+ *   2. unapproved organisations see only the under-review holding screen —
+ *      no workspace access of any kind until a platform admin approves,
+ *   3. members without an active seat land on the team screen.
+ */
+function ActiveInstitutionRoute({ children, teamScreen = false }: { children: React.ReactNode; teamScreen?: boolean }) {
   const { configured } = useAuth();
   const org = useOrg();
   if (!configured) return <>{children}</>;
@@ -91,7 +106,8 @@ function ActiveInstitutionRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (!org.active) return <Navigate to="/inst/team" replace />;
+  if (org.available && !org.verified) return <PendingReview onRefresh={org.refresh} />;
+  if (!teamScreen && !org.active) return <Navigate to="/inst/team" replace />;
   return <>{children}</>;
 }
 
@@ -132,7 +148,7 @@ export default function App() {
           <Route path="/inst/audience" element={<ProtectedRoute role="institution"><ActiveInstitutionRoute><Audience /></ActiveInstitutionRoute></ProtectedRoute>} />
           <Route path="/inst/profile" element={<ProtectedRoute role="institution"><ActiveInstitutionRoute><InstitutionProfile /></ActiveInstitutionRoute></ProtectedRoute>} />
           <Route path="/inst/settings" element={<ProtectedRoute role="institution"><ActiveInstitutionRoute><InstitutionSettings /></ActiveInstitutionRoute></ProtectedRoute>} />
-          <Route path="/inst/team" element={<ProtectedRoute role="institution"><InstitutionTeam /></ProtectedRoute>} />
+          <Route path="/inst/team" element={<ProtectedRoute role="institution"><ActiveInstitutionRoute teamScreen><InstitutionTeam /></ActiveInstitutionRoute></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute admin><PlatformAdmin /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute role="institution"><ActiveInstitutionRoute><InstitutionOnboarding /></ActiveInstitutionRoute></ProtectedRoute>} />
           <Route path="/join/:token" element={<JoinOrg />} />

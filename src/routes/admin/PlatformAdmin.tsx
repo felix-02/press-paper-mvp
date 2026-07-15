@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Activity,
   AlertCircle,
@@ -22,6 +23,7 @@ import {
 import { AdminShell } from "@/components/shells/AdminShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAppStore } from "@/store/useAppStore";
+import { usePageTitle } from "@/lib/usePageTitle";
 import {
   useAdminConsole,
   type AccountStatus,
@@ -111,11 +113,27 @@ function moderationVerb(request: ModerationRequest): string {
 }
 
 export function PlatformAdmin() {
+  usePageTitle("Administration");
   const { profile } = useAuth();
   const admin = useAdminConsole();
   const pushToast = useAppStore((state) => state.pushToast);
-  const [tab, setTab] = useState<Tab>("overview");
-  const [query, setQuery] = useState("");
+  // Tab and search live in the URL so console views survive refresh.
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get("tab") ?? "overview";
+  const tab: Tab = TABS.some(({ id }) => id === tabParam) ? (tabParam as Tab) : "overview";
+  const query = (params.get("q") ?? "").slice(0, 100);
+  const setTab = (nextTab: Tab) => {
+    const p = new URLSearchParams(params);
+    if (nextTab === "overview") p.delete("tab");
+    else p.set("tab", nextTab);
+    setParams(p, { replace: true });
+  };
+  const setQuery = (value: string) => {
+    const p = new URLSearchParams(params);
+    if (value) p.set("q", value);
+    else p.delete("q");
+    setParams(p, { replace: true });
+  };
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [orgName, setOrgName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -422,7 +440,10 @@ export function PlatformAdmin() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <section className="pp-card" style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700 }}>Invite an institution</h2>
-                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 13 }}>The generated token is shown once and is never written to the audit log.</p>
+                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 13 }}>
+                  The link is shown once, works exactly one time, is locked to the invited email, and expires 30 minutes after you create it.
+                  If it expires, issue a fresh invite for the same email.
+                </p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <input className="pp-input" value={orgName} onChange={(event) => setOrgName(event.target.value)} maxLength={160} placeholder="Organisation name" style={{ flex: 1, minWidth: 200 }} />
                   <input className="pp-input" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} maxLength={320} placeholder="official@example.org" style={{ flex: 1, minWidth: 220 }} />

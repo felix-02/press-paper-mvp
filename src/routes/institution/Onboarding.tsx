@@ -39,7 +39,9 @@ export function InstitutionOnboarding() {
     }
     setSaving(true);
     if (configured && supabase && user) {
-      const { error } = await supabase
+      // Select the row back so a silently-skipped update (RLS, missing grant)
+      // fails loudly instead of letting onboarding repeat on the next login.
+      const { data, error } = await supabase
         .from("profiles")
         .update({
           org_category: category,
@@ -48,10 +50,16 @@ export function InstitutionOnboarding() {
           org_description: description.trim(),
           onboarding_complete: true,
         })
-        .eq("id", user.id);
-      if (error) {
+        .eq("id", user.id)
+        .select("onboarding_complete")
+        .maybeSingle();
+      if (error || (data as { onboarding_complete?: boolean } | null)?.onboarding_complete !== true) {
         setSaving(false);
-        pushToast({ title: "Couldn't save", description: "Check the details and try again.", variant: "error" });
+        pushToast({
+          title: "Couldn't save your organisation details",
+          description: error?.message?.trim() || "The changes didn't persist. Check your access and try again.",
+          variant: "error",
+        });
         return;
       }
       await refreshProfile();
