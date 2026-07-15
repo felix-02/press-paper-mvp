@@ -290,7 +290,19 @@ export function useAdminConsole() {
       p_email: email,
       p_org_name: orgName,
     });
-    if (actionError || typeof data !== "string") return { token: null, error: "The invitation couldn't be created." };
+    if (actionError) {
+      // The RPC raises human-readable messages ("An active institution invite
+      // already exists for this email.", "Invalid email address.") — show them
+      // instead of a generic failure so the admin knows what to change.
+      const message = actionError.message?.trim();
+      if (message && /forbidden/i.test(message)) {
+        return { token: null, error: "Your account doesn't have platform admin access. Grant is_admin in the database first." };
+      }
+      return { token: null, error: message || "The invitation couldn't be created." };
+    }
+    if (typeof data !== "string" || !data) {
+      return { token: null, error: "The invitation couldn't be created. Check that the latest migrations are applied and your account has platform admin access." };
+    }
     await refresh();
     return { token: data, error: null };
   }, [available, refresh]);

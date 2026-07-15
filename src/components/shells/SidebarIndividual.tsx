@@ -65,20 +65,10 @@ export function SidebarIndividual() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const slugs = [...followed];
-  const institutionForSlug = (slug: string): Institution => {
-    const live = directory.institutions.find((institution) => institution.slug === slug);
-    if (live) return live;
-    return {
-      slug,
-      name: slug.split("-").filter(Boolean).map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`).join(" ") || "Institution",
-      category: "Institution",
-      verified: false,
-      color: "#2563eb",
-      color2: "#4338ca",
-      mark: "generic",
-    };
-  };
+  // Only institutions that actually exist in the live directory are shown.
+  // Stale follow rows (an institution that was removed or unverified) are
+  // never fabricated into fake entries.
+  const followedInstitutions: Institution[] = directory.institutions.filter((institution) => followed.has(institution.slug));
 
   const submitCreate = async () => {
     const n = name.trim();
@@ -115,12 +105,14 @@ export function SidebarIndividual() {
 
       <SidebarCaption>Followed institutions</SidebarCaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {slugs.length === 0 ? (
+        {directory.loading && followed.size > 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px" }}>Loading…</div>
+        ) : followedInstitutions.length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px", lineHeight: 1.5 }}>
             You're not following anyone yet. Follow institutions to see them here.
           </div>
         ) : (
-          slugs.map((slug) => <FollowedRow key={slug} institution={institutionForSlug(slug)} />)
+          followedInstitutions.map((institution) => <FollowedRow key={institution.slug} institution={institution} />)
         )}
       </div>
 

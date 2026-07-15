@@ -23,7 +23,11 @@ The migration intentionally stops if this query returns rows.
 
 ## 2. Bootstrap the global super admin
 
-Create and confirm a dedicated individual account first. Do not reuse an institution owner or member account: the global administrator is an independent platform identity. In the SQL Editor, using a privileged database connection, grant admin authority to that exact UUID:
+The fastest path is [scripts/bootstrap_accounts.sql](./scripts/bootstrap_accounts.sql): edit the emails/password at the top if needed and run it in the SQL Editor. It idempotently creates (or repairs) a confirmed super-admin account, a normal reader account, and a verified institution owner — ready to sign in immediately. Change the bootstrap password after first login.
+
+If old test data (follows or saves pointing at content that no longer exists) shows phantom institutions in reader sidebars, run [scripts/cleanup_orphaned_data.sql](./scripts/cleanup_orphaned_data.sql) once to purge it.
+
+To grant admin manually instead: create and confirm a dedicated individual account first. Do not reuse an institution owner or member account: the global administrator is an independent platform identity. In the SQL Editor, using a privileged database connection, grant admin authority to that exact UUID:
 
 ```sql
 update public.profiles
