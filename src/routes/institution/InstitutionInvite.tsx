@@ -59,8 +59,8 @@ export function InstitutionInvite() {
     const result = String(data ?? "error");
     if (result === "ok") {
       await refreshProfile();
-      pushToast({ title: "Welcome aboard", description: "Let's set up your organisation.", variant: "success" });
-      navigate("/onboarding", { replace: true });
+      pushToast({ title: "Invitation accepted", description: "Your account is now with the review team.", variant: "success" });
+      navigate("/inst", { replace: true });
     } else if (result === "email_mismatch") {
       setError(`This invite is for ${invite?.email}. Sign in with that exact email to accept.`);
     } else if (result === "email_unconfirmed") {
@@ -130,11 +130,11 @@ export function InstitutionInvite() {
 
       {user ? (
         <>
-          <button type="button" onClick={accept} disabled={accepting} className="pp-btn pp-btn-primary" style={{ width: "100%", marginTop: 18, justifyContent: "center", opacity: accepting ? 0.7 : 1 }}>
-            {accepting ? "Setting up…" : "Accept & set up organisation"}
+          <button type="button" onClick={accept} disabled={accepting} className="pp-btn pp-btn-primary" style={{ width: "100%", marginTop: 18, justifyContent: "center" }}>
+            {accepting ? "Accepting…" : "Accept invitation"}
           </button>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Clock size={12} /> Your account will be reviewed before it can publish.
+            <Clock size={12} /> A platform administrator reviews every account before granting workspace access.
           </p>
         </>
       ) : (

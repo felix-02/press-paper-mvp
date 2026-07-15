@@ -2,7 +2,9 @@
 
 ## 1. Apply the schema
 
-For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0016` in order.
+For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0017` in order.
+
+For an existing project, apply [supabase/migrations/0017_invite_hardening.sql](./supabase/migrations/0017_invite_hardening.sql): institution invite links now expire after 30 minutes, remain single-use and email-locked, and the token functions resolve pgcrypto whether it is installed in the `public` or `extensions` schema (the latter is what the dashboard's "enable extension" uses, and previously broke invite creation with "function digest does not exist").
 
 For an existing project, apply every migration after its current version. In particular:
 
@@ -73,14 +75,26 @@ VITE_POSTHOG_HOST=https://us.i.posthog.com
 
 Autocapture and session recording are disabled. Application activity is also written to the bounded Supabase activity stream for admin supervision; sensitive-looking metadata keys are rejected.
 
-## 5. Deploy Edge Functions
+## 5. Deploy Edge Functions (AI summaries + translation)
+
+AI summaries and translation stay hidden-but-graceful until these two
+functions are deployed — readers see the source summary and English only.
+To turn them on:
 
 ```bash
-supabase secrets set GEMINI_API_KEY=your_key
+# once: npm install -g supabase && supabase login
+supabase link --project-ref <your-project-ref>
+supabase secrets set GEMINI_API_KEY=your_key      # aistudio.google.com/apikey
 supabase secrets set GEMINI_MODEL=gemini-3.5-flash
 supabase functions deploy summarize
 supabase functions deploy translate
 ```
+
+Verify from the dashboard (Edge Functions → summarize / translate → Logs)
+or by opening any release while signed in: the Summary panel switches from
+"Source summary" to "AI-generated", and every language in the Translate menu
+(all 68 are validated against the function's allowlist) returns translated
+text.
 
 JWT verification remains enabled. Both functions revalidate the caller, enforce request/output bounds and timeouts, and use the shared Postgres quota function.
 

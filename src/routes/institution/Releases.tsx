@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
@@ -16,6 +16,8 @@ import { usePageTitle } from "@/lib/usePageTitle";
 import { Skeleton } from "@/components/primitives/Skeleton";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
+const TYPE_OPTIONS = ["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"];
+const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled"];
 
 function HeaderCell({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
@@ -87,9 +89,22 @@ export function Releases() {
   const [selected, setSelected] = useState<Release | null>(null);
   const [working, setWorking] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All types");
-  const [statusFilter, setStatusFilter] = useState("All statuses");
+
+  // Search and filters live in the URL so filtered views survive refresh
+  // and can be shared between teammates.
+  const [params, setParams] = useSearchParams();
+  const query = (params.get("q") ?? "").slice(0, 100);
+  const typeFilter = TYPE_OPTIONS.includes(params.get("type") ?? "") ? (params.get("type") as string) : "All types";
+  const statusFilter = STATUS_OPTIONS.includes(params.get("status") ?? "") ? (params.get("status") as string) : "All statuses";
+  const setUrlParam = (key: string, value: string, defaultValue: string) => {
+    const p = new URLSearchParams(params);
+    if (!value || value === defaultValue) p.delete(key);
+    else p.set(key, value);
+    setParams(p, { replace: true });
+  };
+  const setQuery = (value: string) => setUrlParam("q", value, "");
+  const setTypeFilter = (value: string) => setUrlParam("type", value, "All types");
+  const setStatusFilter = (value: string) => setUrlParam("status", value, "All statuses");
 
   // Load the whole organisation workspace, not only releases authored by this user.
   useEffect(() => {
@@ -233,12 +248,12 @@ export function Releases() {
           />
         </div>
         <select value={typeFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
-          {["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"].map((t) => (
+          {TYPE_OPTIONS.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
         <select value={statusFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
-          {["All statuses", "Published", "Draft", "Scheduled"].map((s) => (
+          {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

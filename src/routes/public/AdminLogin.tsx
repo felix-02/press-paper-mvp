@@ -4,8 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { Logo } from "@/components/brand/Logo";
 import { GlobeArt } from "@/components/brand/Illustrations";
 import { useAuth } from "@/auth/AuthProvider";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export function AdminLogin() {
+  usePageTitle("Admin sign in");
   const { ready, user, profile, profileReady, signIn, signOut } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");

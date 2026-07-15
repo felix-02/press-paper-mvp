@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(new URL("../supabase/migrations/0015_security_hardening.sql", import.meta.url), "utf8");
 const moderationSql = readFileSync(new URL("../supabase/migrations/0016_super_admin_moderation.sql", import.meta.url), "utf8");
+const inviteHardeningSql = readFileSync(new URL("../supabase/migrations/0017_invite_hardening.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -33,7 +34,23 @@ describe("security migration", () => {
 
   it("keeps the all-in-one migration synchronized", () => {
     expect(aggregate).toContain(sql);
-    expect(aggregate.endsWith(moderationSql)).toBe(true);
+    expect(aggregate).toContain(moderationSql);
+    expect(aggregate.endsWith(inviteHardeningSql)).toBe(true);
+  });
+});
+
+describe("invite hardening migration", () => {
+  it("issues short-lived, single-use, email-locked platform invites", () => {
+    expect(inviteHardeningSql).toContain("interval '30 minutes'");
+    expect(inviteHardeningSql).toContain("digest(plain, 'sha256')");
+    expect(inviteHardeningSql).toContain("consumed_at is null");
+    expect(inviteHardeningSql).not.toMatch(/interval '7 days'/);
+  });
+
+  it("resolves pgcrypto in both public and extensions schemas", () => {
+    expect(inviteHardeningSql).toContain("set search_path = public, extensions");
+    expect(inviteHardeningSql).toContain("alter function public.accept_platform_invite(text) set search_path = public, extensions");
+    expect(inviteHardeningSql).toContain("alter function public.get_platform_invite(text) set search_path = public, extensions");
   });
 });
 
