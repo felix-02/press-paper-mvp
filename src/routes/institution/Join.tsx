@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
+import { withNext } from "@/lib/redirect";
 
 interface InviteInfo {
   institution_slug: string;
@@ -31,8 +32,13 @@ export function JoinOrg() {
       return;
     }
     let active = true;
-    supabase.rpc("get_invite", { invite_token: token }).then(({ data }) => {
+    supabase.rpc("get_invite", { invite_token: token }).then(({ data, error: lookupError }) => {
       if (!active) return;
+      if (lookupError) {
+        setError("We couldn't load this invitation. Check your connection and try again.");
+        setLoading(false);
+        return;
+      }
       const row = (data as InviteInfo[] | null)?.[0] ?? null;
       setInvite(row);
       setLoading(false);
@@ -45,15 +51,29 @@ export function JoinOrg() {
   const accept = async () => {
     if (!supabase) return;
     setAccepting(true);
-    const { data } = await supabase.rpc("accept_org_invite", { invite_token: token });
+    setError(null);
+    const { data, error: acceptError } = await supabase.rpc("accept_org_invite", { invite_token: token });
     setAccepting(false);
+    if (acceptError) {
+      setError("We couldn't accept this invitation. Please try again.");
+      return;
+    }
     const result = String(data ?? "error");
     if (result === "ok") {
       await refreshProfile();
       pushToast({ title: "Invite accepted", description: "Awaiting owner approval.", variant: "success" });
       navigate("/inst/team", { replace: true });
+    } else if (result === "already_member") {
+      await refreshProfile();
+      navigate("/inst/team", { replace: true });
     } else if (result === "email_mismatch") {
-      setError(`This invite is for ${invite?.email}. Sign in with that email to accept.`);
+      setError(`This invite is for ${invite?.email}. Sign in with the invited address to accept.`);
+    } else if (result === "email_unconfirmed") {
+      setError("Confirm your email address first, then try again.");
+    } else if (result === "account_conflict") {
+      setError("This account already belongs to another organisation. Use a separate account for this invitation.");
+    } else if (result === "seat_limit") {
+      setError("This organisation has no seats available. Ask its owner to free a seat.");
     } else if (result === "unauthenticated") {
       setError("Please sign in first.");
     } else {
@@ -82,7 +102,7 @@ export function JoinOrg() {
         <AlertCircle size={34} color="var(--text-muted)" style={{ marginBottom: 12 }} />
         <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Invite unavailable</h1>
         <p style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {invite?.status === "accepted" ? "This invite has already been used." : "This invite link is invalid or has been revoked."}
+          {error ?? (invite?.status === "accepted" ? "This invite has already been used." : invite?.status === "expired" ? "This invitation has expired." : "This invite link is invalid or has been revoked.")}
         </p>
         <Link to="/" className="pp-btn pp-btn-ghost" style={{ marginTop: 18, display: "inline-flex" }}>Back to home</Link>
       </Frame>
@@ -94,7 +114,7 @@ export function JoinOrg() {
       <span style={{ width: 52, height: 52, borderRadius: 14, background: "var(--surface-2)", display: "grid", placeItems: "center", margin: "0 auto 14px" }}>
         <Building2 size={26} color="var(--text-secondary)" />
       </span>
-      <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.02em" }}>Join {invite.org_name}</h1>
+      <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "0" }}>Join {invite.org_name}</h1>
       <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 8 }}>
         You've been invited to join <strong>{invite.org_name}</strong> as <strong>{invite.role}</strong>.
       </p>
@@ -120,11 +140,11 @@ export function JoinOrg() {
       ) : (
         <>
           <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 18 }}>
-            Sign in or create an account with <strong>{invite.email}</strong> to accept.
+            Sign in or create an account with the invited address <strong>{invite.email}</strong> to accept.
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <Link to={`/login?next=/join/${token}`} className="pp-btn pp-btn-outline" style={{ flex: 1, justifyContent: "center" }}>Log in</Link>
-            <Link to={`/signup?next=/join/${token}`} className="pp-btn pp-btn-primary" style={{ flex: 1, justifyContent: "center" }}>Sign up</Link>
+            <Link to={withNext("/login", `/join/${encodeURIComponent(token)}`)} className="pp-btn pp-btn-outline" style={{ flex: 1, justifyContent: "center" }}>Log in</Link>
+            <Link to={withNext("/signup", `/join/${encodeURIComponent(token)}`)} className="pp-btn pp-btn-primary" style={{ flex: 1, justifyContent: "center" }}>Sign up</Link>
           </div>
         </>
       )}

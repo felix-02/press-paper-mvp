@@ -1,4 +1,4 @@
-/** "Pradhyumn Bhardwaj" → "PB"; "welsh" → "W"; falls back to "?". */
+/** "Alex Morgan" → "AM"; a single word → its first letter; falls back to "?". */
 export function initialsOf(name?: string | null): string {
   const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";

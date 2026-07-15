@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { identifyUser, resetAnalytics, track } from "@/lib/analytics";
 
 export type Role = "individual" | "institution";
+export type AccountStatus = "active" | "archived" | "banned";
 
 export interface Profile {
   id: string;
@@ -14,7 +15,6 @@ export interface Profile {
   institution_name: string | null;
   bio?: string | null;
   verification_status?: "unverified" | "pending" | "verified" | "rejected";
-  verification_token?: string | null;
   verification_domain?: string | null;
   verified_at?: string | null;
   is_admin?: boolean;
@@ -23,6 +23,9 @@ export interface Profile {
   org_location?: string | null;
   org_description?: string | null;
   org_category?: string | null;
+  account_status?: AccountStatus;
+  status_reason?: string | null;
+  status_changed_at?: string | null;
 }
 
 interface SignUpArgs {
@@ -30,7 +33,7 @@ interface SignUpArgs {
   password: string;
   role: Role;
   fullName: string;
-  institutionName?: string;
+  emailRedirectTo?: string;
 }
 
 interface AuthValue {
@@ -40,36 +43,43 @@ interface AuthValue {
   ready: boolean;
   user: User | null;
   profile: Profile | null;
+  profileReady: boolean;
+  profileError: string | null;
   role: Role | null;
   signUp: (args: SignUpArgs) => Promise<{ error: string | null; needsConfirmation: boolean; role: Role | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Role | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; role: Role | null; isAdmin: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthValue | null>(null);
 
-function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "institution"
-  );
-}
-
-async function fetchRole(userId: string): Promise<Role | null> {
-  if (!supabase) return null;
-  const { data } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
-  return (data?.role as Role) ?? null;
+async function fetchRole(userId: string): Promise<{ role: Role | null; error: string | null; isAdmin: boolean }> {
+  if (!supabase) return { role: null, error: "Supabase is not configured.", isAdmin: false };
+  const { data, error } = await supabase.from("profiles").select("role, is_admin, account_status").eq("id", userId).maybeSingle();
+  if (error) return { role: null, error: "We couldn't load your account profile. Try again.", isAdmin: false };
+  if (!data?.role) return { role: null, error: "Your account profile is missing. Contact support before trying again.", isAdmin: false };
+  const status = (data.account_status as AccountStatus | null) ?? "active";
+  if (status !== "active") {
+    return {
+      role: null,
+      isAdmin: false,
+      error: status === "banned"
+        ? "This account has been suspended by a platform administrator."
+        : "This account is archived. Contact support if it should be restored.",
+    };
+  }
+  return { role: data.role as Role, error: null, isAdmin: data.is_admin === true };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // In demo mode there is no async session to wait for, so we're ready immediately.
+  // Tests run without a client; every runtime environment waits for Supabase.
   const [ready, setReady] = useState(!isSupabaseConfigured);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileReady, setProfileReady] = useState(!isSupabaseConfigured);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const profileRequest = useRef(0);
 
   // Initial session + auth state subscription.
   useEffect(() => {
@@ -94,16 +104,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = useCallback(async (uid: string) => {
     if (!supabase) return;
-    const { data } = await supabase
+    const request = ++profileRequest.current;
+    setProfileReady(false);
+    setProfileError(null);
+    const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, role, full_name, institution_slug, institution_name, bio, verification_status, verification_token, verification_domain, verified_at, is_admin, onboarding_complete, org_website, org_location, org_description, org_category"
+        "id, role, full_name, institution_slug, institution_name, bio, verification_status, verification_domain, verified_at, is_admin, onboarding_complete, org_website, org_location, org_description, org_category, account_status, status_reason, status_changed_at"
       )
       .eq("id", uid)
       .maybeSingle();
+    if (request !== profileRequest.current) return;
+    if (error) {
+      setProfile(null);
+      setProfileError("We couldn't load your account profile. Check your connection and try again.");
+      setProfileReady(true);
+      return;
+    }
     const p = (data as Profile) ?? null;
     setProfile(p);
-    if (p) identifyUser(p.id, { role: p.role, institution: p.institution_name ?? undefined });
+    setProfileError(p ? null : "Your account profile is missing. Contact support before continuing.");
+    setProfileReady(true);
+    if (p) identifyUser(p.id, { role: p.role });
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -113,10 +135,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load the profile (role + institution) whenever the user changes.
   useEffect(() => {
     if (!supabase || !user) {
+      profileRequest.current += 1;
       setProfile(null);
+      setProfileError(null);
+      setProfileReady(true);
       return;
     }
+    setProfile(null);
     void loadProfile(user.id);
+  }, [user, loadProfile]);
+
+  // Reflect administrator moderation while the affected account is online.
+  // Database policies enforce the block immediately; realtime updates the UI.
+  useEffect(() => {
+    if (!supabase || !user) return;
+    const client = supabase;
+    const channel = client
+      .channel(`profile-status:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        () => void loadProfile(user.id)
+      )
+      .subscribe();
+    return () => {
+      void client.removeChannel(channel);
+    };
   }, [user, loadProfile]);
 
   // Hydrate the in-memory store (saved + followed) from the database so the rest
@@ -127,15 +171,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) {
       store.setUserId(null);
       store.hydrate({ saved: [], followed: [] });
+      store.setWatchlistData([], {});
       return;
     }
     let active = true;
     store.setUserId(user.id);
+    store.hydrate({ saved: [], followed: [] });
+    store.setWatchlistData([], {});
     Promise.all([
       supabase.from("saved_releases").select("release_id").eq("user_id", user.id),
       supabase.from("follows").select("institution_slug").eq("follower", user.id),
     ]).then(([s, f]) => {
-      if (!active) return;
+      if (!active || useAppStore.getState().userId !== user.id) return;
+      if (s.error || f.error) {
+        useAppStore.getState().pushToast({ title: "Couldn't load your saved items", description: "Refresh the page to try again.", variant: "info" });
+        return;
+      }
       const saved = ((s.data as { release_id: string }[] | null) ?? []).map((r) => r.release_id);
       const followed = ((f.data as { institution_slug: string }[] | null) ?? []).map((r) => r.institution_slug);
       useAppStore.getState().hydrate({ saved, followed });
@@ -145,23 +196,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const signUp: AuthValue["signUp"] = async ({ email, password, role, fullName, institutionName }) => {
+  const signUp: AuthValue["signUp"] = async ({ email, password, role, fullName, emailRedirectTo }) => {
     if (!supabase) return { error: "Supabase is not configured.", needsConfirmation: false, role: null };
-    const institution_name = role === "institution" ? institutionName || fullName : null;
-    const institution_slug = role === "institution" ? slugify(institution_name || "institution") : null;
+    if (role !== "individual") {
+      return { error: "Institution accounts require an invitation.", needsConfirmation: false, role: null };
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { role, full_name: fullName, institution_name, institution_slug } },
+      options: {
+        data: { role: "individual", full_name: fullName },
+        emailRedirectTo,
+      },
     });
-    if (error) return { error: error.message, needsConfirmation: false, role: null };
+    if (error) return { error: "We couldn't create the account. Check the details and try again.", needsConfirmation: false, role: null };
 
-    // Supabase returns a user with an empty identities array when the email is
-    // already registered (enumeration protection). Surface that as a real error
-    // so the same email can't appear to sign up twice.
+    // Preserve Supabase's enumeration protection by returning the same outcome
+    // for existing and newly registered addresses.
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      return { error: "An account with this email already exists. Try logging in instead.", needsConfirmation: false, role: null };
+      return { error: null, needsConfirmation: true, role };
     }
 
     // If email confirmation is enabled, there is no session yet.
@@ -171,18 +225,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn: AuthValue["signIn"] = async (email, password) => {
-    if (!supabase) return { error: "Supabase is not configured.", role: null };
+    if (!supabase) return { error: "Supabase is not configured.", role: null, isAdmin: false };
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message, role: null };
-    const role = data.user ? await fetchRole(data.user.id) : null;
-    track("logged_in", { role });
-    return { error: null, role };
+    if (error) return { error: "The email or password is incorrect, or the account is not ready yet.", role: null, isAdmin: false };
+    const result = data.user ? await fetchRole(data.user.id) : { role: null, error: "Sign-in did not return a user.", isAdmin: false };
+    if (result.error) {
+      await supabase.auth.signOut();
+      return { error: result.error, role: null, isAdmin: false };
+    }
+    track("logged_in", { role: result.role });
+    return { error: null, role: result.role, isAdmin: result.isAdmin };
   };
 
   const signOut: AuthValue["signOut"] = async () => {
-    if (supabase) await supabase.auth.signOut();
+    track("logged_out", { role: profile?.role ?? null });
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) await supabase.auth.signOut({ scope: "local" });
+    }
+    useAppStore.getState().reset();
     setUser(null);
     setProfile(null);
+    setProfileError(null);
+    setProfileReady(true);
     resetAnalytics();
   };
 
@@ -191,6 +256,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ready,
     user,
     profile,
+    profileReady,
+    profileError,
     role: profile?.role ?? null,
     signUp,
     signIn,

@@ -10,6 +10,8 @@
 --     can't forward it to another account), then land in 'pending' until the OWNER
 --     approves them. Approval is owner-only and enforced in the database.
 
+create extension if not exists pgcrypto;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 create table if not exists public.org_members (
   institution_slug text not null,

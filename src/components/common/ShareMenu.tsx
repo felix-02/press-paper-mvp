@@ -20,7 +20,7 @@ const CHANNELS: Channel[] = [
 /** Share dropdown with real social-share links + copy. */
 export function ShareMenu({ url, title, className }: { url: string; title: string; className?: string }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,12 +33,16 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
 
   const onChannel = (c: Channel) => {
     if (c.copy) {
-      navigator.clipboard?.writeText(url).then(
+      if (!navigator.clipboard) {
+        setCopyState("failed");
+        return;
+      }
+      navigator.clipboard.writeText(url).then(
         () => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1500);
+          setCopyState("copied");
+          window.setTimeout(() => setCopyState("idle"), 1500);
         },
-        () => {}
+        () => setCopyState("failed")
       );
       return;
     }
@@ -51,8 +55,8 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
       try {
         await navigator.share({ title, url });
         return true;
-      } catch {
-        return false;
+      } catch (error) {
+        return error instanceof DOMException && error.name === "AbortError";
       }
     }
     return false;
@@ -108,13 +112,13 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <span style={{ width: 26, height: 26, borderRadius: 999, background: c.color, display: "grid", placeItems: "center", flexShrink: 0, border: c.color === "#000000" ? "1px solid var(--border)" : "none" }}>
-                {c.copy && copied ? (
+                {c.copy && copyState === "copied" ? (
                   <Check size={13} color="#fff" strokeWidth={3} />
                 ) : (
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{c.label[0]}</span>
                 )}
               </span>
-              {c.copy && copied ? "Copied!" : c.label}
+              {c.copy && copyState === "copied" ? "Copied!" : c.copy && copyState === "failed" ? "Copy failed" : c.label}
             </button>
           ))}
         </div>

@@ -1,20 +1,15 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { Eye, MessageSquare, Plus, ShieldAlert, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
-import { PageHeader, Panel, MetricCard, BarRow } from "@/components/dashboard/Panels";
+import { PageHeader, Panel, MetricCard, BarRow, type Metric } from "@/components/dashboard/Panels";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
-import { SectionLink } from "@/components/primitives/Bits";
 import { LineChart } from "@/components/charts/LineChart";
-import { seededSeries, PERFORMANCE_METRICS, TOP_COUNTRIES, TOPICS_PERFORMANCE, type Metric } from "@/data/analytics";
-import { RECENT_RELEASES, TOP_RELEASES } from "@/data/releases";
 import { rowToRelease, formatCount } from "@/lib/releaseMap";
 import { useInstitutionStats } from "@/lib/useInstitutionStats";
 import { useOrg } from "@/lib/useOrg";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Release } from "@/types";
-
-const X = ["Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5", "Wk 6", "Wk 7", "Wk 8"];
 
 /** The six analytics time ranges (label → number of days). */
 export const RANGES: [string, number][] = [
@@ -77,7 +72,7 @@ function Legend({ items }: { items: [string, string][] }) {
 }
 
 export function Dashboard() {
-  const { configured } = useAuth();
+  const { profile } = useAuth();
   const [params, setParams] = useSearchParams();
   const days = rangeFromSearchParam(params.get("range"), 30);
   const setDays = (nextDays: number) => {
@@ -87,12 +82,23 @@ export function Dashboard() {
   };
   const stats = useInstitutionStats(days);
   const org = useOrg();
-  // A configured (live) account ALWAYS shows real data — 0 while loading, never
-  // seed. Seed/illustrative data is used only in the no-backend demo mode.
-  const showReal = configured;
+  if (stats.error) {
+    return (
+      <AppShell kind="institution">
+        <PageHeader title="Dashboard" subtitle={profile?.institution_name ? `${profile.institution_name} publishing overview.` : "Your publishing overview."} />
+        <div className="pp-card" role="alert" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>{stats.error} Refresh the page to try again.</div>
+      </AppShell>
+    );
+  }
 
-  const views = seededSeries(3, 8, { base: 56, amp: 16, trend: 22, noise: 6 });
-  const eng = seededSeries(7, 8, { base: 30, amp: 10, trend: 14, noise: 5 });
+  if (!stats.loaded) {
+    return (
+      <AppShell kind="institution">
+        <PageHeader title="Dashboard" subtitle={profile?.institution_name ? `${profile.institution_name} publishing overview.` : "Your publishing overview."} />
+        <div className="pp-card" role="status" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>Loading organisation data…</div>
+      </AppShell>
+    );
+  }
 
   const realSeries = stats.viewSeries;
   const dayLabels = realSeries.map((_, i) => {
@@ -100,55 +106,35 @@ export function Dashboard() {
     d.setDate(d.getDate() - (realSeries.length - 1 - i));
     return d.toLocaleDateString("en-GB", { day: "numeric", month: realSeries.length > 60 ? "short" : undefined });
   });
-  const hasRealSeries = showReal && realSeries.length > 0 && realSeries.some((n) => n > 0);
-  const chartSeries = showReal
-    ? [{ data: realSeries.length ? realSeries : [0], color: "var(--series-1)" }]
-    : [
-        { data: views, color: "var(--series-1)" },
-        { data: eng, color: "var(--series-2)" },
-      ];
-  const chartXLabels = showReal ? (dayLabels.length ? dayLabels : [""]) : X;
-  const chartYMax = showReal ? Math.max(10, Math.ceil(Math.max(...realSeries, 0) * 1.25)) : 100;
-  const chartFormatY = showReal ? (n: number) => `${Math.round(n)}` : (n: number) => `${Math.round(n)}K`;
-  const chartLegend: [string, string][] = showReal
-    ? [[`Views (${RANGE_LABEL[days] ?? "range"})`, "var(--series-1)"]]
-    : [
-        ["Views", "var(--series-1)"],
-        ["Engagements", "var(--series-2)"],
-      ];
+  const hasRealSeries = realSeries.length > 0 && realSeries.some((n) => n > 0);
+  const chartSeries = [{ data: realSeries.length ? realSeries : [0], color: "var(--series-1)" }];
+  const chartXLabels = dayLabels.length ? dayLabels : [""];
+  const chartYMax = Math.max(10, Math.ceil(Math.max(...realSeries, 0) * 1.25));
+  const chartLegend: [string, string][] = [[`Views (${RANGE_LABEL[days] ?? "range"})`, "var(--series-1)"]];
 
-  // Metric cards: real totals for live accounts (0 while loading), seed in demo.
-  const metrics: Metric[] = showReal
-    ? [
-        { label: "Total Views", value: formatCount(stats.totalViews), delta: "all time", positive: true, seriesSeed: 3, color: "var(--series-1)" },
-        { label: "Followers", value: formatCount(stats.followers), delta: "all time", positive: true, seriesSeed: 7, color: "var(--series-2)" },
-        { label: "Releases", value: String(stats.releaseCount), delta: `${stats.publishedCount} published`, positive: true, seriesSeed: 11, color: "var(--series-3)" },
-        { label: "Comments", value: formatCount(stats.totalComments), delta: "all time", positive: true, seriesSeed: 15, color: "var(--series-4)" },
-        { label: "Drafts", value: String(stats.draftCount), delta: stats.scheduledCount ? `${stats.scheduledCount} scheduled` : "—", positive: true, seriesSeed: 19, color: "var(--series-5)" },
-      ]
-    : PERFORMANCE_METRICS;
+  const metrics: Metric[] = [
+    { label: "Total Views", value: formatCount(stats.totalViews), delta: "all time", positive: true, color: "var(--series-1)" },
+    { label: "Followers", value: formatCount(stats.followers), delta: "all time", positive: true, color: "var(--series-2)" },
+    { label: "Releases", value: String(stats.releaseCount), delta: `${stats.publishedCount} published`, positive: true, color: "var(--series-3)" },
+    { label: "Comments", value: formatCount(stats.totalComments), delta: "all time", positive: true, color: "var(--series-4)" },
+    { label: "Drafts", value: String(stats.draftCount), delta: stats.scheduledCount ? `${stats.scheduledCount} scheduled` : "none scheduled", positive: true, color: "var(--series-5)" },
+  ];
 
-  // Recent + top performing: real releases for live accounts.
-  const recent: Release[] = showReal ? stats.releases.slice(0, 4).map(rowToRelease) : RECENT_RELEASES;
-  const topReleases = showReal
-    ? [...stats.releases]
-        .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
-        .slice(0, 5)
-        .map((r, idx) => ({ rank: idx + 1, heading: r.heading, type: r.type, views: formatCount(r.views ?? 0), scene: r.scene as Release["scene"] }))
-    : TOP_RELEASES;
+  const recent: Release[] = stats.releases.slice(0, 4).map(rowToRelease);
+  const topReleases = [...stats.releases]
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+    .slice(0, 5)
+    .map((r, idx) => ({ rank: idx + 1, heading: r.heading, type: r.type, views: formatCount(r.views ?? 0), scene: r.scene as Release["scene"] }));
 
-  // Real topic breakdown (by release type) for live accounts.
-  const topicData = showReal
-    ? (() => {
-        const byType = new Map<string, number>();
-        stats.releases.forEach((r) => byType.set(r.type, (byType.get(r.type) ?? 0) + (r.views ?? 0)));
-        const max = Math.max(1, ...byType.values());
-        return [...byType.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 6)
-          .map(([name, v], i) => ({ name, views: formatCount(v), pct: Math.round((v / max) * 100), color: `var(--series-${(i % 5) + 1})` }));
-      })()
-    : TOPICS_PERFORMANCE;
+  const topicData = (() => {
+    const byType = new Map<string, number>();
+    stats.releases.forEach((r) => byType.set(r.type, (byType.get(r.type) ?? 0) + (r.views ?? 0)));
+    const max = Math.max(1, ...byType.values());
+    return [...byType.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name, v], i) => ({ name, views: formatCount(v), pct: Math.round((v / max) * 100), color: `var(--series-${(i % 5) + 1})` }));
+  })();
 
   // Real release-status breakdown (replaces the untracked "country" panel live).
   const statusData = [
@@ -171,8 +157,8 @@ export function Dashboard() {
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>Your organisation isn't verified yet</div>
             <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
               {org.role === "owner"
-                ? "Verify control of your domain to start publishing and get the verified badge."
-                : "Your owner needs to verify the organisation's domain before you can publish."}
+                ? "Your organisation is awaiting platform approval. You can prepare drafts in the meantime."
+                : "Your organisation's owner is completing the platform review."}
             </div>
           </div>
           <ChevronRight size={18} color="var(--text-muted)" />
@@ -180,32 +166,34 @@ export function Dashboard() {
       )}
       <PageHeader
         title="Dashboard"
-        subtitle="Welcome back — here's how Welsh Government is performing."
+        subtitle={`Welcome back — here's how ${profile?.institution_name || "your organisation"} is performing.`}
         actions={
           <>
             <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center", textTransform: "capitalize" }}>
-              {showReal ? RANGE_LABEL[days] : "last 30 days"}
+              {RANGE_LABEL[days]}
             </span>
-            <Link to="/inst/publish" className="pp-btn pp-btn-primary">
-              <Plus size={16} /> New Release
-            </Link>
+            {org.can.publish && (
+              <Link to="/inst/publish" className="pp-btn pp-btn-primary">
+                <Plus size={16} /> New Release
+              </Link>
+            )}
           </>
         }
       />
 
       {/* metric row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 18 }}>
+      <div className="pp-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 18 }}>
         {metrics.map((m) => (
           <MetricCard key={m.label} metric={m} />
         ))}
       </div>
 
       {/* main grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 18, alignItems: "start" }}>
+      <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 18, alignItems: "start" }}>
         {/* left */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <Panel title="Performance Overview" action={<RangeTabs days={days} onChange={setDays} />}>
-            {showReal && !hasRealSeries ? (
+            {!hasRealSeries ? (
               <div style={{ height: 236, display: "grid", placeItems: "center", textAlign: "center", color: "var(--text-muted)" }}>
                 <div>
                   <Eye size={26} style={{ opacity: 0.4, marginBottom: 8 }} />
@@ -220,14 +208,14 @@ export function Dashboard() {
                   xLabels={chartXLabels}
                   yMax={chartYMax}
                   height={236}
-                  formatY={chartFormatY}
+                  formatY={(n) => `${Math.round(n)}`}
                 />
                 <Legend items={chartLegend} />
               </>
             )}
           </Panel>
 
-          <Panel title="Recent Releases" action={<SectionLink>View all</SectionLink>}>
+          <Panel title="Recent Releases" action={<Link to="/inst/releases" className="pp-link-muted">View all <ChevronRight size={14} /></Link>}>
             {recent.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>
                 No releases yet — head to Publish to create your first.
@@ -290,20 +278,16 @@ export function Dashboard() {
             )}
           </Panel>
 
-          <Panel title={showReal ? "Releases by Status" : "Audience by Country"}>
+          <Panel title="Releases by Status">
             <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-              {showReal
-                ? statusData.map((s) => (
-                    <BarRow key={s.name} label={s.name} value={String(s.count)} pct={Math.round((s.count / statusMax) * 100)} color="var(--series-3)" />
-                  ))
-                : TOP_COUNTRIES.map((c) => (
-                    <BarRow key={c.name} label={c.name} value={`${c.pct}%`} pct={c.pct} color="var(--series-3)" />
-                  ))}
+              {statusData.map((s) => (
+                <BarRow key={s.name} label={s.name} value={String(s.count)} pct={Math.round((s.count / statusMax) * 100)} color="var(--series-3)" />
+              ))}
             </div>
           </Panel>
 
           <Panel title="Content by Topic">
-            {showReal && topicData.length === 0 ? (
+            {topicData.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>No releases yet.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>

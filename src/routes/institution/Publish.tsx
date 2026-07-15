@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
@@ -7,14 +7,14 @@ import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
 import { MediaTile } from "@/components/media/MediaTile";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
-import { inst } from "@/data/institutions";
-import type { MediaScene, ReleaseStatus, ReleaseType, Release } from "@/types";
+import type { Institution, MediaScene, ReleaseStatus, ReleaseType } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
-import { supabase } from "@/lib/supabase";
+import { supabase, type ReleaseRow } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
 import { useOrg } from "@/lib/useOrg";
 import { RichTextEditor } from "@/components/common/RichTextEditor";
 import { track } from "@/lib/analytics";
+import { sanitizeRichText } from "@/lib/sanitizeHtml";
 
 const TYPES: ReleaseType[] = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
 const SCENES: { scene: MediaScene; label: string }[] = [
@@ -25,6 +25,14 @@ const SCENES: { scene: MediaScene; label: string }[] = [
   { scene: "town", label: "Community" },
   { scene: "skyline", label: "City" },
 ];
+
+function isReleaseType(value: string): value is ReleaseType {
+  return TYPES.includes(value as ReleaseType);
+}
+
+function isMediaScene(value: string): value is MediaScene {
+  return SCENES.some(({ scene }) => scene === value);
+}
 
 function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
@@ -37,39 +45,89 @@ function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: stri
 
 export function Publish() {
   const navigate = useNavigate();
-  const publishRelease = useAppStore((s) => s.publishRelease);
+  const { id: editingId } = useParams();
   const pushToast = useAppStore((s) => s.pushToast);
-  const { configured, user, profile } = useAuth();
+  const { user, profile, profileReady } = useAuth();
   const org = useOrg();
+  const previewInstitution: Institution = {
+    slug: org.slug || profile?.institution_slug || "institution",
+    name: profile?.institution_name?.trim() || "Your organisation",
+    category: profile?.org_category?.trim() || "Institution",
+    verified: org.verified,
+    color: "#2563eb",
+    color2: "#4338ca",
+    mark: "generic",
+  };
 
   const [heading, setHeading] = useState("");
   const [subheading, setSubheading] = useState("");
   const [body, setBody] = useState("");
   const [type, setType] = useState<ReleaseType>("Announcement");
   const [scene, setScene] = useState<MediaScene>("wind-farm");
+  const [originalPublishedAt, setOriginalPublishedAt] = useState<string | null>(null);
+  const [loadingRelease, setLoadingRelease] = useState(Boolean(editingId));
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [headingError, setHeadingError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const headingRef = useRef<HTMLInputElement>(null);
+  const subheadingRef = useRef<HTMLInputElement>(null);
 
-  const buildRelease = (status: ReleaseStatus): Release => ({
-    id: `pub-${Date.now()}`,
-    institutionSlug: "welsh-government",
-    type,
-    status,
-    heading: heading.trim(),
-    subheading: subheading.trim() || "Published via the Presspaper publishing studio.",
-    time: "Just now",
-    publishedDate: status === "Published" ? "Just now" : "Draft",
-    publishedTime: "",
-    scene,
-    tags: [],
-    views: "0",
-    comments: "0",
-    engagement: "0",
-    body: body.trim() || null,
-    isNew: true,
-  });
+  useEffect(() => {
+    if (!editingId) {
+      setHeading("");
+      setSubheading("");
+      setBody("");
+      setType("Announcement");
+      setScene("wind-farm");
+      setOriginalPublishedAt(null);
+      setHeadingError(false);
+      setReviewing(false);
+      setLoadingRelease(false);
+      setLoadError(null);
+      return;
+    }
+    if (!profileReady || org.loading) {
+      setLoadingRelease(true);
+      return;
+    }
+    if (!supabase || !org.slug) {
+      setLoadingRelease(false);
+      setLoadError("This release isn't available in an organisation workspace.");
+      return;
+    }
+
+    let active = true;
+    setLoadingRelease(true);
+    setLoadError(null);
+    supabase
+      .from("release_details")
+      .select("*")
+      .eq("id", editingId)
+      .eq("institution_slug", org.slug)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        const row = data as ReleaseRow | null;
+        if (error || !row) {
+          setLoadError("We couldn't load that release. It may have been removed or you may not have access.");
+          setLoadingRelease(false);
+          return;
+        }
+        setHeading(row.heading);
+        setSubheading(row.subheading ?? "");
+        setBody(row.body ?? "");
+        setType(isReleaseType(row.type) ? row.type : "Announcement");
+        setScene(isMediaScene(row.scene) ? row.scene : "wind-farm");
+        setOriginalPublishedAt(row.published_at);
+        setLoadingRelease(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [editingId, profileReady, org.loading, org.slug]);
 
   const requireHeading = (): boolean => {
     if (!heading.trim()) {
@@ -78,87 +136,153 @@ export function Publish() {
       pushToast({ title: "Add a heading to continue", description: "Every release needs a headline before it can be published.", variant: "info" });
       return false;
     }
+    if (heading.trim().length > 200 || subheading.length > 250 || body.length > 200000) {
+      pushToast({ title: "Release is too long", description: "Shorten the headline, summary, or body before saving.", variant: "info" });
+      return false;
+    }
     return true;
   };
 
-  // Writes the release to Postgres in LIVE mode (so it persists across sessions
-  // and devices), or to the in-memory store in DEMO mode.
-  const persist = async (status: ReleaseStatus): Promise<boolean> => {
-    if (configured && supabase && user) {
-      const { error } = await supabase.from("releases").insert({
-        owner: user.id,
-        institution_slug: profile?.institution_slug ?? "welsh-government",
-        institution_name: profile?.institution_name ?? null,
-        type,
-        status,
-        heading: heading.trim(),
-        subheading: subheading.trim() || null,
-        body: body.trim() || null,
-        scene,
-        published_at: status === "Published" ? new Date().toISOString() : null,
-      });
-      if (error) {
-        pushToast({ title: "Couldn't save release", description: error.message, variant: "info" });
-        return false;
-      }
-      return true;
+  const validateForPublish = (): boolean => {
+    if (!requireHeading()) return false;
+    if (!subheading.trim()) {
+      subheadingRef.current?.focus();
+      pushToast({ title: "Add a subheading to continue", description: "Summarise the release before reviewing it.", variant: "info" });
+      return false;
     }
-    // Demo mode
-    publishRelease(buildRelease(status));
+    const bodyText = body.replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/gi, " ").trim();
+    if (!bodyText) {
+      document.querySelector<HTMLElement>(".pp-rte")?.focus();
+      pushToast({ title: "Add the release body to continue", description: "The full official text is required before publishing.", variant: "info" });
+      return false;
+    }
     return true;
+  };
+
+  // All releases persist to the organisation workspace in Postgres.
+  const persist = async (status: ReleaseStatus): Promise<string | null> => {
+    if (!supabase || !user) {
+      pushToast({ title: "Publishing is unavailable", description: "Reconnect your account and try again.", variant: "info" });
+      return null;
+    }
+    if (!org.slug || !org.can.publish || (status === "Published" && !org.verified)) {
+      pushToast({ title: "Publishing access is unavailable", description: "Your organisation membership or verification is incomplete.", variant: "info" });
+      return null;
+    }
+
+    const content = {
+      type,
+      status,
+      heading: heading.trim(),
+      subheading: subheading.trim() || null,
+      body: body.trim() || null,
+      scene,
+      published_at: status === "Published" ? (originalPublishedAt ?? new Date().toISOString()) : null,
+    };
+
+    const result = editingId
+      ? await supabase
+          .from("releases")
+          .update(content)
+          .eq("id", editingId)
+          .eq("institution_slug", org.slug)
+          .select("id")
+          .maybeSingle()
+      : await supabase.from("releases").insert({
+        owner: user.id,
+        institution_slug: org.slug,
+        institution_name: profile?.institution_name ?? null,
+        ...content,
+      }).select("id").single();
+
+    const persisted = result.data as { id: string } | null;
+    if (result.error || !persisted?.id) {
+      pushToast({ title: "Couldn't save release", description: "Check your publishing access and try again.", variant: "info" });
+      return null;
+    }
+    return persisted.id;
   };
 
   const submit = async (status: ReleaseStatus) => {
     if (busy) return;
     if (!requireHeading()) return;
     setBusy(true);
-    const ok = await persist(status);
+    const releaseId = await persist(status);
     setBusy(false);
-    if (!ok) return;
-    track("release_published", { status, type });
+    if (!releaseId) return;
+    track(status === "Published" ? "release_published" : "release_draft_saved", { releaseId, status, type });
     if (status === "Published") {
-      pushToast({ title: "Release published", description: "It's now live and appears at the top of your releases.", variant: "success" });
+      pushToast({ title: "Release published", description: "It's now live in your organisation's releases.", variant: "success" });
     } else {
-      pushToast({ title: "Saved as draft", description: "You can publish it any time from Releases.", variant: "info" });
+      pushToast({ title: "Saved as draft", description: "Your draft is available in Releases.", variant: "info" });
     }
     navigate("/inst/releases");
   };
 
-  const publish = () => submit("Published");
+  const publish = () => {
+    if (!org.verified) {
+      pushToast({ title: "Approval required before publishing", description: "You can continue saving drafts while the organisation is reviewed.", variant: "info" });
+      return;
+    }
+    if (validateForPublish()) setReviewing(true);
+  };
   const saveDraft = () => submit("Draft");
 
-  // Gate: role must allow publishing AND the org must have verified its domain.
-  if (org.available && !org.canPublishNow) {
-    const roleBlocked = !org.can.publish;
+  useEffect(() => {
+    if (!reviewing) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) setReviewing(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [reviewing, busy]);
+
+  if (!profileReady || org.loading || loadingRelease) {
+    return (
+      <AppShell kind="institution" maxWidth={760}>
+        <div style={{ minHeight: "50vh", display: "grid", placeItems: "center", color: "var(--text-muted)" }}>Checking publishing access…</div>
+      </AppShell>
+    );
+  }
+
+  if (org.error) {
+    return (
+      <AppShell kind="institution" maxWidth={760}>
+        <div className="pp-card" role="alert" style={{ padding: 40, textAlign: "center" }}>
+          <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>We couldn't check publishing access</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 440, margin: "0 auto 18px" }}>{org.error}</p>
+          <button type="button" className="pp-btn pp-btn-outline" onClick={() => void org.refresh()}>Retry</button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell kind="institution" maxWidth={760}>
+        <div className="pp-card" role="alert" style={{ padding: 40, textAlign: "center" }}>
+          <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Release unavailable</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 440, margin: "0 auto 18px" }}>{loadError}</p>
+          <button type="button" className="pp-btn pp-btn-outline" onClick={() => navigate("/inst/releases")}>Back to releases</button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Publishing fails closed when organisation membership is missing or inactive.
+  if (!org.available || !org.can.publish) {
     return (
       <AppShell kind="institution" maxWidth={760}>
         <div className="pp-card" style={{ padding: 40, textAlign: "center" }}>
           <Lock size={32} color="var(--text-muted)" style={{ marginBottom: 12 }} />
-          {roleBlocked ? (
-            <>
-              <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Publishing isn't available for your role</h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 420, margin: "0 auto" }}>
-                {org.status === "pending"
-                  ? "Your membership is awaiting owner approval. Once approved with an editor or admin role, you'll be able to publish."
-                  : "Your role has read-only access. Ask an owner or admin to grant you an editor role to publish releases."}
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Verify your domain to publish</h1>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 440, margin: "0 auto 16px" }}>
-                To prevent impersonation, an organisation must prove it controls its official domain before it can publish.
-                {org.role === "owner"
-                  ? " Add the DNS record on your Profile to get verified."
-                  : " Your organisation's owner needs to complete domain verification."}
-              </p>
-              {org.role === "owner" && (
-                <button type="button" onClick={() => navigate("/inst/profile")} className="pp-btn pp-btn-primary">
-                  <ShieldCheck size={15} /> Verify domain
-                </button>
-              )}
-            </>
-          )}
+          <h1 style={{ fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Publishing isn't available for your account</h1>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 440, margin: "0 auto" }}>
+            {org.status === "pending"
+              ? "Your membership is awaiting owner approval. Once approved with an editor or admin role, you'll be able to create releases."
+              : org.status === "active"
+                ? "Your role has read-only access. Ask the organisation owner to grant you an editor role."
+                : "Your organisation membership is missing or inactive. Ask an owner or platform administrator to restore access."}
+          </p>
         </div>
       </AppShell>
     );
@@ -166,18 +290,27 @@ export function Publish() {
 
   return (
     <AppShell kind="institution" maxWidth={1180}>
-      <PageHeader title="Publish" subtitle="Create and publish an official release to the public." />
+      <PageHeader title={editingId ? "Edit release" : "Publish"} subtitle={editingId ? "Update this release, review it, then save or publish when ready." : "Create and publish an official release to the public."} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 24, alignItems: "start" }}>
+      {!org.verified && (
+        <div className="pp-card" style={{ padding: 14, marginBottom: 18, display: "flex", alignItems: "center", gap: 12, borderColor: "rgba(245,158,11,0.35)" }}>
+          <ShieldCheck size={18} color="var(--amber)" />
+          <div style={{ flex: 1, fontSize: 13.5, color: "var(--text-secondary)" }}>You can save drafts now. Publishing unlocks after platform approval.</div>
+          {org.role === "owner" && <button type="button" onClick={() => navigate("/inst/profile")} className="pp-btn pp-btn-ghost">View review status</button>}
+        </div>
+      )}
+
+      <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 24, alignItems: "start" }}>
         {/* form */}
         <div className="pp-card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="Required">Headline</FieldLabel>
+            <FieldLabel hint="Required · 200 characters">Heading</FieldLabel>
             <input
               ref={headingRef}
               className="pp-input"
               placeholder="Write a clear, specific headline"
               value={heading}
+              maxLength={200}
               onChange={(e) => {
                 setHeading(e.target.value);
                 if (headingError && e.target.value.trim()) setHeadingError(false);
@@ -196,17 +329,19 @@ export function Publish() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="Optional">Summary</FieldLabel>
+            <FieldLabel hint="250 characters">Subheading</FieldLabel>
             <input
+              ref={subheadingRef}
               className="pp-input"
               placeholder="One or two sentences summarising the release"
               value={subheading}
+              maxLength={250}
               onChange={(e) => setSubheading(e.target.value)}
             />
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="Rich text">Body</FieldLabel>
+            <FieldLabel hint="Required · rich text">Body</FieldLabel>
             <RichTextEditor value={body} onChange={setBody} placeholder="Write the full release here…" />
           </div>
 
@@ -282,8 +417,8 @@ export function Publish() {
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-            <button type="button" onClick={publish} disabled={busy} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px", opacity: busy ? 0.7 : 1 }}>
-              <Send size={16} /> {busy ? "Publishing…" : "Review & Publish"}
+            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px", opacity: busy || !org.verified ? 0.6 : 1 }}>
+              <Send size={16} /> {busy ? "Publishing…" : !org.verified ? "Approval required" : "Review & Publish"}
             </button>
             <button type="button" onClick={saveDraft} disabled={busy} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }}>
               <FileText size={16} /> Save as draft
@@ -292,17 +427,17 @@ export function Publish() {
         </div>
 
         {/* live preview */}
-        <div style={{ position: "sticky", top: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 12 }}>
+        <div className="pp-publish-preview" style={{ position: "sticky", top: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 12 }}>
             Live preview
           </div>
           <article className="pp-card" style={{ padding: 18 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 14 }}>
-              <InstitutionMark institution={inst("welsh-government")} size={38} />
+              <InstitutionMark institution={previewInstitution} size={38} />
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Welsh Government</span>
-                  <Verified size={13} />
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{previewInstitution.name}</span>
+                  {previewInstitution.verified && <Verified size={13} />}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Just now</div>
               </div>
@@ -324,6 +459,54 @@ export function Publish() {
           </div>
         </div>
       </div>
+
+      {reviewing && (
+        <div
+          onClick={() => !busy && setReviewing(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 100, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,0.68)" }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-release-title"
+            onClick={(event) => event.stopPropagation()}
+            className="pp-card"
+            style={{ width: "100%", maxWidth: 760, maxHeight: "88vh", overflowY: "auto", padding: 26 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 650, color: "var(--green)", textTransform: "uppercase", marginBottom: 7 }}>Content complete · Review</div>
+                <h2 id="review-release-title" style={{ fontSize: 22, fontWeight: 700 }}>Review before publishing</h2>
+                <p style={{ marginTop: 6, color: "var(--text-secondary)", fontSize: 13.5 }}>Check the public version below. You can go back to edit or publish it immediately.</p>
+              </div>
+              <TypeBadge type={type} />
+            </div>
+
+            <div style={{ height: 240, marginTop: 22 }}>
+              <MediaTile scene={scene} play radius={13} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
+              <InstitutionMark institution={previewInstitution} size={36} />
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 650 }}>
+                  {previewInstitution.name} {previewInstitution.verified && <Verified size={12} />}
+                </div>
+                <div style={{ color: "var(--text-muted)", fontSize: 12 }}>Publishes immediately</div>
+              </div>
+            </div>
+            <h3 style={{ fontSize: 25, lineHeight: 1.2, marginTop: 18 }}>{heading.trim()}</h3>
+            <p style={{ marginTop: 10, color: "var(--text-secondary)", lineHeight: 1.6 }}>{subheading.trim()}</p>
+            <div className="pp-prose" style={{ marginTop: 22 }} dangerouslySetInnerHTML={{ __html: sanitizeRichText(body) }} />
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+              <button type="button" className="pp-btn pp-btn-ghost" onClick={() => setReviewing(false)} disabled={busy}>Back to edit</button>
+              <button type="button" className="pp-btn pp-btn-primary" onClick={() => void submit("Published")} disabled={busy} style={{ opacity: busy ? 0.7 : 1 }}>
+                <Send size={16} /> {busy ? "Publishing…" : "Publish release"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </AppShell>
   );
 }

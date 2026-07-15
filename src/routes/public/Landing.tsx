@@ -58,7 +58,7 @@ export function Landing() {
 
       {/* hero */}
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "64px 28px 40px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 40, alignItems: "center" }}>
+        <div className="pp-public-split" style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 40, alignItems: "center" }}>
           <div>
             <div
               style={{
@@ -76,7 +76,7 @@ export function Landing() {
               <ShieldCheck size={14} className="pp-verified" />
               Verified institutions only
             </div>
-            <h1 style={{ fontSize: 52, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.03em" }}>
+            <h1 className="pp-landing-title" style={{ fontSize: 52, fontWeight: 700, lineHeight: 1.05, letterSpacing: "0" }}>
               The home for verified public information
             </h1>
             <p style={{ fontSize: 17, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 20, maxWidth: 520 }}>
@@ -93,20 +93,8 @@ export function Landing() {
                 Explore Sources
               </Link>
             </div>
-            <div style={{ display: "flex", gap: 28, marginTop: 36 }}>
-              {[
-                ["240+", "Verified institutions"],
-                ["18K", "Official releases"],
-                ["1.2M", "Readers informed"],
-              ].map(([v, l]) => (
-                <div key={l}>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>{v}</div>
-                  <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{l}</div>
-                </div>
-              ))}
-            </div>
           </div>
-          <div style={{ display: "grid", placeItems: "center" }}>
+          <div className="pp-public-art" style={{ display: "grid", placeItems: "center" }}>
             <GlobeArt size={460} />
           </div>
         </div>
@@ -114,9 +102,9 @@ export function Landing() {
 
       {/* features */}
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 28px 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <div className="pp-feature-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
           <Feature icon={<BadgeCheck size={20} />} title="Verified sources" body="Every publisher is a verified institution. No noise, no impersonation — only official information." />
-          <Feature icon={<Sparkles size={20} />} title="AI summaries" body="Understand any release in seconds with plain-language summaries and an Ask Anything assistant." />
+          <Feature icon={<Sparkles size={20} />} title="AI summaries" body="Understand releases faster with plain-language summaries and source-specific quick answers." />
           <Feature icon={<Languages size={20} />} title="Instant translation" body="Read releases in your language, including full Welsh and English bilingual support." />
           <Feature icon={<Bell size={20} />} title="Watchlists & alerts" body="Follow the institutions and topics you care about and never miss an important update." />
         </div>
@@ -124,15 +112,15 @@ export function Landing() {
 
       {/* split: institutions */}
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "56px 28px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
-          <div style={{ display: "grid", placeItems: "center", padding: 24 }}>
+        <div className="pp-public-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
+          <div className="pp-public-art" style={{ display: "grid", placeItems: "center", padding: 24 }}>
             <TempleArt width={320} />
           </div>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--blue)", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
               <Building2 size={16} /> FOR INSTITUTIONS
             </div>
-            <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "0", lineHeight: 1.15 }}>
               Publish directly to the public
             </h2>
             <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 14 }}>
@@ -144,21 +132,21 @@ export function Landing() {
               <Bullet>Rich analytics on reach, engagement and audience</Bullet>
               <Bullet>Role-based access for your communications team</Bullet>
             </ul>
-            <Link to="/signup" className="pp-btn pp-btn-blue" style={{ marginTop: 26, padding: "11px 20px" }}>
-              Start publishing <ArrowRight size={16} />
-            </Link>
+            <a href="mailto:hello@presspaper.ai?subject=Institution%20access%20request" className="pp-btn pp-btn-blue" style={{ marginTop: 26, padding: "11px 20px" }}>
+              Request institution access <ArrowRight size={16} />
+            </a>
           </div>
         </div>
       </section>
 
       {/* split: individuals */}
       <section style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px 64px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
+        <div className="pp-public-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--green)", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
               <Users size={16} /> FOR INDIVIDUALS
             </div>
-            <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "0", lineHeight: 1.15 }}>
               Stay informed, effortlessly
             </h2>
             <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 14 }}>
@@ -167,14 +155,14 @@ export function Landing() {
             </p>
             <ul style={{ display: "flex", flexDirection: "column", gap: 12, listStyle: "none", padding: 0, marginTop: 22 }}>
               <Bullet>One clean feed of official, verified releases</Bullet>
-              <Bullet>AI summaries and an Ask Anything assistant</Bullet>
+              <Bullet>AI summaries and source-specific quick answers</Bullet>
               <Bullet>Save releases and organise them into watchlists</Bullet>
             </ul>
             <Link to="/signup" className="pp-btn pp-btn-primary" style={{ marginTop: 26, padding: "11px 20px" }}>
               Create your feed <ArrowRight size={16} />
             </Link>
           </div>
-          <div style={{ display: "grid", placeItems: "center", padding: 24 }}>
+          <div className="pp-public-art" style={{ display: "grid", placeItems: "center", padding: 24 }}>
             <GlobeArt size={360} />
           </div>
         </div>
@@ -191,7 +179,7 @@ export function Landing() {
             background: "linear-gradient(180deg, rgba(59,130,246,0.06), rgba(0,0,0,0))",
           }}
         >
-          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>Ready to get started?</h2>
+          <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "0" }}>Ready to get started?</h2>
           <p style={{ fontSize: 15, color: "var(--text-secondary)", marginTop: 12 }}>
             Join Presspaper and bring trusted public information into focus.
           </p>

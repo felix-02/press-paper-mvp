@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease } from "@/lib/releaseMap";
-import { DIRECTORY_SLUGS, INSTITUTIONS, inst } from "@/data/institutions";
-import { FEED_RELEASES, EXPLORE_RELEASES, SAVED_RELEASES, PROFILE_RELEASES } from "@/data/releases";
+import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
 import type { Release, Institution } from "@/types";
 
 function dedupe(list: Release[]): Release[] {
@@ -12,56 +11,81 @@ function dedupe(list: Release[]): Release[] {
   return out;
 }
 
-const STATIC_RELEASES = dedupe([...FEED_RELEASES, ...EXPLORE_RELEASES, ...SAVED_RELEASES, ...PROFILE_RELEASES]);
-const ALL_INSTITUTIONS: Institution[] = Array.from(
-  new Map(
-    [...DIRECTORY_SLUGS.map((s) => inst(s)), ...Object.values(INSTITUTIONS)].map((i) => [i.slug, i])
-  ).values()
-);
-
 export interface SearchResults {
   releases: Release[];
   institutions: Institution[];
   empty: boolean;
+  loading: boolean;
+  error: string | null;
 }
 
-/** Global search over institutions + static and live (DB) releases. */
+/** Global search over moderation-safe database institutions and releases. */
 export function useSearch(query: string): SearchResults {
-  const q = query.trim().toLowerCase();
+  const q = query.trim().toLowerCase().slice(0, 100);
   const [live, setLive] = useState<Release[]>([]);
+  const [releaseLoading, setReleaseLoading] = useState(false);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
+  const directory = usePublicInstitutions();
 
   useEffect(() => {
     if (!q || !isSupabaseConfigured || !supabase) {
       setLive([]);
+      setReleaseLoading(false);
+      setReleaseError(null);
       return;
     }
     let active = true;
-    supabase
-      .from("releases")
-      .select("*")
-      .eq("status", "Published")
-      .ilike("heading", `%${q}%`)
-      .limit(25)
-      .then(({ data }) => {
-        if (active && data) setLive((data as ReleaseRow[]).map(rowToRelease));
-      });
+    setLive([]);
+    setReleaseLoading(true);
+    setReleaseError(null);
+    const timer = window.setTimeout(() => {
+      void supabase!
+        .from("release_details")
+        .select("*")
+        .eq("status", "Published")
+        .eq("moderation_status", "active")
+        .eq("institution_verified", true)
+        .order("published_at", { ascending: false })
+        .limit(100)
+        .then(({ data, error }) => {
+          if (!active) return;
+          setReleaseLoading(false);
+          if (error || !data) {
+            setLive([]);
+            setReleaseError("Search couldn't be completed. Try again.");
+            return;
+          }
+          setLive((data as ReleaseRow[]).map(rowToRelease).filter((release) =>
+            [release.heading, release.subheading, release.institutionName ?? "", release.type, ...release.tags]
+              .some((value) => value.toLowerCase().includes(q))
+          ));
+        }, () => {
+          if (!active) return;
+          setLive([]);
+          setReleaseLoading(false);
+          setReleaseError("Search couldn't be completed. Try again.");
+        });
+    }, 250);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, [q]);
 
   return useMemo(() => {
-    if (!q) return { releases: [], institutions: [], empty: true };
-    const staticMatches = STATIC_RELEASES.filter(
-      (r) =>
-        r.heading.toLowerCase().includes(q) ||
-        r.subheading.toLowerCase().includes(q) ||
-        inst(r.institutionSlug).name.toLowerCase().includes(q)
-    );
-    const releases = dedupe([...live, ...staticMatches]).slice(0, 30);
-    const institutions = ALL_INSTITUTIONS.filter(
-      (i) => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q) || (i.subName ?? "").toLowerCase().includes(q)
-    ).slice(0, 10);
-    return { releases, institutions, empty: releases.length === 0 && institutions.length === 0 };
-  }, [q, live]);
+    if (!q) return { releases: [], institutions: [], empty: true, loading: false, error: null };
+    const releases = dedupe(live).slice(0, 30);
+    const institutions = (isSupabaseConfigured ? directory.institutions : [])
+      .filter((i) => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
+      .slice(0, 10);
+    const loading = releaseLoading || (isSupabaseConfigured && directory.loading);
+    const error = releaseError ?? (isSupabaseConfigured ? directory.error : null);
+    return {
+      releases,
+      institutions,
+      empty: !loading && !error && releases.length === 0 && institutions.length === 0,
+      loading,
+      error,
+    };
+  }, [q, live, directory.institutions, directory.loading, directory.error, releaseLoading, releaseError]);
 }

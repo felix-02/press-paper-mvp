@@ -2,50 +2,48 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease } from "@/lib/releaseMap";
 import { useAppStore } from "@/store/useAppStore";
-import { FEED_RELEASES, EXPLORE_RELEASES, SAVED_RELEASES, PROFILE_RELEASES } from "@/data/releases";
 import type { Release } from "@/types";
 
-// All static demo releases an individual could save, de-duped.
-const STATIC: Release[] = (() => {
-  const seen = new Set<string>();
-  const out: Release[] = [];
-  for (const r of [...SAVED_RELEASES, ...FEED_RELEASES, ...EXPLORE_RELEASES, ...PROFILE_RELEASES]) {
-    if (!seen.has(r.id)) {
-      seen.add(r.id);
-      out.push(r);
-    }
-  }
-  return out;
-})();
-const STATIC_MAP = new Map(STATIC.map((r) => [r.id, r]));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Resolves the current saved-id set into full Release objects. Static demo
- * releases resolve instantly; real (DB) releases are fetched once and cached.
+ * Resolves the current saved-id set from the public, moderation-safe database
+ * view. Missing, unpublished, unverified, or moderated releases stay hidden.
  */
-export function useResolvedSaved(): { releases: Release[]; loading: boolean } {
+export function useResolvedSaved(): { releases: Release[]; loading: boolean; error: string | null } {
   const savedIds = useAppStore((s) => s.savedIds);
   const [dbMap, setDbMap] = useState<Map<string, Release>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const missing = useMemo(
-    () => [...savedIds].filter((id) => !STATIC_MAP.has(id) && !dbMap.has(id) && UUID.test(id)),
+    () => [...savedIds].filter((id) => !dbMap.has(id) && UUID.test(id)),
     [savedIds, dbMap]
   );
   const missingKey = missing.join(",");
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase || missing.length === 0) return;
+    if (!isSupabaseConfigured || !supabase || missing.length === 0) {
+      setLoading(false);
+      return;
+    }
     let active = true;
     setLoading(true);
+    setError(null);
     supabase
-      .from("releases")
+      .from("release_details")
       .select("*")
       .in("id", missing)
-      .then(({ data }) => {
+      .eq("status", "Published")
+      .eq("moderation_status", "active")
+      .eq("institution_verified", true)
+      .then(({ data, error: loadError }) => {
         if (!active) return;
         setLoading(false);
+        if (loadError) {
+          setError("Some saved releases couldn't be loaded. Refresh to try again.");
+          return;
+        }
         if (data) {
           setDbMap((prev) => {
             const m = new Map(prev);
@@ -63,11 +61,11 @@ export function useResolvedSaved(): { releases: Release[]; loading: boolean } {
   const releases = useMemo(() => {
     const out: Release[] = [];
     for (const id of savedIds) {
-      const r = STATIC_MAP.get(id) ?? dbMap.get(id);
+      const r = dbMap.get(id);
       if (r) out.push(r);
     }
     return out;
   }, [savedIds, dbMap]);
 
-  return { releases, loading };
+  return { releases, loading, error };
 }

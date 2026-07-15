@@ -1,32 +1,82 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, Search, FileText, X } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  ChevronDown,
+  FileText,
+  LogOut,
+  Moon,
+  Search,
+  Settings as SettingsIcon,
+  Sun,
+  UserRound,
+  X,
+} from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Avatar } from "@/components/brand/Avatar";
 import { Verified } from "@/components/primitives/Bits";
-import { inst } from "@/data/institutions";
 import { useAuth } from "@/auth/AuthProvider";
 import { useSearch } from "@/lib/useSearch";
 import { useNotifications } from "@/lib/useNotifications";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useTheme } from "@/lib/useTheme";
+import type { Institution } from "@/types";
+
+interface LiveInstitutionIdentity {
+  name: string;
+  verified: boolean;
+}
 
 export function TopBar({ kind }: { kind: "institution" | "individual" }) {
-  const wg = inst("welsh-government");
-  const { profile, user } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
-  const orgName = profile?.institution_name || wg.name;
+  const { resolvedTheme, toggle: toggleTheme } = useTheme();
+  const [liveIdentity, setLiveIdentity] = useState<LiveInstitutionIdentity | null>(null);
+  const institution: Institution = {
+    slug: profile?.institution_slug ?? "institution",
+    name: liveIdentity?.name ?? profile?.institution_name ?? "Institution",
+    category: "Institution",
+    verified: liveIdentity?.verified ?? profile?.verification_status === "verified",
+    color: "#2563eb",
+    color2: "#4338ca",
+    mark: "generic",
+  };
+  const orgName = institution.name;
   const personName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "You";
 
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const results = useSearch(query);
   const notifications = useNotifications();
+  const hasSearchResults = results.institutions.length > 0 || results.releases.length > 0;
   const wrapRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const slug = profile?.institution_slug;
+    if (kind !== "institution" || !slug || !isSupabaseConfigured || !supabase) {
+      setLiveIdentity(null);
+      return;
+    }
+    let active = true;
+    void supabase.rpc("public_institution", { p_slug: slug }).then(({ data }) => {
+      if (!active) return;
+      const row = ((data as LiveInstitutionIdentity[] | null) ?? [])[0] ?? null;
+      setLiveIdentity(row);
+    });
+    return () => {
+      active = false;
+    };
+  }, [kind, profile?.institution_slug]);
 
   // Unread tracking: a notification is unread if it's newer than the last time
   // the user opened-then-closed the notifications popup (persisted locally).
-  const LAST_SEEN_KEY = "pp_notif_last_seen";
+  const LAST_SEEN_KEY = `pp_notif_last_seen:${user?.id ?? "signed-out"}`;
   const [lastSeen, setLastSeen] = useState<number>(() => {
     try {
       return Number(localStorage.getItem(LAST_SEEN_KEY) || 0);
@@ -36,6 +86,14 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
   });
   const hasUnread = notifications.some((n) => n.ts > lastSeen);
   const wasNotifOpen = useRef(false);
+  useEffect(() => {
+    try {
+      setLastSeen(Number(localStorage.getItem(LAST_SEEN_KEY) || 0));
+    } catch {
+      setLastSeen(0);
+    }
+  }, [LAST_SEEN_KEY]);
+
   useEffect(() => {
     // When the popup transitions open -> closed, mark everything seen.
     if (wasNotifOpen.current && !notifOpen) {
@@ -56,12 +114,15 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setSearchOpen(false);
         setNotifOpen(false);
+        setAccountOpen(false);
       }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setSearchOpen(false);
         setNotifOpen(false);
+        setAccountOpen(false);
+        if (accountOpen) accountButtonRef.current?.focus();
       }
     }
     document.addEventListener("mousedown", onDoc);
@@ -70,17 +131,31 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [accountOpen]);
 
   const go = (to: string) => {
     setSearchOpen(false);
     setNotifOpen(false);
+    setAccountOpen(false);
     setQuery("");
     navigate(to);
   };
 
+  const logout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    setAccountOpen(false);
+    try {
+      await signOut();
+      navigate("/", { replace: true });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <header
+      className="pp-topbar"
       ref={wrapRef}
       style={{
         height: "var(--topbar-h)",
@@ -93,12 +168,12 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
         zIndex: 30,
       }}
     >
-      <div style={{ width: "var(--sidebar-w)", paddingLeft: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
+      <div className="pp-topbar-brand" style={{ width: "var(--sidebar-w)", paddingLeft: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
         <Logo size={19} to={kind === "institution" ? "/inst" : "/home"} />
       </div>
 
       {/* search */}
-      <div style={{ flex: 1, display: "flex", justifyContent: "center", padding: "0 24px", position: "relative" }}>
+      <div className="pp-topbar-search" style={{ flex: 1, display: "flex", justifyContent: "center", padding: "0 24px", position: "relative" }}>
         <div style={{ width: "100%", maxWidth: 540, position: "relative" }}>
           <div
             style={{
@@ -115,12 +190,17 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
             <Search size={16} />
             <input
               value={query}
+              maxLength={100}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setSearchOpen(true);
                 setNotifOpen(false);
+                setAccountOpen(false);
               }}
-              onFocus={() => setSearchOpen(true)}
+              onFocus={() => {
+                setSearchOpen(true);
+                setAccountOpen(false);
+              }}
               placeholder="Search institutions, topics or issues…"
               style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13.5 }}
             />
@@ -133,6 +213,9 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
 
           {searchOpen && query.trim() && (
             <div
+              className="pp-search-popover"
+              aria-busy={results.loading}
+              aria-live="polite"
               style={{
                 position: "absolute",
                 top: "calc(100% + 8px)",
@@ -148,14 +231,34 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                 zIndex: 40,
               }}
             >
-              {results.empty ? (
+              {results.loading && (
+                <div
+                  role="status"
+                  style={{ padding: "11px 14px", color: "var(--text-muted)", fontSize: 13, borderBottom: hasSearchResults || !!results.error ? "1px solid var(--border)" : "none" }}
+                >
+                  Searching…
+                </div>
+              )}
+
+              {results.error && (
+                <div
+                  role="alert"
+                  style={{ padding: "11px 14px", color: "var(--red)", fontSize: 13, borderBottom: hasSearchResults ? "1px solid var(--border)" : "none" }}
+                >
+                  {results.error}{hasSearchResults ? " Showing the results that are available." : ""}
+                </div>
+              )}
+
+              {results.empty && (
                 <div style={{ padding: "20px 14px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
                   No results for “{query}”.
                 </div>
-              ) : (
+              )}
+
+              {hasSearchResults && (
                 <>
                   {results.institutions.length > 0 && (
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 10px 4px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0", padding: "6px 10px 4px" }}>
                       Institutions
                     </div>
                   )}
@@ -179,7 +282,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                   ))}
 
                   {results.releases.length > 0 && (
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: ".06em", padding: "10px 10px 4px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0", padding: "10px 10px 4px" }}>
                       Releases
                     </div>
                   )}
@@ -197,7 +300,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                       </span>
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0 }}>
                         <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 420 }}>{r.heading}</span>
-                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{inst(r.institutionSlug).name} · {r.type}</span>
+                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.institutionName ?? "Institution"} · {r.type}</span>
                       </span>
                     </button>
                   ))}
@@ -209,14 +312,33 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       </div>
 
       {/* right cluster */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, paddingRight: 22, flexShrink: 0, position: "relative" }}>
+      <div className="pp-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14, paddingRight: 22, flexShrink: 0, position: "relative" }}>
+        <button
+          type="button"
+          className="pp-shell-icon-btn pp-theme-shortcut"
+          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+          title={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
+          onClick={() => {
+            toggleTheme();
+            setSearchOpen(false);
+            setNotifOpen(false);
+            setAccountOpen(false);
+          }}
+        >
+          {resolvedTheme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+
         <div style={{ position: "relative" }}>
           <button
             type="button"
+            className="pp-shell-icon-btn"
             aria-label="Notifications"
+            aria-expanded={notifOpen}
+            aria-controls="pp-notifications"
             onClick={() => {
               setNotifOpen((v) => !v);
               setSearchOpen(false);
+              setAccountOpen(false);
             }}
             style={{
               position: "relative",
@@ -238,6 +360,8 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
 
           {notifOpen && (
             <div
+              id="pp-notifications"
+              className="pp-notification-popover"
               style={{
                 position: "absolute",
                 top: "calc(100% + 8px)",
@@ -259,7 +383,15 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                   </div>
                 ) : (
                   notifications.map((n) => {
-                    const i = inst(n.slug);
+                    const i: Institution = {
+                      slug: n.slug,
+                      name: n.institutionName,
+                      category: "Institution",
+                      verified: n.institutionVerified,
+                      color: "#2563eb",
+                      color2: "#4338ca",
+                      mark: "generic",
+                    };
                     const unread = n.ts > lastSeen;
                     return (
                       <button
@@ -298,22 +430,86 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
           )}
         </div>
 
-        {kind === "institution" ? (
-          <Link to="/inst/profile" style={pillStyle}>
-            <InstitutionMark institution={wg} size={28} />
-            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 500 }}>
-              {orgName}
-              <Verified size={13} />
-            </span>
-            <ChevronDown size={15} color="var(--text-muted)" />
-          </Link>
-        ) : (
-          <Link to="/me" style={pillStyle}>
-            <Avatar size={28} name={personName} />
-            <span style={{ fontSize: 13.5, fontWeight: 500 }}>{personName}</span>
-            <ChevronDown size={15} color="var(--text-muted)" />
-          </Link>
-        )}
+        <div className="pp-account-wrap">
+          <button
+            type="button"
+            ref={accountButtonRef}
+            className="pp-account-pill"
+            style={pillStyle}
+            aria-label={`Open account options for ${kind === "institution" ? orgName : personName}`}
+            aria-expanded={accountOpen}
+            aria-controls="pp-account-menu"
+            onClick={() => {
+              setAccountOpen((open) => !open);
+              setSearchOpen(false);
+              setNotifOpen(false);
+            }}
+          >
+            {kind === "institution" ? (
+              <>
+                <InstitutionMark institution={institution} size={28} />
+                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 500 }}>
+                  {orgName}
+                  {institution.verified && <Verified size={13} />}
+                </span>
+              </>
+            ) : (
+              <>
+                <Avatar size={28} name={personName} />
+                <span style={{ fontSize: 13.5, fontWeight: 500 }}>{personName}</span>
+              </>
+            )}
+            <ChevronDown
+              size={15}
+              color="var(--text-muted)"
+              style={{ transform: accountOpen ? "rotate(180deg)" : "none", transition: "transform 150ms ease" }}
+            />
+          </button>
+
+          {accountOpen && (
+            <div id="pp-account-menu" className="pp-account-menu pp-rise" role="region" aria-label="Account options">
+              <div className="pp-account-menu-header">
+                <strong>{kind === "institution" ? orgName : personName}</strong>
+                <span>{user?.email ?? (kind === "institution" ? "Institution account" : "Individual account")}</span>
+              </div>
+
+              {kind === "institution" ? (
+                <>
+                  <Link to="/inst/profile" className="pp-account-menu-row" onClick={() => setAccountOpen(false)}>
+                    <Building2 size={16} />
+                    <span>Organisation profile</span>
+                  </Link>
+                  <Link to="/inst/settings" className="pp-account-menu-row" onClick={() => setAccountOpen(false)}>
+                    <SettingsIcon size={16} />
+                    <span>Settings</span>
+                  </Link>
+                </>
+              ) : (
+                <Link to="/me" className="pp-account-menu-row" onClick={() => setAccountOpen(false)}>
+                  <UserRound size={16} />
+                  <span>Your profile</span>
+                </Link>
+              )}
+
+              <button type="button" className="pp-account-menu-row" onClick={toggleTheme}>
+                {resolvedTheme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
+                <span>Appearance</span>
+                <small>{resolvedTheme === "dark" ? "Dark" : "Light"}</small>
+              </button>
+
+              <div className="pp-account-menu-divider" />
+              <button
+                type="button"
+                className="pp-account-menu-row pp-account-menu-danger"
+                disabled={signingOut}
+                onClick={() => void logout()}
+              >
+                <LogOut size={16} />
+                <span>{signingOut ? "Signing out…" : "Sign out"}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

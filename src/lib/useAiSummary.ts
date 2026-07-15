@@ -12,10 +12,10 @@ interface AiSummaryState {
  * Returns an AI-generated summary for a release via the `summarize` Edge
  * Function (Gemini, server-side). Falls back to the provided canned summary when
  * Supabase/AI isn't configured or the call fails — so the panel always shows
- * something. `bodyText` provides extra source text for demo releases that have
- * no stored body (real releases are summarised from their DB body server-side).
+ * something. The Edge Function reads the source release through the caller's
+ * RLS-scoped session; caller-supplied document text is never sent to the model.
  */
-export function useAiSummary(release: Release, fallback: string, bodyText?: string): AiSummaryState {
+export function useAiSummary(release: Release, fallback: string, _bodyText?: string): AiSummaryState {
   const [summary, setSummary] = useState(fallback);
   const [loading, setLoading] = useState(false);
   const [isAi, setIsAi] = useState(false);
@@ -35,9 +35,6 @@ export function useAiSummary(release: Release, fallback: string, bodyText?: stri
       .invoke("summarize", {
         body: {
           releaseId: release.id,
-          heading: release.heading,
-          subheading: release.subheading,
-          body: bodyText ?? "",
         },
       })
       .then(

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, BadgeCheck } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { BadgeCheck } from "lucide-react";
 
 /** Blue verified check used beside institution + user names. */
 export function Verified({ size = 15 }: { size?: number }) {
@@ -57,59 +56,6 @@ export function ProgressBar({
 /** Tag chip shown under release headings. */
 export function Tag({ children }: { children: ReactNode }) {
   return <span className="pp-tag">{children}</span>;
-}
-
-/** A muted "View all →" / "View full →" link (inert by default in the demo). */
-export function SectionLink({
-  children = "View all",
-  onClick,
-}: {
-  children?: ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <button className="pp-link-muted" onClick={onClick} type="button">
-      {children}
-      <ArrowRight size={14} />
-    </button>
-  );
-}
-
-/**
- * Visible-but-inert control. The SoW requires every non-wired control to be
- * present and to *never* error or dead-end. This wraps such controls so a click
- * is a guaranteed no-op (it just stops propagation).
- */
-export function Inert({
-  children,
-  className,
-  title,
-  as = "button",
-  style,
-}: {
-  children: ReactNode;
-  className?: string;
-  title?: string;
-  as?: "button" | "div" | "span";
-  style?: React.CSSProperties;
-}) {
-  const handle = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  if (as === "button") {
-    return (
-      <button type="button" className={className} title={title} onClick={handle} style={style}>
-        {children}
-      </button>
-    );
-  }
-  const Tag = as;
-  return (
-    <Tag className={cn(className)} title={title} onClick={handle} style={style}>
-      {children}
-    </Tag>
-  );
 }
 
 /** A small icon + value metric line (used in dashboards). */

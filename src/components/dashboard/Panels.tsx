@@ -1,7 +1,14 @@
 import type { ReactNode } from "react";
-import { Sparkline } from "@/components/charts/LineChart";
 import { Delta, ProgressBar } from "@/components/primitives/Bits";
-import { seededSeries, type Metric } from "@/data/analytics";
+
+/** Display configuration for a metric backed by a runtime data source. */
+export interface Metric {
+  label: string;
+  value: string;
+  delta: string;
+  positive: boolean;
+  color: string;
+}
 
 /** Page title block used at the top of every institution screen. */
 export function PageHeader({
@@ -16,7 +23,7 @@ export function PageHeader({
   return (
     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22, gap: 16 }}>
       <div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.025em" }}>{title}</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0" }}>{title}</h1>
         {subtitle && (
           <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 5 }}>{subtitle}</p>
         )}
@@ -61,24 +68,18 @@ export function Panel({
   );
 }
 
-/** Metric tile: label, big value, delta and a seeded sparkline. */
-export function MetricCard({ metric, rising = false }: { metric: Metric; rising?: boolean }) {
-  const data = seededSeries(metric.seriesSeed, 24, {
-    base: 50,
-    amp: 16,
-    trend: rising ? 30 : metric.positive ? 18 : -14,
-    noise: 7,
-  });
+/** Metric tile. Values are supplied by the page's runtime data source. */
+export function MetricCard({ metric }: { metric: Metric }) {
   return (
     <div className="pp-card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-      <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{metric.label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "var(--text-secondary)" }}>
+        <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: metric.color }} />
+        {metric.label}
+      </div>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em" }}>{metric.value}</span>
+        <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0" }}>{metric.value}</span>
       </div>
       <Delta value={metric.delta} positive={metric.positive} neutral={!/^[+-]/.test(metric.delta)} />
-      <div style={{ marginTop: 2 }}>
-        <Sparkline data={data} color={metric.color} height={36} />
-      </div>
     </div>
   );
 }
@@ -152,7 +153,7 @@ export function StatTile({
         {icon}
         <span style={{ fontSize: 12.5 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.02em" }}>{value}</div>
+      <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: "0" }}>{value}</div>
       {delta && <Delta value={delta} positive={positive} neutral={neutral} />}
     </div>
   );

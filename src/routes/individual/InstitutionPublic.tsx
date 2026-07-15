@@ -1,31 +1,36 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import { Globe, MapPin, ArrowUpRight, FileText } from "lucide-react";
+import { AlertCircle, Globe, MapPin, ArrowUpRight, FileText } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { Verified } from "@/components/primitives/Bits";
-import { inst } from "@/data/institutions";
-import { PROFILE_RELEASES, FEED_RELEASES, EXPLORE_RELEASES, SAVED_RELEASES } from "@/data/releases";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease, formatCount } from "@/lib/releaseMap";
-import type { Release } from "@/types";
+import type { Institution, Release } from "@/types";
+import { useReaderShellKind } from "@/lib/useReaderShellKind";
+import { externalUrlLabel, safeExternalUrl } from "@/lib/externalUrl";
+import type { PublicInstitutionRow } from "@/lib/usePublicInstitutions";
+import { useAuth } from "@/auth/AuthProvider";
+import { PublicFooter, PublicHeader } from "@/components/shells/PublicChrome";
 
 const TABS = ["Releases", "About", "Activity"];
 
-// All static releases, deduped — used to show each institution ONLY its own.
-const ALL_STATIC = (() => {
-  const seen = new Set<string>();
-  const out: Release[] = [];
-  for (const r of [...FEED_RELEASES, ...EXPLORE_RELEASES, ...PROFILE_RELEASES, ...SAVED_RELEASES]) {
-    if (!seen.has(r.id)) {
-      seen.add(r.id);
-      out.push(r);
-    }
-  }
-  return out;
-})();
+function institutionFromRow(row: PublicInstitutionRow): Institution {
+  return {
+    slug: row.slug,
+    name: row.name,
+    category: row.category,
+    verified: row.verified === true,
+    color: "#2563eb",
+    color2: "#4338ca",
+    mark: "generic",
+    website: row.website || undefined,
+    location: row.location || undefined,
+    description: row.description || undefined,
+  };
+}
 
 function HeaderStat({ value, label }: { value: string; label: string }) {
   return (
@@ -36,15 +41,45 @@ function HeaderStat({ value, label }: { value: string; label: string }) {
   );
 }
 
+function InstitutionShell({ children, kind, maxWidth }: { children: React.ReactNode; kind: "institution" | "individual"; maxWidth: number }) {
+  const { configured, user } = useAuth();
+  if (configured && !user) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#000" }}>
+        <PublicHeader />
+        <main style={{ width: "100%", maxWidth, margin: "0 auto", padding: "36px 28px 64px" }}>{children}</main>
+        <PublicFooter />
+      </div>
+    );
+  }
+  return <AppShell kind={kind} maxWidth={maxWidth}>{children}</AppShell>;
+}
+
+type InstitutionLookup = {
+  slug: string;
+  status: "idle" | "loading" | "ready" | "error";
+  institution: Institution | null;
+  releases: Release[];
+  followers: number | null;
+  releaseCount: number | null;
+};
+
 export function InstitutionPublic() {
-  const { slug = "welsh-government" } = useParams();
-  const i = inst(slug);
-  const following = useAppStore((s) => s.followedSlugs.has(i.slug));
+  const { slug = "" } = useParams();
+  const { configured, user } = useAuth();
+  const shellKind = useReaderShellKind();
+  const following = useAppStore((s) => s.followedSlugs.has(slug));
   const toggleFollow = useAppStore((s) => s.toggleFollow);
   const pushToast = useAppStore((s) => s.pushToast);
-
-  const staticReleases = ALL_STATIC.filter((r) => r.institutionSlug === slug);
-  const [liveReleases, setLiveReleases] = useState<Release[]>([]);
+  const [retryKey, setRetryKey] = useState(0);
+  const [lookup, setLookup] = useState<InstitutionLookup>({
+    slug: "",
+    status: "idle",
+    institution: null,
+    releases: [],
+    followers: null,
+    releaseCount: null,
+  });
   const [params, setParams] = useSearchParams();
   const tabParam = (params.get("tab") || "releases").toLowerCase();
   const tab = tabParam === "about" ? "About" : tabParam === "activity" ? "Activity" : "Releases";
@@ -53,45 +88,112 @@ export function InstitutionPublic() {
     p.set("tab", t.toLowerCase());
     setParams(p);
   };
-  const [liveFollowers, setLiveFollowers] = useState<number | null>(null);
-
   // LIVE: this institution's real published releases + real follower count.
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase || !slug) {
+      setLookup({ slug, status: "ready", institution: null, releases: [], followers: null, releaseCount: null });
+      return;
+    }
     let active = true;
-    supabase
-      .from("releases")
-      .select("*")
-      .eq("institution_slug", slug)
-      .eq("status", "Published")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (active && data) setLiveReleases((data as ReleaseRow[]).map(rowToRelease));
-      });
-    supabase
-      .from("institution_stats")
-      .select("followers_count")
-      .eq("slug", slug)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (active) setLiveFollowers((data as { followers_count: number } | null)?.followers_count ?? 0);
-      });
+    setLookup({ slug, status: "loading", institution: null, releases: [], followers: null, releaseCount: null });
+    Promise.all([
+      supabase.rpc("public_institution", { p_slug: slug }),
+      supabase
+        .from("release_details")
+        .select("*")
+        .eq("institution_slug", slug)
+        .eq("status", "Published")
+        .eq("moderation_status", "active")
+        .eq("institution_verified", true)
+        .order("published_at", { ascending: false }),
+    ]).then(
+      ([institutionResult, releaseResult]) => {
+        if (!active) return;
+        if (institutionResult.error || releaseResult.error) {
+          setLookup({ slug, status: "error", institution: null, releases: [], followers: null, releaseCount: null });
+          return;
+        }
+        const institutionRow = ((institutionResult.data as PublicInstitutionRow[] | null) ?? [])[0] ?? null;
+        setLookup({
+          slug,
+          status: "ready",
+          institution: institutionRow ? institutionFromRow(institutionRow) : null,
+          releases: ((releaseResult.data as ReleaseRow[] | null) ?? []).map(rowToRelease),
+          followers: institutionRow ? Number(institutionRow.followers_count) || 0 : null,
+          releaseCount: institutionRow ? Number(institutionRow.releases_count) || 0 : null,
+        });
+      },
+      () => {
+        if (active) setLookup({ slug, status: "error", institution: null, releases: [], followers: null, releaseCount: null });
+      }
+    );
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, retryKey]);
+
+  const current = lookup.slug === slug
+    ? lookup
+    : { slug, status: "loading" as const, institution: null, releases: [], followers: null, releaseCount: null };
+  const liveReleases = current.releases;
+  const liveFollowers = current.followers;
+  const liveReleaseCount = current.releaseCount;
+  const i = current.institution;
 
   const seen = new Set<string>();
-  const releases = [...liveReleases, ...staticReleases].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+  const releases = liveReleases
+    .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
 
   const onFollow = () => {
+    if (!i) return;
     const now = toggleFollow(i.slug);
-    if (liveFollowers !== null) setLiveFollowers((c) => (c ?? 0) + (now ? 1 : -1));
+    if (liveFollowers !== null) {
+      setLookup((state) => state.slug === slug
+        ? { ...state, followers: Math.max(0, (state.followers ?? 0) + (now ? 1 : -1)) }
+        : state
+      );
+    }
     pushToast({ title: now ? `Following ${i.name}` : `Unfollowed ${i.name}`, variant: now ? "success" : "info" });
   };
 
+  if (!i) {
+    if (current.status === "loading") {
+      return (
+        <InstitutionShell kind={shellKind} maxWidth={900}>
+          <div style={{ minHeight: "60vh", display: "grid", placeItems: "center" }} role="status" aria-label="Loading institution">
+            <div style={{ width: 28, height: 28, borderRadius: 999, border: "3px solid var(--surface-3)", borderTopColor: "var(--blue)", animation: "pp-spin 0.8s linear infinite" }} />
+          </div>
+        </InstitutionShell>
+      );
+    }
+    const failed = current.status === "error";
+    return (
+      <InstitutionShell kind={shellKind} maxWidth={760}>
+        <div className="pp-card" style={{ minHeight: 320, display: "grid", placeItems: "center", padding: 32, textAlign: "center" }}>
+          <div>
+            <AlertCircle size={32} color="var(--text-muted)" style={{ marginBottom: 12 }} />
+            <h1 style={{ fontSize: 20, fontWeight: 700 }}>{failed ? "Couldn't load this institution" : "Institution not found"}</h1>
+            <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 8 }}>
+              {failed ? "Check your connection and try again." : "This institution does not exist or is no longer available."}
+            </p>
+            {failed && (
+              <button type="button" onClick={() => setRetryKey((value) => value + 1)} className="pp-btn pp-btn-primary" style={{ marginTop: 18 }}>
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
+      </InstitutionShell>
+    );
+  }
+
+  const websiteUrl = safeExternalUrl(i.website);
+  const websiteLabel = websiteUrl ? externalUrlLabel(websiteUrl) : null;
+  const followerLabel = formatCount(liveFollowers ?? 0);
+  const releaseLabel = String(liveReleaseCount ?? releases.length);
+
   return (
-    <AppShell kind="individual" maxWidth={900}>
+    <InstitutionShell kind={shellKind} maxWidth={900}>
       {/* header */}
       <div className="pp-card" style={{ overflow: "hidden" }}>
         <div
@@ -109,26 +211,32 @@ export function InstitutionPublic() {
               <InstitutionMark institution={i} size={84} shape="square" />
             </div>
             <div style={{ display: "flex", gap: 10, paddingBottom: 6 }}>
-              <button type="button" onClick={(e) => e.preventDefault()} className="pp-btn pp-btn-ghost">
-                <Globe size={15} /> Visit website
-              </button>
-              <button
-                type="button"
-                onClick={onFollow}
-                className={following ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-blue"}
-                style={{ minWidth: 104 }}
-              >
-                {following ? "Following" : "Follow"}
-              </button>
+              {websiteUrl && (
+                <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="pp-btn pp-btn-ghost">
+                  <Globe size={15} /> Visit website
+                </a>
+              )}
+              {configured && !user ? (
+                <Link to={`/login?next=${encodeURIComponent(`/institution/${i.slug}`)}`} className="pp-btn pp-btn-blue" style={{ minWidth: 104 }}>
+                  Follow
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onFollow}
+                  className={following ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-blue"}
+                  style={{ minWidth: 104 }}
+                >
+                  {following ? "Following" : "Follow"}
+                </button>
+              )}
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
-            <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "-0.02em" }}>{i.name}</h1>
-            <Verified size={17} />
+            <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "0" }}>{i.name}</h1>
+            {i.verified && <Verified size={17} />}
           </div>
-          {i.subName && <div style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 2 }}>{i.subName}</div>}
-
           <div style={{ display: "flex", gap: 18, marginTop: 12, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{i.category}</span>
             {i.location && (
@@ -136,16 +244,16 @@ export function InstitutionPublic() {
                 <MapPin size={14} /> {i.location}
               </span>
             )}
-            {i.website && (
-              <a href={`https://${i.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--blue)" }}>
-                {i.website} <ArrowUpRight size={13} />
+            {websiteUrl && websiteLabel && (
+              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--blue)" }}>
+                {websiteLabel} <ArrowUpRight size={13} />
               </a>
             )}
           </div>
 
           <div style={{ display: "flex", gap: 26, marginTop: 18 }}>
-            <HeaderStat value={formatCount(liveFollowers ?? 0)} label="followers" />
-            <HeaderStat value={String(releases.length)} label="releases" />
+            <HeaderStat value={followerLabel} label="followers" />
+            <HeaderStat value={releaseLabel} label="releases" />
           </div>
         </div>
       </div>
@@ -192,16 +300,16 @@ export function InstitutionPublic() {
       {tab === "About" && (
         <div className="pp-card" style={{ padding: 22 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>About {i.name}</h2>
+          {i.description && <p style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.65, marginBottom: 18 }}>{i.description}</p>}
           <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 12, columnGap: 18, fontSize: 14 }}>
-            {i.subName && (<><dt style={aboutDt}>Also known as</dt><dd style={aboutDd}>{i.subName}</dd></>)}
             <dt style={aboutDt}>Category</dt><dd style={aboutDd}>{i.category}</dd>
             {i.location && (<><dt style={aboutDt}>Location</dt><dd style={aboutDd}>{i.location}</dd></>)}
-            {i.website && (
+            {websiteUrl && websiteLabel && (
               <>
                 <dt style={aboutDt}>Website</dt>
                 <dd style={aboutDd}>
-                  <a href={`https://${i.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue)" }}>
-                    {i.website.replace(/^https?:\/\//, "")}
+                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue)" }}>
+                    {websiteLabel}
                   </a>
                 </dd>
               </>
@@ -209,9 +317,9 @@ export function InstitutionPublic() {
             <dt style={aboutDt}>Verification</dt>
             <dd style={aboutDd}>{i.verified ? "Verified institution" : "Unverified"}</dd>
             <dt style={aboutDt}>Followers</dt>
-            <dd style={aboutDd}>{(liveFollowers ?? 0).toLocaleString()}</dd>
+            <dd style={aboutDd}>{followerLabel}</dd>
             <dt style={aboutDt}>Releases</dt>
-            <dd style={aboutDd}>{releases.length}</dd>
+            <dd style={aboutDd}>{releaseLabel}</dd>
           </dl>
         </div>
       )}
@@ -239,7 +347,7 @@ export function InstitutionPublic() {
           </div>
         )
       )}
-    </AppShell>
+    </InstitutionShell>
   );
 }
 

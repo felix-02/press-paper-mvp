@@ -1,23 +1,14 @@
 import { create } from "zustand";
-import type { Release } from "@/types";
-import { HERO_RELEASE_ID, SAVED_RELEASES } from "@/data/releases";
-import { FOLLOWED_SLUGS } from "@/data/institutions";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { track } from "@/lib/analytics";
+import { supabase } from "@/lib/supabase";
 
 // -----------------------------------------------------------------------------
-// Session store.
+// Application UI store.
 //
-// In DEMO mode (no Supabase) the saved/followed sets are seeded so the app is
-// lively offline, and toggles stay in memory.
-//
-// In LIVE mode the sets are HYDRATED from Postgres on login and every toggle is
+// Sets are hydrated from Postgres on login and every toggle is
 // written back to the `saved_releases` / `follows` tables, so saves and follows
 // persist across sessions and devices. The UI reads these sets, so the sidebar,
 // profile, counts and buttons everywhere reflect the real data.
 // -----------------------------------------------------------------------------
-
-export type Identity = "institution" | "individual" | null;
 
 interface Toast {
   id: number;
@@ -27,18 +18,12 @@ interface Toast {
 }
 
 interface AppState {
-  identity: Identity;
-  enterAs: (id: Exclude<Identity, null>) => void;
   reset: () => void;
 
   // live-session binding
   userId: string | null;
   setUserId: (id: string | null) => void;
   hydrate: (data: { saved: string[]; followed: string[] }) => void;
-
-  // FLOW A — releases published during a DEMO session (live mode uses the DB)
-  publishedReleases: Release[];
-  publishRelease: (r: Release) => void;
 
   // saved + followed
   savedIds: Set<string>;
@@ -61,23 +46,31 @@ interface AppState {
 }
 
 let toastSeq = 1;
+const savedWrites = new Map<string, Promise<void>>();
+const followWrites = new Map<string, Promise<void>>();
 
-// Seeds are only used in DEMO mode (no backend).
-const seededSaved = new Set<string>([HERO_RELEASE_ID, ...SAVED_RELEASES.map((r) => r.id)]);
-const seededFollowed = new Set<string>(FOLLOWED_SLUGS);
+function enqueueWrite(queue: Map<string, Promise<void>>, key: string, task: () => Promise<void>) {
+  const previous = queue.get(key) ?? Promise.resolve();
+  const current = previous.catch(() => {}).then(task);
+  queue.set(key, current);
+  const cleanup = () => {
+    if (queue.get(key) === current) queue.delete(key);
+  };
+  void current.then(cleanup, cleanup);
+}
 
-const initialSaved = () => (isSupabaseConfigured ? new Set<string>() : new Set(seededSaved));
-const initialFollowed = () => (isSupabaseConfigured ? new Set<string>() : new Set(seededFollowed));
+const initialSaved = () => new Set<string>();
+const initialFollowed = () => new Set<string>();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  identity: null,
-  enterAs: (id) => set({ identity: id }),
   reset: () =>
     set({
-      identity: null,
-      publishedReleases: [],
+      userId: null,
       savedIds: initialSaved(),
       followedSlugs: initialFollowed(),
+      watchlists: [],
+      watchlistItems: {},
+      toasts: [],
     }),
 
   userId: null,
@@ -85,25 +78,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrate: ({ saved, followed }) =>
     set({ savedIds: new Set(saved), followedSlugs: new Set(followed) }),
 
-  publishedReleases: [],
-  publishRelease: (r) => set((s) => ({ publishedReleases: [r, ...s.publishedReleases] })),
-
   savedIds: initialSaved(),
   toggleSaved: (id) => {
+    const uid = get().userId;
+    if (!supabase || !uid) {
+      get().pushToast({ title: "Sign in to save releases", variant: "info" });
+      return get().savedIds.has(id);
+    }
     const next = new Set(get().savedIds);
     const nowSaved = !next.has(id);
     if (nowSaved) next.add(id);
     else next.delete(id);
     set({ savedIds: next });
-    track(nowSaved ? "release_saved" : "release_unsaved", { releaseId: id });
 
-    const uid = get().userId;
-    if (isSupabaseConfigured && supabase && uid) {
-      if (nowSaved) {
-        void supabase.from("saved_releases").upsert({ user_id: uid, release_id: id }).then(noop, noop);
-      } else {
-        void supabase.from("saved_releases").delete().eq("user_id", uid).eq("release_id", id).then(noop, noop);
-      }
+    if (supabase && uid) {
+      const client = supabase;
+      const rollback = () => {
+        if (get().userId !== uid || get().savedIds.has(id) !== nowSaved) return;
+        const restored = new Set(get().savedIds);
+        if (nowSaved) restored.delete(id);
+        else restored.add(id);
+        set({ savedIds: restored });
+        get().pushToast({ title: "Couldn't update saved releases", description: "Your previous state has been restored.", variant: "info" });
+      };
+      enqueueWrite(savedWrites, `${uid}:${id}`, async () => {
+        try {
+          const { error } = nowSaved
+            ? await client.from("saved_releases").upsert(
+                { user_id: uid, release_id: id },
+                { onConflict: "user_id,release_id", ignoreDuplicates: true }
+              )
+            : await client.from("saved_releases").delete().eq("user_id", uid).eq("release_id", id);
+          if (error) rollback();
+        } catch {
+          rollback();
+        }
+      });
     }
     return nowSaved;
   },
@@ -111,20 +121,40 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   followedSlugs: initialFollowed(),
   toggleFollow: (slug) => {
+    const uid = get().userId;
+    if (!supabase || !uid) {
+      get().pushToast({ title: "Sign in to follow institutions", variant: "info" });
+      return get().followedSlugs.has(slug);
+    }
     const next = new Set(get().followedSlugs);
     const nowFollowing = !next.has(slug);
     if (nowFollowing) next.add(slug);
     else next.delete(slug);
     set({ followedSlugs: next });
-    track(nowFollowing ? "institution_followed" : "institution_unfollowed", { slug });
 
-    const uid = get().userId;
-    if (isSupabaseConfigured && supabase && uid) {
-      if (nowFollowing) {
-        void supabase.from("follows").upsert({ follower: uid, institution_slug: slug }).then(noop, noop);
-      } else {
-        void supabase.from("follows").delete().eq("follower", uid).eq("institution_slug", slug).then(noop, noop);
-      }
+    if (supabase && uid) {
+      const client = supabase;
+      const rollback = () => {
+        if (get().userId !== uid || get().followedSlugs.has(slug) !== nowFollowing) return;
+        const restored = new Set(get().followedSlugs);
+        if (nowFollowing) restored.delete(slug);
+        else restored.add(slug);
+        set({ followedSlugs: restored });
+        get().pushToast({ title: "Couldn't update followed institutions", description: "Your previous state has been restored.", variant: "info" });
+      };
+      enqueueWrite(followWrites, `${uid}:${slug}`, async () => {
+        try {
+          const { error } = nowFollowing
+            ? await client.from("follows").upsert(
+                { follower: uid, institution_slug: slug },
+                { onConflict: "follower,institution_slug", ignoreDuplicates: true }
+              )
+            : await client.from("follows").delete().eq("follower", uid).eq("institution_slug", slug);
+          if (error) rollback();
+        } catch {
+          rollback();
+        }
+      });
     }
     return nowFollowing;
   },
@@ -142,7 +172,3 @@ export const useAppStore = create<AppState>((set, get) => ({
   watchlistItems: {},
   setWatchlistData: (watchlists, watchlistItems) => set({ watchlists, watchlistItems }),
 }));
-
-function noop() {
-  /* fire-and-forget DB writes; UI already updated optimistically */
-}

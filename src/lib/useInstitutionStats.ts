@@ -15,6 +15,7 @@ export interface InstitutionStats {
   followers: number;
   viewSeries: number[];
   rangeViews: number;
+  error: string | null;
 }
 
 const EMPTY: InstitutionStats = {
@@ -30,13 +31,14 @@ const EMPTY: InstitutionStats = {
   followers: 0,
   viewSeries: [],
   rangeViews: 0,
+  error: null,
 };
 
 /**
  * Real, derived analytics for the signed-in institution: counts, totals, the
  * follower count and the full release list (for recent/top widgets). `days`
- * controls the view time-series window. Returns `live: false` in demo mode so
- * screens can fall back to illustrative data.
+ * controls the view time-series window. Empty/loading states never substitute
+ * illustrative business data.
  */
 export function useInstitutionStats(days = 30): InstitutionStats {
   const { configured, user, profile } = useAuth();
@@ -47,15 +49,24 @@ export function useInstitutionStats(days = 30): InstitutionStats {
       setStats(EMPTY);
       return;
     }
+    const slug = profile?.institution_slug;
+    if (!slug) {
+      setStats({ ...EMPTY, loaded: true, live: true });
+      return;
+    }
     let active = true;
-    const slug = profile?.institution_slug ?? "welsh-government";
+    setStats({ ...EMPTY, live: true });
 
     Promise.all([
-      supabase.from("releases").select("*").eq("owner", user.id).order("created_at", { ascending: false }),
+      supabase.from("release_details").select("*").eq("institution_slug", slug).order("created_at", { ascending: false }),
       supabase.from("institution_stats").select("followers_count").eq("slug", slug).maybeSingle(),
       supabase.rpc("institution_view_series", { days }),
     ]).then(([rel, stat, series]) => {
       if (!active) return;
+      if (rel.error || stat.error || series.error) {
+        setStats({ ...EMPTY, loaded: true, live: true, error: "We couldn't load organisation analytics." });
+        return;
+      }
       const list = ((rel.data as ReleaseRow[] | null) ?? []);
       const seriesRows = (series.data as { day: string; views: number | string }[] | null) ?? [];
       const seriesNums = seriesRows.map((r) => Number(r.views) || 0);
@@ -72,6 +83,7 @@ export function useInstitutionStats(days = 30): InstitutionStats {
         followers: (stat.data as { followers_count: number } | null)?.followers_count ?? 0,
         viewSeries: seriesNums,
         rangeViews: seriesNums.reduce((a, n) => a + n, 0),
+        error: null,
       });
     });
 

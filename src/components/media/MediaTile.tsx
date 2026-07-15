@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import type { MediaScene } from "@/types";
 
 // Which scenes are "video" (show a play affordance and can play a clip) vs a
@@ -12,14 +12,10 @@ export const VIDEO_SCENES: ReadonlySet<MediaScene> = new Set<MediaScene>([
 ]);
 export const isVideoScene = (s: MediaScene) => VIDEO_SCENES.has(s);
 
-// A short, CORS-friendly sample clip used as a placeholder for video media.
-const SAMPLE_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
-
 // ---------------------------------------------------------------------------
-// Media is represented by tasteful, hand-built gradient + silhouette "scenes".
-// This is a deliberate choice (documented): it keeps the prototype fully
-// offline with zero binary assets, renders instantly, and looks identical in
-// every demo — while still giving each release a distinct, photographic feel.
+// Media is represented by lightweight, hand-built gradient + silhouette scenes.
+// They render instantly without third-party asset dependencies while giving
+// each publisher-selected cover a distinct visual character.
 // ---------------------------------------------------------------------------
 
 type Stop = [string, string]; // [color, offset%]
@@ -327,7 +323,7 @@ export function MediaTile({
   scene: MediaScene;
   radius?: number;
   play?: boolean;
-  /** When true and the scene is a video, clicking the tile plays an inline clip. */
+  /** Plays a self-contained animated preview for motion-enabled scenes. */
   playable?: boolean;
   playPos?: "bottom-left" | "center";
   className?: string;
@@ -339,29 +335,19 @@ export function MediaTile({
   const [playing, setPlaying] = useState(false);
   const canPlay = playable && video;
 
-  if (playing) {
-    return (
-      <div
-        className={className}
-        style={{ position: "relative", width: "100%", height: "100%", borderRadius: radius, overflow: "hidden", background: "#000", ...style }}
-      >
-        <video
-          src={SAMPLE_VIDEO}
-          autoPlay
-          controls
-          playsInline
-          onEnded={() => setPlaying(false)}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       className={className}
-      onClick={canPlay ? () => setPlaying(true) : undefined}
+      onClick={canPlay ? () => setPlaying((value) => !value) : undefined}
+      onKeyDown={canPlay ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setPlaying((value) => !value);
+        }
+      } : undefined}
       role={canPlay ? "button" : undefined}
+      tabIndex={canPlay ? 0 : undefined}
+      aria-label={canPlay ? (playing ? "Pause media preview" : "Play media preview") : undefined}
       style={{
         position: "relative",
         width: "100%",
@@ -377,7 +363,7 @@ export function MediaTile({
         preserveAspectRatio="xMidYMid slice"
         width="100%"
         height="100%"
-        style={{ display: "block" }}
+        style={{ display: "block", animation: playing ? "pp-media-preview 5s ease-in-out infinite alternate" : undefined }}
         aria-hidden
       >
         <defs>
@@ -393,7 +379,7 @@ export function MediaTile({
       </svg>
 
       {/* Play button only for video scenes. */}
-      {play && video && <PlayButton position={playPos} />}
+      {play && video && <PlayButton position={playPos} playing={playing} />}
     </div>
   );
 }
@@ -401,9 +387,11 @@ export function MediaTile({
 export function PlayButton({
   position = "bottom-left",
   size = 44,
+  playing = false,
 }: {
   position?: "bottom-left" | "center";
   size?: number;
+  playing?: boolean;
 }) {
   const pos: React.CSSProperties =
     position === "center"
@@ -426,7 +414,9 @@ export function PlayButton({
         border: "1px solid rgba(255,255,255,0.18)",
       }}
     >
-      <Play size={size * 0.4} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />
+      {playing
+        ? <Pause size={size * 0.4} fill="#fff" color="#fff" />
+        : <Play size={size * 0.4} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />}
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Twitter, Linkedin, Github, Youtube } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 
 /** Top bar for the pure-black public pages (landing, sources). */
@@ -16,6 +15,7 @@ export function PublicHeader() {
       }}
     >
       <div
+        className="pp-public-header-inner"
         style={{
           maxWidth: 1200,
           margin: "0 auto",
@@ -27,20 +27,21 @@ export function PublicHeader() {
         }}
       >
         <Logo size={20} to="/" />
-        <nav style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <nav className="pp-public-nav" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Link
+            className="pp-public-secondary"
             to="/sources"
             style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
           >
             Explore Sources
           </Link>
-          <button
-            type="button"
-            onClick={(e) => e.preventDefault()}
+          <a
+            className="pp-public-secondary"
+            href="mailto:hello@presspaper.ai?subject=Institution%20access%20request"
             style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
           >
             For Institutions
-          </button>
+          </a>
           <Link to="/login" className="pp-btn pp-btn-ghost" style={{ marginLeft: 6 }}>
             Log In
           </Link>
@@ -53,22 +54,35 @@ export function PublicHeader() {
   );
 }
 
-const FOOTER_COLS: { title: string; links: string[] }[] = [
-  { title: "Platform", links: ["For Institutions", "For Individuals", "Explore Sources", "Pricing"] },
-  { title: "Company", links: ["About", "Careers", "Press", "Contact"] },
-  { title: "Resources", links: ["Help Centre", "Guidelines", "Developers", "Status"] },
-  { title: "Legal", links: ["Privacy", "Terms", "Cookies", "Security"] },
+const FOOTER_COLS: { title: string; links: { label: string; to?: string; href?: string }[] }[] = [
+  {
+    title: "Platform",
+    links: [
+      { label: "Explore Sources", to: "/sources" },
+      { label: "Create account", to: "/signup" },
+      { label: "Log in", to: "/login" },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { label: "Help Centre", to: "/help" },
+      { label: "Institution access", href: "mailto:hello@presspaper.ai?subject=Institution%20access%20request" },
+      { label: "Contact", href: "mailto:hello@presspaper.ai" },
+    ],
+  },
 ];
 
-/** Footer for the public pages. All links are presentational. */
+/** Footer for the public pages with only routes and contact actions that work. */
 export function PublicFooter() {
   return (
     <footer style={{ borderTop: "1px solid var(--border-faint)", background: "#000" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 28px 28px" }}>
         <div
+          className="pp-footer-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "1.6fr repeat(4, 1fr)",
+            gridTemplateColumns: "1.6fr repeat(2, 1fr)",
             gap: 32,
           }}
         >
@@ -86,27 +100,6 @@ export function PublicFooter() {
               The home for verified public information. Read official releases
               straight from the institutions that issue them.
             </p>
-            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-              {[Twitter, Linkedin, Github, Youtube].map((Icon, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={(e) => e.preventDefault()}
-                  aria-label="Social link"
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 999,
-                    border: "1px solid var(--border)",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  <Icon size={15} />
-                </button>
-              ))}
-            </div>
           </div>
 
           {FOOTER_COLS.map((col) => (
@@ -115,7 +108,7 @@ export function PublicFooter() {
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  letterSpacing: "0.04em",
+                  letterSpacing: "0",
                   textTransform: "uppercase",
                   color: "var(--text-faint)",
                   marginBottom: 14,
@@ -124,19 +117,10 @@ export function PublicFooter() {
                 {col.title}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {col.links.map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={(e) => e.preventDefault()}
-                    style={{
-                      textAlign: "left",
-                      fontSize: 13.5,
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    {l}
-                  </button>
+                {col.links.map((link) => link.to ? (
+                  <Link key={link.label} to={link.to} style={{ textAlign: "left", fontSize: 13.5, color: "var(--text-secondary)" }}>{link.label}</Link>
+                ) : (
+                  <a key={link.label} href={link.href} style={{ textAlign: "left", fontSize: 13.5, color: "var(--text-secondary)" }}>{link.label}</a>
                 ))}
               </div>
             </div>

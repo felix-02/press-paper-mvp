@@ -1,12 +1,25 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Read at build time. When both are present the app runs in LIVE mode (real auth
-// + Postgres). When absent it falls back to DEMO mode (in-memory, offline) so the
-// single-file pitch build keeps working with no backend.
+// Runtime data is always Supabase-backed. Tests deliberately run without a
+// client so pure UI and mapping logic can be verified in isolation.
+const isTestMode = import.meta.env.MODE === "test";
+const requestedMode = isTestMode ? "test" : (import.meta.env.VITE_APP_MODE as string | undefined)?.toLowerCase() ?? "live";
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = Boolean(url && anonKey);
+if (!isTestMode && requestedMode !== "live") {
+  throw new Error('VITE_APP_MODE must be "live". Only database-backed runtime mode is supported.');
+}
+
+if (Boolean(url) !== Boolean(anonKey)) {
+  throw new Error("VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be configured together.");
+}
+
+if (!isTestMode && (!url || !anonKey)) {
+  throw new Error("Supabase is required. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+}
+
+export const isSupabaseConfigured = !isTestMode && Boolean(url && anonKey);
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(url as string, anonKey as string, {
@@ -34,4 +47,8 @@ export interface ReleaseRow {
   created_at: string;
   views?: number;
   comments_count?: number;
+  institution_verified?: boolean;
+  moderation_status?: "active" | "archived" | "deleted";
+  moderation_reason?: string | null;
+  moderation_changed_at?: string | null;
 }

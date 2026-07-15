@@ -6,10 +6,12 @@ export function LanguageMenu({
   value,
   onChange,
   busy,
+  languages = LANGUAGES,
 }: {
   value: string;
   onChange: (lang: string) => void;
   busy?: boolean;
+  languages?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -23,7 +25,7 @@ export function LanguageMenu({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const filtered = LANGUAGES.filter((l) => l.toLowerCase().includes(q.trim().toLowerCase()));
+  const filtered = languages.filter((l) => l.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
     <div ref={ref} style={{ position: "relative" }}>

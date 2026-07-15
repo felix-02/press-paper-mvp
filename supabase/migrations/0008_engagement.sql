@@ -1,8 +1,7 @@
 -- Presspaper — public engagement counter (run after 0001–0007). Safe to re-run.
--- A view counter keyed by TEXT release id, so it works for BOTH real (uuid)
--- releases and the static demo releases. This powers the REAL "views" number
--- shown on release pages. (The uuid-based release_views table from 0004 still
--- feeds the institution analytics charts; this is the public-facing counter.)
+-- A public-facing view counter keyed by the release id. Final policy gates in
+-- later migrations accept only active, verified database release UUIDs. The
+-- uuid-based release_views table from 0004 feeds institution analytics.
 
 create table if not exists public.release_engagement (
   release_id  text primary key,

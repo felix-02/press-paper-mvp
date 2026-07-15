@@ -1,5 +1,4 @@
-// Domain types for the Presspaper demonstration prototype.
-// All content is static; these types describe its shape.
+// Domain types shared by the data-backed Presspaper application.
 
 export type ReleaseType =
   | "Announcement"
@@ -32,8 +31,6 @@ export type MediaScene =
 export interface Institution {
   slug: string;
   name: string;
-  /** Short Welsh / secondary line shown under some logos. */
-  subName?: string;
   category: string;
   verified: boolean;
   /** Brand colour used for the monogram emblem. */
@@ -41,31 +38,19 @@ export interface Institution {
   /** Optional second brand colour. */
   color2?: string;
   /** Visual emblem style for the InstitutionMark component. */
-  mark:
-    | "welsh-dragon"
-    | "cardiff"
-    | "swansea"
-    | "newport"
-    | "university"
-    | "world-bank"
-    | "parliament"
-    | "united-nations"
-    | "eu"
-    | "nhs"
-    | "natural-resources"
-    | "qualifications"
-    | "estyn"
-    | "imf"
-    | "oecd"
-    | "ecb"
-    | "generic";
+  mark: "generic";
   location?: string;
   website?: string;
+  description?: string;
 }
 
 export interface Release {
   id: string;
   institutionSlug: string;
+  /** Canonical attribution supplied by the database release row. */
+  institutionName?: string;
+  /** Verification state supplied by the database release view. */
+  institutionVerified?: boolean;
   type: ReleaseType;
   status: ReleaseStatus;
   heading: string;
@@ -82,10 +67,21 @@ export interface Release {
   views: string;
   comments: string;
   engagement?: string;
-  /** Full body content (HTML from the publish editor, when present). */
+  /** Full body content (sanitized rich HTML or plain text, when present). */
   body?: string | null;
-  /** Marks a release the user created during Flow A (rendered with a subtle "New" pill). */
+  /** Marks a release created recently (rendered with a subtle "New" pill). */
   isNew?: boolean;
+  /** Timestamp used for ordering and realtime buffering. */
+  createdAt?: number;
+  /** Supporting documents displayed with the release. */
+  attachments?: ReleaseAttachment[];
+}
+
+export interface ReleaseAttachment {
+  id: string;
+  name: string;
+  size: string;
+  format: "PDF" | "DOCX" | "XLSX";
 }
 
 export interface Comment {

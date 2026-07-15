@@ -6,38 +6,10 @@ import type { Institution } from "@/types";
 //
 // DESIGN DECISION (documented in DOCUMENTATION.md): real institutions own
 // trademarked logos we cannot reproduce. Instead every institution is rendered
-// as an *original* branded emblem — a gradient disc with a clean monogram, plus
-// a small curated set of geometric glyphs (a star-ring for the EU, a wireframe
-// globe for international bodies). This keeps the set coherent, premium and
-// unambiguous (the institution name always sits beside the mark) while making
-// no claim on anyone's trademark.
+// as an *original* branded emblem — a gradient disc with a clean monogram
+// derived from the database name. This keeps the set coherent, premium and
+// unambiguous without maintaining an embedded catalogue of organisations.
 // ---------------------------------------------------------------------------
-
-const ABBR: Record<string, string> = {
-  "welsh-government": "WG",
-  "world-bank": "WB",
-  "uk-parliament": "UK",
-  "united-nations": "UN",
-  "european-commission": "EC",
-  "cardiff-council": "CC",
-  "cardiff-university": "CU",
-  "swansea-university": "SU",
-  "public-health-wales": "PHW",
-  "natural-resources-wales": "NRW",
-  "swansea-council": "SC",
-  "newport-city-council": "NC",
-  "bangor-university": "BU",
-  "aberystwyth-university": "AU",
-  "qualifications-wales": "QW",
-  estyn: "Es",
-  "senedd-cymru": "SC",
-  "transport-for-wales": "TfW",
-  "welsh-parliament": "WP",
-  "welsh-revenue-authority": "WRA",
-  imf: "IMF",
-  oecd: "OECD",
-  ecb: "ECB",
-};
 
 /** Darken / lighten a hex colour by amt (−1..1). */
 function shade(hex: string, amt: number): string {
@@ -63,7 +35,6 @@ function shade(hex: string, amt: number): string {
 }
 
 function initials(institution: Institution): string {
-  if (ABBR[institution.slug]) return ABBR[institution.slug];
   const stop = new Set(["the", "of", "for", "and", "a"]);
   const letters = institution.name
     .split(/\s+/)
@@ -72,46 +43,6 @@ function initials(institution: Institution): string {
     .join("");
   return letters.slice(0, 3) || institution.name.slice(0, 2).toUpperCase();
 }
-
-/** Twelve-dot ring — evokes the EU circle of stars, drawn originally. */
-function StarRing({ color }: { color: string }) {
-  const dots = Array.from({ length: 12 }, (_, i) => {
-    const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-    return { x: 50 + Math.cos(a) * 26, y: 50 + Math.sin(a) * 26 };
-  });
-  return (
-    <g>
-      {dots.map((d, i) => (
-        <circle key={i} cx={d.x} cy={d.y} r="3.4" fill={color} />
-      ))}
-    </g>
-  );
-}
-
-/** Minimal wireframe globe — meridians + equator. */
-function Globe({ color }: { color: string }) {
-  return (
-    <g
-      fill="none"
-      stroke={color}
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      opacity={0.95}
-    >
-      <circle cx="50" cy="50" r="27" />
-      <line x1="23" y1="50" x2="77" y2="50" />
-      <ellipse cx="50" cy="50" rx="11" ry="27" />
-      <path d="M27 39 Q50 47 73 39" />
-      <path d="M27 61 Q50 53 73 61" />
-    </g>
-  );
-}
-
-const GLYPH: Record<string, "star-ring" | "globe"> = {
-  "european-commission": "star-ring",
-  "united-nations": "globe",
-  "world-bank": "globe",
-};
 
 export function InstitutionMark({
   institution,
@@ -125,7 +56,6 @@ export function InstitutionMark({
   const id = useId().replace(/[:]/g, "");
   const c1 = institution.color;
   const c2 = institution.color2 ?? shade(institution.color, -0.34);
-  const glyph = GLYPH[institution.slug];
   const text = initials(institution);
   const radius = shape === "circle" ? 50 : 26;
 
@@ -179,23 +109,19 @@ export function InstitutionMark({
         strokeWidth="1.5"
       />
 
-      {glyph === "star-ring" && <StarRing color="rgba(255,255,255,0.95)" />}
-      {glyph === "globe" && <Globe color="rgba(255,255,255,0.95)" />}
-      {!glyph && (
-        <text
-          x="50"
-          y="50"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontFamily="var(--font-sans)"
-          fontSize={fontSize}
-          fontWeight={700}
-          letterSpacing="-1"
-          fill="#fff"
-        >
-          {text}
-        </text>
-      )}
+      <text
+        x="50"
+        y="50"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontFamily="var(--font-sans)"
+        fontSize={fontSize}
+        fontWeight={700}
+        letterSpacing="-1"
+        fill="#fff"
+      >
+        {text}
+      </text>
     </svg>
   );
 }

@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
+import { safeExternalUrl } from "@/lib/externalUrl";
 
 const CATEGORIES = ["Government", "Regulator / Agency", "Central Bank", "University", "Local Authority", "International Organisation", "Other"];
 
@@ -22,17 +23,25 @@ export function InstitutionOnboarding() {
   const [saving, setSaving] = useState(false);
 
   const steps = ["Organisation", "Details", "About"];
-  const canNext = step === 0 ? name.trim() && category : step === 1 ? website.trim() : true;
+  const cleanWebsite = safeExternalUrl(website);
+  const canNext = step === 0
+    ? name.trim().length >= 2 && name.trim().length <= 160 && !!category
+    : step === 1
+      ? !!cleanWebsite && location.trim().length <= 300
+      : description.trim().length <= 5000;
 
   const finish = async () => {
+    if (!canNext || !cleanWebsite) {
+      pushToast({ title: "Check the organisation details", description: "Enter a valid website and keep each field within its limit.", variant: "info" });
+      return;
+    }
     setSaving(true);
     if (configured && supabase && user) {
       const { error } = await supabase
         .from("profiles")
         .update({
-          institution_name: name.trim(),
           org_category: category,
-          org_website: website.trim(),
+          org_website: cleanWebsite,
           org_location: location.trim(),
           org_description: description.trim(),
           onboarding_complete: true,
@@ -40,7 +49,7 @@ export function InstitutionOnboarding() {
         .eq("id", user.id);
       if (error) {
         setSaving(false);
-        pushToast({ title: "Couldn't save", description: error.message, variant: "info" });
+        pushToast({ title: "Couldn't save", description: "Check the details and try again.", variant: "info" });
         return;
       }
       await refreshProfile();
@@ -65,9 +74,9 @@ export function InstitutionOnboarding() {
       <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
         <div style={{ width: "100%", maxWidth: 520 }}>
           <div style={{ textAlign: "center", marginBottom: 8 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>Set up your organisation</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>Set up your organisation</h1>
             <p style={{ fontSize: 14.5, color: "var(--text-secondary)", marginTop: 6 }}>
-              A few details so readers know who's publishing. You can edit these later in Settings.
+              A few details so readers know who's publishing. You can edit these later in Profile.
             </p>
           </div>
 
@@ -104,7 +113,8 @@ export function InstitutionOnboarding() {
                 </h2>
                 <div style={field}>
                   <label style={labelStyle}>Organisation name</label>
-                  <input className="pp-input" value={name} autoFocus onChange={(e) => setName(e.target.value)} placeholder="e.g. Welsh Government" />
+                  <input className="pp-input" value={name} maxLength={160} disabled={configured} autoFocus onChange={(e) => setName(e.target.value)} placeholder="Your organisation's verified name" />
+                  {configured && <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>This verified name comes from your platform invitation.</p>}
                 </div>
                 <div style={field}>
                   <label style={labelStyle}>Type of organisation</label>
@@ -139,12 +149,12 @@ export function InstitutionOnboarding() {
                 </h2>
                 <div style={field}>
                   <label style={labelStyle}>Official website</label>
-                  <input className="pp-input" value={website} autoFocus onChange={(e) => setWebsite(e.target.value)} placeholder="gov.wales" />
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>Used later to verify you control this domain.</p>
+                  <input className="pp-input" value={website} maxLength={500} autoFocus onChange={(e) => setWebsite(e.target.value)} placeholder="https://www.example.org" />
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>Shown on your public organisation profile.</p>
                 </div>
                 <div style={field}>
                   <label style={labelStyle}>Location</label>
-                  <input className="pp-input" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Cardiff, Wales, UK" />
+                  <input className="pp-input" value={location} maxLength={300} onChange={(e) => setLocation(e.target.value)} placeholder="City, region, country" />
                 </div>
               </>
             )}
@@ -159,6 +169,7 @@ export function InstitutionOnboarding() {
                   <textarea
                     className="pp-input"
                     value={description}
+                    maxLength={5000}
                     autoFocus
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="What your organisation does and the kind of releases you publish."

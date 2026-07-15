@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, LifeBuoy, Mail, ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { useAuth } from "@/auth/AuthProvider";
+import { PublicFooter, PublicHeader } from "@/components/shells/PublicChrome";
+import { useReaderShellKind } from "@/lib/useReaderShellKind";
 
 const FAQS: { q: string; a: string }[] = [
   {
@@ -11,7 +13,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How does institution verification work?",
-    a: "Institutions prove they control their official domain using a DNS TXT record (the same method tools like Google Search Console use). Once the record is confirmed, the organisation receives a verified badge. Only the platform can grant verification after the DNS check passes — it can't be self-assigned.",
+    a: "Institution accounts are invitation-only. A platform administrator sends a single-use invitation to an official, confirmed work email and reviews the organisation before approving its verified badge and publishing access. Verification cannot be self-assigned from the browser.",
   },
   {
     q: "How do I publish a release?",
@@ -27,7 +29,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How is my data handled?",
-    a: "Your account is protected by industry-standard authentication, and access to your data is governed by row-level security so you only ever see and change what's yours. We don't show ads or sell personal data.",
+    a: "Supabase authentication protects account sessions, and database row-level security limits personal saves, follows, watchlists and profile changes to the signed-in account. Optional product analytics disables autocapture and session recording.",
   },
 ];
 
@@ -49,12 +51,12 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export function Help() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const kind = profile?.role === "institution" ? "institution" : "individual";
+  const kind = useReaderShellKind();
 
-  return (
-    <AppShell kind={kind} maxWidth={760}>
+  const content = (
+    <>
       <button type="button" onClick={() => navigate(-1)} className="pp-link-muted" style={{ marginBottom: 16, fontSize: 13.5 }}>
         <ArrowLeft size={15} /> Back
       </button>
@@ -63,7 +65,7 @@ export function Help() {
         <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center" }}>
           <LifeBuoy size={22} color="var(--blue)" />
         </span>
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>Help Centre</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>Help Centre</h1>
       </div>
       <p style={{ fontSize: 14.5, color: "var(--text-secondary)", marginBottom: 24 }}>
         Answers to common questions about using Presspaper.
@@ -80,10 +82,22 @@ export function Help() {
           <div style={{ fontSize: 15.5, fontWeight: 700 }}>Still need help?</div>
           <div style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 3 }}>Our team usually replies within one business day.</div>
         </div>
-        <a href="mailto:support@presspaper.example" className="pp-btn pp-btn-primary">
+        <a href="mailto:hello@presspaper.ai?subject=Presspaper%20support" className="pp-btn pp-btn-primary">
           <Mail size={15} /> Contact support
         </a>
       </div>
-    </AppShell>
+    </>
   );
+
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#000" }}>
+        <PublicHeader />
+        <main style={{ width: "100%", maxWidth: 816, margin: "0 auto", padding: "42px 28px 64px" }}>{content}</main>
+        <PublicFooter />
+      </div>
+    );
+  }
+
+  return <AppShell kind={kind} maxWidth={760}>{content}</AppShell>;
 }

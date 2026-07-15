@@ -1,28 +1,29 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
-import { TABLE_RELEASES } from "@/data/releases";
 import type { Release } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
 import { rowToRelease } from "@/lib/releaseMap";
+import { useOrg } from "@/lib/useOrg";
+import { track } from "@/lib/analytics";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
 
 function HeaderCell({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-faint)", textAlign: right ? "right" : "left" }}>
+    <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0", textTransform: "uppercase", color: "var(--text-faint)", textAlign: right ? "right" : "left" }}>
       {children}
     </div>
   );
 }
 
-function Row({ r }: { r: Release }) {
+function Row({ r, onActions }: { r: Release; onActions: (release: Release) => void }) {
   const dash = (v?: string) => (v && v.length ? v : "—");
   return (
     <div
@@ -64,7 +65,7 @@ function Row({ r }: { r: Release }) {
       <div style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.views)}</div>
       <div style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.engagement)}</div>
       <div style={{ textAlign: "right" }}>
-        <button type="button" onClick={(e) => e.preventDefault()} style={{ color: "var(--text-muted)", padding: 4 }} aria-label="Row actions">
+        <button type="button" onClick={() => onActions(r)} style={{ color: "var(--text-muted)", padding: 4 }} aria-label={`Actions for ${r.heading}`}>
           <MoreHorizontal size={17} />
         </button>
       </div>
@@ -73,35 +74,101 @@ function Row({ r }: { r: Release }) {
 }
 
 export function Releases() {
-  const published = useAppStore((s) => s.publishedReleases);
-  const { configured, user } = useAuth();
+  const { profile, profileReady } = useAuth();
+  const org = useOrg();
+  const navigate = useNavigate();
   const [live, setLive] = useState<Release[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+  const [selected, setSelected] = useState<Release | null>(null);
+  const [working, setWorking] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All types");
   const [statusFilter, setStatusFilter] = useState("All statuses");
 
-  // LIVE: load this institution's own releases (all statuses) from Postgres.
+  // Load the whole organisation workspace, not only releases authored by this user.
   useEffect(() => {
-    if (!configured || !supabase || !user) return;
+    const slug = profile?.institution_slug;
+    if (!profileReady) {
+      setLoading(true);
+      return;
+    }
+    if (!supabase || !slug) {
+      setLive([]);
+      setLoading(false);
+      setLoadError("This account isn't connected to an organisation workspace.");
+      return;
+    }
     let active = true;
+    setLoading(true);
+    setLoadError(null);
     supabase
-      .from("releases")
+      .from("release_details")
       .select("*")
-      .eq("owner", user.id)
+      .eq("institution_slug", slug)
       .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (active && data) setLive((data as ReleaseRow[]).map(rowToRelease));
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setLive([]);
+          setLoadError("We couldn't load this organisation's releases.");
+          setLoading(false);
+          return;
+        }
+        setLive(((data as ReleaseRow[] | null) ?? []).map(rowToRelease));
+        setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [configured, user]);
+  }, [profileReady, profile?.institution_slug, retryKey]);
 
-  // In LIVE mode the DB rows are the source of truth (above the demo baseline);
-  // in DEMO mode the session-published rows sit above the baseline.
-  const allRows = configured ? [...live, ...TABLE_RELEASES] : [...published, ...TABLE_RELEASES];
+  const publishNow = async () => {
+    if (!selected || !supabase || !org.slug || !org.can.publish || !org.verified) return;
+    setWorking(true);
+    const publishedAt = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("releases")
+      .update({ status: "Published", published_at: publishedAt })
+      .eq("id", selected.id)
+      .eq("institution_slug", org.slug)
+      .select("id")
+      .maybeSingle();
+    setWorking(false);
+    if (error || !(data as { id: string } | null)?.id) {
+      useAppStore.getState().pushToast({ title: "Couldn't publish release", description: "Refresh and try again.", variant: "info" });
+      return;
+    }
+    setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: "Published", publishedDate: "Just now", time: "Just now" } : row));
+    track("release_published", { releaseId: selected.id, status: "Published", type: selected.type });
+    setSelected(null);
+    useAppStore.getState().pushToast({ title: "Release published", variant: "success" });
+  };
 
-  const rows = allRows.filter((r) => {
+  const deleteRelease = async () => {
+    if (!selected || !supabase || !org.slug || !org.can.publish) return;
+    setWorking(true);
+    const { data, error } = await supabase
+      .from("releases")
+      .delete()
+      .eq("id", selected.id)
+      .eq("institution_slug", org.slug)
+      .select("id")
+      .maybeSingle();
+    setWorking(false);
+    if (error || !(data as { id: string } | null)?.id) {
+      useAppStore.getState().pushToast({ title: "Couldn't delete release", description: "Refresh and try again.", variant: "info" });
+      return;
+    }
+    setLive((rows) => rows.filter((row) => row.id !== selected.id));
+    track("release_deleted", { releaseId: selected.id, status: selected.status, type: selected.type });
+    setSelected(null);
+    useAppStore.getState().pushToast({ title: "Release deleted", variant: "success" });
+  };
+
+  const rows = live.filter((r) => {
     const q = query.trim().toLowerCase();
     const matchesQuery = !q || r.heading.toLowerCase().includes(q) || (r.subheading ?? "").toLowerCase().includes(q);
     const matchesType = typeFilter === "All types" || r.type === typeFilter;
@@ -131,9 +198,9 @@ export function Releases() {
         title="Releases"
         subtitle="Manage everything you've published, scheduled or drafted."
         actions={
-          <Link to="/inst/publish" className="pp-btn pp-btn-primary">
+          org.can.publish ? <Link to="/inst/publish" className="pp-btn pp-btn-primary">
             <Plus size={16} /> New Release
-          </Link>
+          </Link> : undefined
         }
       />
 
@@ -156,50 +223,104 @@ export function Releases() {
           <Search size={16} />
           <input
             value={query}
+            disabled={loading || Boolean(loadError)}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search releases…"
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13.5 }}
           />
         </div>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
+        <select value={typeFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
           {["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"].map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+        <select value={statusFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
           {["All statuses", "Published", "Draft", "Scheduled"].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
       </div>
 
-      {/* table */}
-      <div className="pp-card" style={{ overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 14, padding: "13px 18px", background: "var(--surface-2)" }}>
-          <HeaderCell>Release</HeaderCell>
-          <HeaderCell>Type</HeaderCell>
-          <HeaderCell>Status</HeaderCell>
-          <HeaderCell>Date</HeaderCell>
-          <HeaderCell right>Views</HeaderCell>
-          <HeaderCell right>Engmt.</HeaderCell>
-          <HeaderCell right> </HeaderCell>
+      {loadError && (
+        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, borderColor: "rgba(220,38,38,0.35)" }}>
+          <AlertCircle size={17} color="#dc2626" />
+          <span style={{ flex: 1, fontSize: 13.5 }}>{loadError}</span>
+          <button type="button" className="pp-btn pp-btn-outline" onClick={() => setRetryKey((key) => key + 1)}>Retry</button>
         </div>
-        {rows.length === 0 ? (
-          <div style={{ padding: "40px 18px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-            No releases match your search.
-          </div>
-        ) : (
-          rows.map((r) => <Row key={r.id} r={r} />)
-        )}
-      </div>
+      )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
-        <span>Showing {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={(e) => e.preventDefault()} className="pp-btn pp-btn-ghost" style={{ padding: "6px 12px", fontSize: 12.5 }}>Previous</button>
-          <button type="button" onClick={(e) => e.preventDefault()} className="pp-btn pp-btn-ghost" style={{ padding: "6px 12px", fontSize: 12.5 }}>Next</button>
+      {/* table */}
+      {loading ? (
+        <div className="pp-card" role="status" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
+          Loading releases…
         </div>
-      </div>
+      ) : !loadError ? (
+        <>
+          <div className="pp-card pp-release-table" style={{ overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 14, padding: "13px 18px", background: "var(--surface-2)" }}>
+              <HeaderCell>Release</HeaderCell>
+              <HeaderCell>Type</HeaderCell>
+              <HeaderCell>Status</HeaderCell>
+              <HeaderCell>Date</HeaderCell>
+              <HeaderCell right>Views</HeaderCell>
+              <HeaderCell right>Engmt.</HeaderCell>
+              <HeaderCell right> </HeaderCell>
+            </div>
+            {rows.length === 0 ? (
+              <div style={{ padding: "40px 18px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
+                {live.length === 0 ? "No releases yet. Create a release or save a draft to see it here." : "No releases match the current search and filters."}
+              </div>
+            ) : (
+              rows.map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
+            )}
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
+            <span>Showing {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
+          </div>
+        </>
+      ) : null}
+
+      {selected && (
+        <div onClick={() => !working && setSelected(null)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.5)", display: "grid", placeItems: "center", padding: 20 }}>
+          <div onClick={(event) => event.stopPropagation()} className="pp-card" role="dialog" aria-modal="true" aria-label={`Actions for ${selected.heading}`} style={{ width: "100%", maxWidth: 430, padding: 22 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700 }}>Release actions</h2>
+                <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 5, overflowWrap: "anywhere" }}>{selected.heading}</p>
+              </div>
+              <button type="button" onClick={() => setSelected(null)} disabled={working} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {selected.status === "Published" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => navigate(`/release/${selected.id}`)} style={{ justifyContent: "flex-start" }}>
+                  <Eye size={16} /> View public release
+                </button>
+              )}
+              {selected.status !== "Published" && org.can.publish && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => navigate(`/inst/publish/${selected.id}`)} style={{ justifyContent: "flex-start" }}>
+                  <Pencil size={16} /> Edit release
+                </button>
+              )}
+              {selected.status !== "Published" && !org.can.publish && (
+                <p style={{ padding: "10px 2px", color: "var(--text-muted)", fontSize: 13, lineHeight: 1.5 }}>
+                  Your organisation role has read-only access to this release.
+                </p>
+              )}
+              {selected.status !== "Published" && org.can.publish && (
+                <button type="button" className="pp-btn pp-btn-primary" onClick={() => void publishNow()} disabled={working || !org.verified} style={{ justifyContent: "flex-start", opacity: working || !org.verified ? 0.65 : 1 }}>
+                  <Send size={16} /> {org.verified ? "Publish now" : "Approval required to publish"}
+                </button>
+              )}
+              {org.can.publish && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => confirmingDelete ? void deleteRelease() : setConfirmingDelete(true)} disabled={working} style={{ justifyContent: "flex-start", color: "var(--red)" }}>
+                  <Trash2 size={16} /> {working ? "Working…" : confirmingDelete ? "Confirm permanent deletion" : "Delete release"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

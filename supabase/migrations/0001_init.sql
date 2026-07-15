@@ -62,7 +62,7 @@ create trigger on_auth_user_created
 create table if not exists public.releases (
   id                uuid primary key default gen_random_uuid(),
   owner             uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  institution_slug  text not null default 'welsh-government',
+  institution_slug  text not null,
   institution_name  text,
   type              text not null default 'Announcement',
   status            text not null default 'Published'

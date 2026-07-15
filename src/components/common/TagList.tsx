@@ -3,7 +3,7 @@ import { Tag } from "@/components/primitives/Bits";
 
 /** Renders up to `max` tags inline; the rest collapse into a "+N" chip that
  *  opens a small popover listing every tag. */
-export function TagList({ tags, max = 2 }: { tags: string[]; max?: number }) {
+export function TagList({ tags, max = 2, extra = 0 }: { tags: string[]; max?: number; extra?: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -15,16 +15,17 @@ export function TagList({ tags, max = 2 }: { tags: string[]; max?: number }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  if (tags.length === 0) return null;
+  if (tags.length === 0 && extra === 0) return null;
   const shown = tags.slice(0, max);
   const hidden = tags.slice(max);
+  const hiddenCount = hidden.length + extra;
 
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", position: "relative" }} ref={ref}>
       {shown.map((t) => (
         <Tag key={t}>{t}</Tag>
       ))}
-      {hidden.length > 0 && (
+      {hiddenCount > 0 && (
         <>
           <button
             type="button"
@@ -44,7 +45,7 @@ export function TagList({ tags, max = 2 }: { tags: string[]; max?: number }) {
               cursor: "pointer",
             }}
           >
-            +{hidden.length}
+            +{hiddenCount}
           </button>
           {open && (
             <div
@@ -68,6 +69,7 @@ export function TagList({ tags, max = 2 }: { tags: string[]; max?: number }) {
               {tags.map((t) => (
                 <Tag key={t}>{t}</Tag>
               ))}
+              {extra > 0 && <span style={{ fontSize: 11.5, color: "var(--text-muted)", alignSelf: "center" }}>+{extra} additional topics</span>}
             </div>
           )}
         </>

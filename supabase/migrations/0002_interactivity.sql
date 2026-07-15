@@ -55,8 +55,8 @@ create trigger trg_follow_count
   for each row execute function public.sync_follow_count();
 
 -- ── SAVED RELEASES ──────────────────────────────────────────────────────────
--- release_id is TEXT so it can reference either a real release (uuid) or one of
--- the static demo releases (slug-like id) shown in the seeded feed.
+-- release_id remains TEXT for backward-compatible storage; final policy gates
+-- accept only active, verified database release UUIDs.
 create table if not exists public.saved_releases (
   user_id     uuid not null references auth.users(id) on delete cascade,
   release_id  text not null,

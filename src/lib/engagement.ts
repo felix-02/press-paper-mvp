@@ -27,12 +27,12 @@ async function flush() {
 
   try {
     const [{ data: eng }, { data: cmts }] = await Promise.all([
-      supabase.from("release_engagement").select("release_id, views").in("release_id", ids),
+      supabase.from("release_details").select("id, views").in("id", ids),
       supabase.from("comments").select("release_id").in("release_id", ids),
     ]);
 
     const viewMap = new Map<string, number>();
-    ((eng as { release_id: string; views: number }[] | null) ?? []).forEach((r) => viewMap.set(r.release_id, r.views));
+    ((eng as { id: string; views: number }[] | null) ?? []).forEach((r) => viewMap.set(r.id, r.views));
     const cmtMap = new Map<string, number>();
     ((cmts as { release_id: string }[] | null) ?? []).forEach((r) => cmtMap.set(r.release_id, (cmtMap.get(r.release_id) ?? 0) + 1));
 
@@ -41,7 +41,7 @@ async function flush() {
       notify(id);
     });
   } catch {
-    /* leave uncached; cards fall back to seed values */
+    /* leave uncached; cards retain the values from their release row */
   }
 }
 
@@ -71,6 +71,7 @@ export function useEngagement(id: string): Engagement | null {
     request(id);
     return () => {
       set!.delete(cb);
+      if (set!.size === 0) subscribers.delete(id);
     };
   }, [id, available]);
 

@@ -12,10 +12,8 @@ import {
   MoreHorizontal,
   Link2,
   ExternalLink,
-  ListPlus,
 } from "lucide-react";
 import type { Release } from "@/types";
-import { inst } from "@/data/institutions";
 import { useAppStore } from "@/store/useAppStore";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { MediaTile } from "@/components/media/MediaTile";
@@ -23,7 +21,8 @@ import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
 import { Verified } from "@/components/primitives/Bits";
 import { TagList } from "@/components/common/TagList";
 import { useEngagement } from "@/lib/engagement";
-import { formatCount } from "@/lib/releaseMap";
+import { formatCount, releaseInstitution } from "@/lib/releaseMap";
+import { releasePath, releaseShareUrl } from "@/lib/releaseUrls";
 
 function FooterAction({
   icon,
@@ -129,7 +128,7 @@ function CardMenu({ release }: { release: Release }) {
             zIndex: 50,
           }}
         >
-          {row(<ExternalLink size={15} />, "Open release", () => navigate(`/release/${release.id}`))}
+          {row(<ExternalLink size={15} />, "Open release", () => navigate(releasePath(release.id)))}
           {row(
             saved ? <BookmarkCheck size={15} color="var(--blue)" /> : <Bookmark size={15} />,
             saved ? "Remove from saved" : "Save",
@@ -138,14 +137,15 @@ function CardMenu({ release }: { release: Release }) {
               pushToast({ title: now ? "Saved" : "Removed from saved", variant: now ? "success" : "info" });
             }
           )}
-          {row(<ListPlus size={15} />, "Add to watchlist", () => navigate(`/release/${release.id}`))}
           {row(<Link2 size={15} />, "Copy link", () => {
-            try {
-              void navigator.clipboard.writeText(`${window.location.origin}/r/${release.id}`);
-              pushToast({ title: "Link copied", variant: "success" });
-            } catch {
+            if (!navigator.clipboard) {
               pushToast({ title: "Couldn't copy link", variant: "info" });
+              return;
             }
+            void navigator.clipboard.writeText(releaseShareUrl(release)).then(
+              () => pushToast({ title: "Link copied", variant: "success" }),
+              () => pushToast({ title: "Couldn't copy link", variant: "info" })
+            );
           })}
         </div>
       )}
@@ -159,7 +159,8 @@ function useCardActions(release: Release) {
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const pushToast = useAppStore((s) => s.pushToast);
 
-  const open = () => navigate(`/release/${release.id}`);
+  const open = () => navigate(releasePath(release.id));
+  const openSection = (section: string) => navigate(`${releasePath(release.id)}#${section}`);
   const onSave = () => {
     const now = toggleSaved(release.id);
     pushToast({
@@ -168,16 +169,17 @@ function useCardActions(release: Release) {
       variant: now ? "success" : "info",
     });
   };
-  return { open, saved, onSave };
+  return { open, openSection, saved, onSave };
 }
 
 function CardFooter({ release }: { release: Release }) {
-  const { open, saved, onSave } = useCardActions(release);
+  const { openSection, saved, onSave } = useCardActions(release);
   const eng = useEngagement(release.id);
   const viewsLabel = eng ? formatCount(eng.views) : release.views;
   const commentsLabel = eng ? formatCount(eng.comments) : release.comments;
   return (
     <div
+      className="pp-release-card-footer"
       style={{
         display: "flex",
         alignItems: "center",
@@ -191,16 +193,16 @@ function CardFooter({ release }: { release: Release }) {
         <Stat icon={<Eye size={15} />} value={viewsLabel} />
         <Stat icon={<MessageSquare size={15} />} value={commentsLabel} />
       </div>
-      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+      <div className="pp-release-card-actions" style={{ display: "flex", gap: 16, alignItems: "center" }}>
         <FooterAction
           icon={<Bookmark size={15} fill={saved ? "var(--blue)" : "none"} />}
           label={saved ? "Saved" : "Save"}
           onClick={onSave}
           active={saved}
         />
-        <FooterAction icon={<Plus size={15} />} label="Watchlist" onClick={open} />
-        <FooterAction icon={<Sparkles size={15} />} label="AI Summary" onClick={open} />
-        <FooterAction icon={<MessageCircleQuestion size={15} />} label="Ask Anything" onClick={open} />
+        <FooterAction icon={<Plus size={15} />} label="Watchlist" onClick={() => openSection("release-actions")} />
+        <FooterAction icon={<Sparkles size={15} />} label="AI Summary" onClick={() => openSection("ai-summary")} />
+        <FooterAction icon={<MessageCircleQuestion size={15} />} label="Quick answers" onClick={() => openSection("ask-anything")} />
       </div>
     </div>
   );
@@ -208,8 +210,9 @@ function CardFooter({ release }: { release: Release }) {
 
 /** Feed card (USER-01 / USER-02). */
 function FeedCard({ release, showFollow }: { release: Release; showFollow?: boolean }) {
-  const i = inst(release.institutionSlug);
+  const i = releaseInstitution(release);
   const { open } = useCardActions(release);
+  const navigate = useNavigate();
   const following = useAppStore((s) => s.followedSlugs.has(i.slug));
   const toggleFollow = useAppStore((s) => s.toggleFollow);
 
@@ -217,14 +220,21 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
     <article className="pp-card" style={{ padding: 18 }}>
       {/* institution row */}
       <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-        <InstitutionMark institution={i} size={40} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 14.5, fontWeight: 600 }}>{i.name}</span>
-            <Verified size={14} />
+        <button
+          type="button"
+          onClick={() => navigate(`/institution/${i.slug}`)}
+          style={{ display: "flex", alignItems: "center", gap: 11, flex: 1, minWidth: 0, textAlign: "left" }}
+          aria-label={`View ${i.name}`}
+        >
+          <InstitutionMark institution={i} size={40} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 14.5, fontWeight: 600 }}>{i.name}</span>
+              {i.verified && <Verified size={14} />}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
-        </div>
+        </button>
         {showFollow ? (
           <button
             type="button"
@@ -240,12 +250,12 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
       </div>
 
       {/* body */}
-      <div style={{ display: "flex", gap: 18, marginTop: 14 }}>
+      <div className="pp-release-card-body" style={{ display: "flex", gap: 18, marginTop: 14 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <TypeBadge type={release.type} />
           <h3
             onClick={open}
-            style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.32, marginTop: 10, cursor: "pointer", letterSpacing: "-0.01em" }}
+            style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.32, marginTop: 10, cursor: "pointer", letterSpacing: "0" }}
           >
             {release.heading}
           </h3>
@@ -264,10 +274,10 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
             {release.subheading}
           </p>
           <div style={{ marginTop: 12 }}>
-            <TagList tags={release.tags} max={2} />
+            <TagList tags={release.tags} max={3} extra={release.extraTags} />
           </div>
         </div>
-        <div onClick={open} style={{ width: 208, height: 152, flexShrink: 0, cursor: "pointer" }}>
+        <div className="pp-release-card-media" onClick={open} style={{ width: 208, height: 152, flexShrink: 0, cursor: "pointer" }}>
           <MediaTile scene={release.scene} play playPos="center" radius={12} />
         </div>
       </div>
@@ -279,26 +289,26 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
 
 /** Compact saved / list card (USER-03 / USER-05). */
 function SavedCard({ release }: { release: Release }) {
-  const i = inst(release.institutionSlug);
+  const i = releaseInstitution(release);
   const { open } = useCardActions(release);
 
   return (
-    <article className="pp-card" style={{ padding: 16, display: "flex", gap: 16 }}>
-      <div onClick={open} style={{ width: 168, height: 120, flexShrink: 0, cursor: "pointer" }}>
+    <article className="pp-card pp-saved-card" style={{ padding: 16, display: "flex", gap: 16 }}>
+      <div className="pp-saved-media" onClick={open} style={{ width: 168, height: 120, flexShrink: 0, cursor: "pointer" }}>
         <MediaTile scene={release.scene} play playPos="center" radius={10} />
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <TypeBadge type={release.type} />
         <h3
           onClick={open}
-          style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.34, marginTop: 8, cursor: "pointer", letterSpacing: "-0.01em" }}
+          style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.34, marginTop: 8, cursor: "pointer", letterSpacing: "0" }}
         >
           {release.heading}
         </h3>
         <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7 }}>
           <InstitutionMark institution={i} size={18} />
           <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{i.name}</span>
-          <Verified size={12} />
+          {i.verified && <Verified size={12} />}
           <span style={{ fontSize: 12.5, color: "var(--text-faint)" }}>· {release.time}</span>
         </div>
         <CardFooter release={release} />

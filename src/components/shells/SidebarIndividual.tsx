@@ -7,19 +7,18 @@ import {
   Plus,
   ListChecks,
   LifeBuoy,
-  ChevronRight,
 } from "lucide-react";
-import { NavItem, InertNavItem, SidebarCaption } from "./NavItem";
+import { NavItem, SidebarCaption } from "./NavItem";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
-import { inst } from "@/data/institutions";
 import { useAppStore } from "@/store/useAppStore";
 import { useWatchlists } from "@/lib/useWatchlists";
+import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import type { Institution } from "@/types";
 
-function FollowedRow({ slug }: { slug: string }) {
-  const i = inst(slug);
+function FollowedRow({ institution: i }: { institution: Institution }) {
   return (
-    <NavLink to={`/institution/${slug}`} style={{ display: "block" }}>
+    <NavLink to={`/institution/${i.slug}`} style={{ display: "block" }}>
       {({ isActive }) => (
         <div
           style={{
@@ -50,7 +49,7 @@ function FollowedRow({ slug }: { slug: string }) {
           >
             {i.name}
           </span>
-          <Verified size={12} />
+          {i.verified && <Verified size={12} />}
         </div>
       )}
     </NavLink>
@@ -61,11 +60,25 @@ export function SidebarIndividual() {
   const ic = 18;
   const followed = useAppStore((s) => s.followedSlugs);
   const { lists, available, create } = useWatchlists();
+  const directory = usePublicInstitutions();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const slugs = [...followed];
+  const institutionForSlug = (slug: string): Institution => {
+    const live = directory.institutions.find((institution) => institution.slug === slug);
+    if (live) return live;
+    return {
+      slug,
+      name: slug.split("-").filter(Boolean).map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`).join(" ") || "Institution",
+      category: "Institution",
+      verified: false,
+      color: "#2563eb",
+      color2: "#4338ca",
+      mark: "generic",
+    };
+  };
 
   const submitCreate = async () => {
     const n = name.trim();
@@ -79,18 +92,20 @@ export function SidebarIndividual() {
   };
   return (
     <aside
+      className="pp-sidebar pp-sidebar-shell"
+      aria-label="Personal workspace"
       style={{
         width: "var(--sidebar-w)",
         flexShrink: 0,
         borderRight: "1px solid var(--border)",
-        background: "var(--bg)",
+        background: "var(--sidebar-bg)",
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
         padding: "16px 12px 14px",
       }}
     >
-      <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <nav className="pp-sidebar-nav" aria-label="Personal navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <NavItem to="/home" end icon={<Home size={ic} />} label="Home" />
         <NavItem to="/explore" icon={<Compass size={ic} />} label="Explore" />
         <NavItem to="/saved" icon={<Bookmark size={ic} />} label="Saved" />
@@ -105,9 +120,8 @@ export function SidebarIndividual() {
             You're not following anyone yet. Follow institutions to see them here.
           </div>
         ) : (
-          slugs.map((s) => <FollowedRow key={s} slug={s} />)
+          slugs.map((slug) => <FollowedRow key={slug} institution={institutionForSlug(slug)} />)
         )}
-        {slugs.length > 6 && <InertNavItem icon={<ChevronRight size={16} />} label={`Show all (${slugs.length})`} />}
       </div>
 
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
@@ -152,6 +166,7 @@ export function SidebarIndividual() {
             <input
               autoFocus
               value={name}
+              maxLength={80}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submitCreate();
@@ -172,6 +187,7 @@ export function SidebarIndividual() {
           available && (
             <button
               type="button"
+              className="pp-sidebar-create"
               onClick={() => setCreating(true)}
               style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "8px 11px", borderRadius: "var(--r-md)", fontSize: 13.5, color: "var(--text-secondary)", background: "transparent" }}
             >

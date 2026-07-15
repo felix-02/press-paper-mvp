@@ -54,31 +54,6 @@ export function NavItem({
   );
 }
 
-/** Visually identical row that performs no navigation (inert control). */
-export function InertNavItem({
-  icon,
-  label,
-  trailing,
-}: {
-  icon: ReactNode;
-  label: string;
-  trailing?: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => e.preventDefault()}
-      style={{ ...base, width: "100%", color: "var(--text-secondary)", textAlign: "left" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-    >
-      <span style={{ display: "grid", placeItems: "center", color: "var(--text-muted)" }}>{icon}</span>
-      <span style={{ flex: 1 }}>{label}</span>
-      {trailing}
-    </button>
-  );
-}
-
 /** Small uppercase caption above a sidebar group. */
 export function SidebarCaption({ children }: { children: ReactNode }) {
   return (
@@ -86,7 +61,7 @@ export function SidebarCaption({ children }: { children: ReactNode }) {
       style={{
         fontSize: 11,
         fontWeight: 600,
-        letterSpacing: "0.06em",
+        letterSpacing: "0",
         textTransform: "uppercase",
         color: "var(--text-faint)",
         padding: "0 11px",

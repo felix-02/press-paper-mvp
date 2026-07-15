@@ -10,7 +10,7 @@ import { useAppStore } from "@/store/useAppStore";
 const TABS = ["Saved", "Watchlists"];
 
 export function Saved() {
-  const { releases } = useResolvedSaved();
+  const { releases, loading, error } = useResolvedSaved();
   const [params, setParams] = useSearchParams();
   const urlTab = (params.get("tab") || "saved").toLowerCase();
   const tab = urlTab === "watchlists" ? "Watchlists" : "Saved";
@@ -23,7 +23,7 @@ export function Saved() {
   return (
     <AppShell kind="individual" maxWidth={860}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 4 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em" }}>Saved</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0" }}>Saved</h1>
         {tab === "Saved" && (
           <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>
             {releases.length} {releases.length === 1 ? "release" : "releases"}
@@ -56,7 +56,11 @@ export function Saved() {
       </div>
 
       {tab === "Saved" ? (
-        releases.length === 0 ? (
+        error ? (
+          <div className="pp-card" role="alert" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)", fontSize: 13.5 }}>{error}</div>
+        ) : loading && releases.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "50px 20px", color: "var(--text-muted)", fontSize: 13.5 }}>Loading saved releases…</div>
+        ) : releases.length === 0 ? (
           <div style={{ textAlign: "center", padding: "70px 20px", color: "var(--text-muted)" }}>
             <Bookmark size={34} style={{ opacity: 0.4 }} />
             <p style={{ fontSize: 15, fontWeight: 500, color: "var(--text-secondary)", marginTop: 14 }}>No saved releases yet</p>
@@ -77,13 +81,14 @@ export function Saved() {
 }
 
 function WatchlistsPanel() {
-  const { lists, available, create, remove, rename } = useWatchlists();
+  const { lists, available, loading, error, refresh, create, remove, rename } = useWatchlists();
   const pushToast = useAppStore((s) => s.pushToast);
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [busy, setBusy] = useState(false);
 
   if (!available) {
     return (
@@ -97,36 +102,46 @@ function WatchlistsPanel() {
 
   const submitCreate = async () => {
     const n = name.trim();
-    if (!n) return;
-    setName("");
-    setCreating(false);
+    if (!n || busy) return;
+    setBusy(true);
     const wl = await create(n);
-    pushToast({ title: `Created "${n}"`, variant: "success" });
-    if (wl) navigate(`/watchlist/${wl.id}`);
+    setBusy(false);
+    pushToast({ title: wl ? `Created "${n}"` : "Couldn't create watchlist", variant: wl ? "success" : "info" });
+    if (wl) {
+      setName("");
+      setCreating(false);
+      navigate(`/watchlist/${wl.id}`);
+    }
   };
 
   const submitRename = async (id: string) => {
     const n = editName.trim();
     if (!n) return;
-    setEditingId(null);
-    await rename(id, n);
-    pushToast({ title: "Watchlist renamed", variant: "success" });
+    const renamed = await rename(id, n);
+    if (renamed) setEditingId(null);
+    pushToast({ title: renamed ? "Watchlist renamed" : "Couldn't rename watchlist", variant: renamed ? "success" : "info" });
   };
 
   const onDelete = async (id: string, listName: string) => {
     if (!window.confirm(`Delete the watchlist "${listName}"? This can't be undone.`)) return;
-    await remove(id);
-    pushToast({ title: "Watchlist deleted", variant: "info" });
+    const removed = await remove(id);
+    pushToast({ title: removed ? "Watchlist deleted" : "Couldn't delete watchlist", variant: "info" });
   };
 
   return (
     <div>
+      {error && (
+        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ flex: 1, fontSize: 13.5 }}>{error}</span>
+          <button type="button" className="pp-btn pp-btn-outline" onClick={() => void refresh()}>Retry</button>
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
         {creating ? (
           <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360 }}>
-            <input className="pp-input" placeholder="Watchlist name" value={name} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitCreate()} />
-            <button type="button" onClick={submitCreate} disabled={!name.trim()} className="pp-btn pp-btn-primary" style={{ opacity: name.trim() ? 1 : 0.6, flexShrink: 0 }}>
-              Create
+            <input className="pp-input" placeholder="Watchlist name" value={name} maxLength={80} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submitCreate()} />
+            <button type="button" onClick={() => void submitCreate()} disabled={!name.trim() || busy} className="pp-btn pp-btn-primary" style={{ opacity: name.trim() && !busy ? 1 : 0.6, flexShrink: 0 }}>
+              {busy ? "Creating…" : "Create"}
             </button>
             <button type="button" onClick={() => setCreating(false)} className="pp-btn pp-btn-ghost" style={{ flexShrink: 0 }}>
               <X size={15} />
@@ -139,7 +154,9 @@ function WatchlistsPanel() {
         )}
       </div>
 
-      {lists.length === 0 ? (
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)", fontSize: 13.5 }}>Loading watchlists…</div>
+      ) : lists.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)" }}>
           <ListChecks size={34} style={{ opacity: 0.4 }} />
           <p style={{ fontSize: 15, fontWeight: 500, color: "var(--text-secondary)", marginTop: 14 }}>No watchlists yet</p>
@@ -154,6 +171,7 @@ function WatchlistsPanel() {
                   <input
                     className="pp-input"
                     value={editName}
+                    maxLength={80}
                     autoFocus
                     onChange={(e) => setEditName(e.target.value)}
                     onKeyDown={(e) => {

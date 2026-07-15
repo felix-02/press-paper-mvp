@@ -50,7 +50,7 @@ export function Logo({
         style={{
           fontSize: size,
           fontWeight: 600,
-          letterSpacing: "-0.03em",
+          letterSpacing: "0",
           color,
         }}
       >

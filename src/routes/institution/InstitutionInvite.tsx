@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
+import { withNext } from "@/lib/redirect";
 
 interface InviteInfo {
   email: string | null;
@@ -30,8 +31,13 @@ export function InstitutionInvite() {
       return;
     }
     let active = true;
-    supabase.rpc("get_platform_invite", { p_token: token }).then(({ data }) => {
+    supabase.rpc("get_platform_invite", { p_token: token }).then(({ data, error: lookupError }) => {
       if (!active) return;
+      if (lookupError) {
+        setError("We couldn't load this invitation. Check your connection and try again.");
+        setLoading(false);
+        return;
+      }
       setInvite((data as InviteInfo[] | null)?.[0] ?? { email: null, org_name: null, valid: false, reason: "invalid" });
       setLoading(false);
     });
@@ -43,8 +49,13 @@ export function InstitutionInvite() {
   const accept = async () => {
     if (!supabase) return;
     setAccepting(true);
-    const { data } = await supabase.rpc("accept_platform_invite", { p_token: token });
+    setError(null);
+    const { data, error: acceptError } = await supabase.rpc("accept_platform_invite", { p_token: token });
     setAccepting(false);
+    if (acceptError) {
+      setError("We couldn't accept this invitation. Please try again.");
+      return;
+    }
     const result = String(data ?? "error");
     if (result === "ok") {
       await refreshProfile();
@@ -60,6 +71,10 @@ export function InstitutionInvite() {
       setError("This invite has expired. Ask the Presspaper team for a new one.");
     } else if (result === "consumed") {
       setError("This invite has already been used.");
+    } else if (result === "account_conflict") {
+      setError("This account already belongs to an organisation. Sign in with a separate account for this invitation.");
+    } else if (result === "organization_conflict") {
+      setError("That organisation identity is already in use. Ask a platform administrator to issue a new invitation.");
     } else {
       setError("This invite is no longer valid.");
     }
@@ -79,10 +94,11 @@ export function InstitutionInvite() {
   if (loading) return <Frame><div style={{ color: "var(--text-muted)" }}>Loading invite…</div></Frame>;
 
   if (!invite || !invite.valid) {
-    const msg =
+    const msg = error ?? (
       invite?.reason === "consumed" ? "This invite has already been used." :
       invite?.reason === "expired" ? "This invite has expired. Ask the Presspaper team for a new one." :
-      "This invite link is invalid or has been revoked.";
+      "This invite link is invalid or has been revoked."
+    );
     return (
       <Frame>
         <AlertCircle size={34} color="var(--text-muted)" style={{ marginBottom: 12 }} />
@@ -98,7 +114,7 @@ export function InstitutionInvite() {
       <span style={{ width: 52, height: 52, borderRadius: 14, background: "var(--surface-2)", display: "grid", placeItems: "center", margin: "0 auto 14px" }}>
         <Building2 size={26} color="var(--text-secondary)" />
       </span>
-      <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.02em" }}>Set up {invite.org_name}</h1>
+      <h1 style={{ fontSize: 21, fontWeight: 700, letterSpacing: "0" }}>Set up {invite.org_name}</h1>
       <p style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 8 }}>
         You've been invited to create the official <strong>{invite.org_name}</strong> account on Presspaper.
       </p>
@@ -124,11 +140,11 @@ export function InstitutionInvite() {
       ) : (
         <>
           <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 18 }}>
-            Sign in or create an account with <strong>{invite.email}</strong> to accept.
+            Sign in or create an account with the invited address <strong>{invite.email}</strong> to accept.
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <Link to={`/login?next=/institution-invite/${token}`} className="pp-btn pp-btn-outline" style={{ flex: 1, justifyContent: "center" }}>Log in</Link>
-            <Link to={`/signup?next=/institution-invite/${token}`} className="pp-btn pp-btn-primary" style={{ flex: 1, justifyContent: "center" }}>Sign up</Link>
+            <Link to={withNext("/login", `/institution-invite/${encodeURIComponent(token)}`)} className="pp-btn pp-btn-outline" style={{ flex: 1, justifyContent: "center" }}>Log in</Link>
+            <Link to={withNext("/signup", `/institution-invite/${encodeURIComponent(token)}`)} className="pp-btn pp-btn-primary" style={{ flex: 1, justifyContent: "center" }}>Sign up</Link>
           </div>
         </>
       )}

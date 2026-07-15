@@ -26,8 +26,8 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
       pushToast({ title: `Already in ${listName}`, variant: "info" });
       return;
     }
-    await addItem(id, releaseId);
-    pushToast({ title: `Added to ${listName}`, variant: "success" });
+    const added = await addItem(id, releaseId);
+    pushToast({ title: added ? `Added to ${listName}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
   };
 
   const createAndAdd = async () => {
@@ -37,6 +37,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
     setCreating(false);
     const wl = await create(n);
     if (wl) await add(wl.id, wl.name, false);
+    else pushToast({ title: "Couldn't create watchlist", variant: "info" });
   };
 
   return (
@@ -60,7 +61,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
             zIndex: 50,
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: ".06em", padding: "6px 10px" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0", padding: "6px 10px" }}>
             Add to watchlist
           </div>
           <div style={{ maxHeight: 220, overflowY: "auto" }}>
@@ -91,6 +92,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
                 className="pp-input"
                 placeholder="List name"
                 value={name}
+                maxLength={80}
                 autoFocus
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
 import { track } from "@/lib/analytics";
-import type { Comment } from "@/types";
+import { invalidateEngagement } from "@/lib/engagement";
 
 interface CommentRow {
   id: string;
@@ -14,8 +14,12 @@ interface CommentRow {
   created_at: string;
 }
 
-export interface CommentNode extends Comment {
+export interface CommentNode {
+  id: string;
   parentId: string | null;
+  author: string;
+  body: string;
+  time: string;
   replies: CommentNode[];
 }
 
@@ -24,11 +28,8 @@ function rowToComment(r: CommentRow): CommentNode {
     id: r.id,
     parentId: r.parent_id,
     author: r.author_name || "Reader",
-    role: "Reader",
-    verified: false,
     body: r.body,
     time: relative(r.created_at),
-    likes: 0,
     replies: [],
   };
 }
@@ -43,72 +44,104 @@ function relative(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-function buildTree(seed: Comment[], rows: CommentNode[]): { tree: CommentNode[]; total: number } {
-  const seeds: CommentNode[] = seed.map((c) => ({ ...c, parentId: null, replies: [] }));
-  const all = [...seeds, ...rows];
+function buildTree(rows: CommentNode[]): CommentNode[] {
   const byId = new Map<string, CommentNode>();
-  all.forEach((c) => byId.set(c.id, { ...c, replies: [] }));
+  rows.forEach((comment) => byId.set(comment.id, { ...comment, replies: [] }));
   const roots: CommentNode[] = [];
   byId.forEach((node) => {
     if (node.parentId && byId.has(node.parentId)) byId.get(node.parentId)!.replies.push(node);
     else roots.push(node);
   });
-  return { tree: roots, total: all.length };
+  return roots;
 }
 
-/**
- * Threaded comments for a release. Posting works in both modes — it always
- * updates locally, and in LIVE mode persists to the `comments` table (with
- * parent_id for replies).
- */
-export function useComments(releaseId: string, seed: Comment[]) {
+/** Threaded comments loaded from and persisted to the comments table. */
+export function useComments(releaseId: string) {
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<CommentNode[]>([]);
+  const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [postError, setPostError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!supabase) {
+      setRows([]);
+      setLoading(false);
+      setLoadError("Comments are unavailable because the database connection is not configured.");
+      return;
+    }
     let active = true;
-    supabase
-      .from("comments")
-      .select("*")
-      .eq("release_id", releaseId)
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (active && data) setRows((data as CommentRow[]).map(rowToComment));
-      });
+    setRows([]);
+    setLoading(true);
+    setLoadError(null);
+    setPostError(null);
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("comments")
+          .select("*")
+          .eq("release_id", releaseId)
+          .order("created_at", { ascending: true });
+        if (!active) return;
+        if (error) {
+          setLoadError("Comments couldn't be loaded. Try again.");
+          setLoading(false);
+          return;
+        }
+        setRows(((data as CommentRow[] | null) ?? []).map(rowToComment));
+        setLoading(false);
+      } catch {
+        if (!active) return;
+        setLoadError("Comments couldn't be loaded. Check your connection and try again.");
+        setLoading(false);
+      }
+    })();
+
     return () => {
       active = false;
     };
-  }, [releaseId]);
+  }, [releaseId, retryKey]);
 
-  const post = async (body: string, parentId?: string | null) => {
+  const post = async (body: string, parentId?: string | null): Promise<boolean> => {
     const text = body.trim();
-    if (!text || posting) return;
-    setPosting(true);
-    const name = profile?.full_name || "You";
-    const localId = `local-${Date.now()}`;
-    const optimistic: CommentNode = {
-      id: localId,
-      parentId: parentId ?? null,
-      author: name,
-      role: profile?.role === "institution" ? "Institution" : "Reader",
-      verified: profile?.role === "institution",
-      body: text,
-      time: "Just now",
-      likes: 0,
-      replies: [],
-    };
-    setRows((r) => [...r, optimistic]);
-    track("comment_posted", { releaseId, isReply: !!parentId });
-    if (isSupabaseConfigured && supabase && user) {
-      await supabase
-        .from("comments")
-        .insert({ release_id: releaseId, author: user.id, author_name: name, body: text, parent_id: parentId ?? null });
+    if (!text || posting) return false;
+    if (text.length > 4000) {
+      setPostError("Comments must be 4,000 characters or fewer.");
+      return false;
     }
-    setPosting(false);
+    if (!supabase || !user || loading || loadError) {
+      setPostError("Comments aren't available right now. Try reloading the thread.");
+      return false;
+    }
+    setPosting(true);
+    setPostError(null);
+    try {
+      const { data, error: insertError } = await supabase
+        .from("comments")
+        .insert({ release_id: releaseId, author: user.id, author_name: profile?.full_name?.trim() || null, body: text, parent_id: parentId ?? null })
+        .select("*")
+        .single();
+      if (insertError || !data) {
+        setPosting(false);
+        setPostError("Your comment wasn't posted. Please try again.");
+        return false;
+      }
+      setRows((current) => [...current, rowToComment(data as CommentRow)]);
+      track("comment_posted", { releaseId, isReply: !!parentId });
+      invalidateEngagement(releaseId);
+      setPosting(false);
+      return true;
+    } catch {
+      setPosting(false);
+      setPostError("Your comment wasn't posted. Check your connection and try again.");
+      return false;
+    }
   };
 
-  const { tree, total } = buildTree(seed, rows);
-  return { tree, total, post, posting };
+  const tree = buildTree(rows);
+  const reload = () => setRetryKey((key) => key + 1);
+  return { tree, post, posting, loading, loadError, postError, reload };
 }
