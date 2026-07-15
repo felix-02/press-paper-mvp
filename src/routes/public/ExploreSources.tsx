@@ -6,6 +6,7 @@ import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
 import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution } from "@/types";
 
 const CATEGORIES = ["All", "Government", "Local Authority", "University", "Health", "Regulator"] as const;
@@ -87,6 +88,7 @@ function matchesCategory(category: string, selected: SourceCategory): boolean {
 }
 
 export function ExploreSources() {
+  usePageTitle("Explore sources");
   const [query, setQuery] = useState("");
   const directory = usePublicInstitutions();
   const [params, setParams] = useSearchParams();
@@ -170,14 +172,19 @@ export function ExploreSources() {
           </div>
         ) : institutions.length === 0 ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-            No verified sources in {category} yet.
+            {normalizedQuery ? `No verified sources match “${query.trim()}”.` : `No verified sources in ${category} yet.`}
           </div>
         ) : (
-          <div className="pp-source-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
-            {institutions.map((institution) => (
-              <SourceCard key={institution.slug} institution={institution} />
-            ))}
-          </div>
+          <>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+              {institutions.length} verified {institutions.length === 1 ? "source" : "sources"}
+            </div>
+            <div className="pp-source-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+              {institutions.map((institution) => (
+                <SourceCard key={institution.slug} institution={institution} />
+              ))}
+            </div>
+          </>
         )}
         <div style={{ textAlign: "center", marginTop: 36 }}>
           <Link to="/signup" className="pp-btn pp-btn-outline" style={{ padding: "11px 22px" }}>

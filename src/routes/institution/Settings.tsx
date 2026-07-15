@@ -4,6 +4,7 @@ import { AppShell } from "@/components/shells/AppShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { useTheme, type ThemePreference } from "@/lib/useTheme";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; description: string; icon: typeof Monitor }[] = [
   { value: "system", label: "System", description: "Match this device", icon: Monitor },
@@ -12,6 +13,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; description: strin
 ];
 
 export function InstitutionSettings() {
+  usePageTitle("Settings");
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const { preference, setPreference } = useTheme();

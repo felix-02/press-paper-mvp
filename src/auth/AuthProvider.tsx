@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]).then(([s, f]) => {
       if (!active || useAppStore.getState().userId !== user.id) return;
       if (s.error || f.error) {
-        useAppStore.getState().pushToast({ title: "Couldn't load your saved items", description: "Refresh the page to try again.", variant: "info" });
+        useAppStore.getState().pushToast({ title: "Couldn't load your saved items", description: "Refresh the page to try again.", variant: "error" });
         return;
       }
       const saved = ((s.data as { release_id: string }[] | null) ?? []).map((r) => r.release_id);

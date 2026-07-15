@@ -74,7 +74,11 @@ function ActiveInstitutionRoute({ children }: { children: React.ReactNode }) {
   const org = useOrg();
   if (!configured) return <>{children}</>;
   if (org.loading) {
-    return <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg)", color: "var(--text-muted)" }}>Checking organisation access…</div>;
+    return (
+      <div role="status" aria-label="Checking organisation access" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg)" }}>
+        <div style={{ width: 30, height: 30, borderRadius: 999, border: "3px solid var(--surface-3)", borderTopColor: "var(--blue)", animation: "pp-spin 0.8s linear infinite" }} />
+      </div>
+    );
   }
   if (org.error) {
     return (

@@ -6,10 +6,12 @@ import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { safeExternalUrl } from "@/lib/externalUrl";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const CATEGORIES = ["Government", "Regulator / Agency", "Central Bank", "University", "Local Authority", "International Organisation", "Other"];
 
 export function InstitutionOnboarding() {
+  usePageTitle("Set up your organisation");
   const { profile, user, refreshProfile, configured, signOut } = useAuth();
   const pushToast = useAppStore((s) => s.pushToast);
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export function InstitutionOnboarding() {
         .eq("id", user.id);
       if (error) {
         setSaving(false);
-        pushToast({ title: "Couldn't save", description: "Check the details and try again.", variant: "info" });
+        pushToast({ title: "Couldn't save", description: "Check the details and try again.", variant: "error" });
         return;
       }
       await refreshProfile();
@@ -94,7 +96,7 @@ export function InstitutionOnboarding() {
                     fontSize: 12.5,
                     fontWeight: 600,
                     background: idx < step ? "var(--blue)" : idx === step ? "var(--surface-3)" : "var(--surface-2)",
-                    color: idx <= step ? "#fff" : "var(--text-muted)",
+                    color: idx < step ? "#fff" : idx === step ? "var(--text)" : "var(--text-muted)",
                     border: idx === step ? "1px solid var(--blue)" : "1px solid transparent",
                   }}
                 >

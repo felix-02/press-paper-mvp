@@ -12,6 +12,8 @@ import { useAuth } from "@/auth/AuthProvider";
 import { rowToRelease } from "@/lib/releaseMap";
 import { useOrg } from "@/lib/useOrg";
 import { track } from "@/lib/analytics";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { Skeleton } from "@/components/primitives/Skeleton";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
 
@@ -74,6 +76,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
 }
 
 export function Releases() {
+  usePageTitle("Releases");
   const { profile, profileReady } = useAuth();
   const org = useOrg();
   const navigate = useNavigate();
@@ -138,7 +141,7 @@ export function Releases() {
       .maybeSingle();
     setWorking(false);
     if (error || !(data as { id: string } | null)?.id) {
-      useAppStore.getState().pushToast({ title: "Couldn't publish release", description: "Refresh and try again.", variant: "info" });
+      useAppStore.getState().pushToast({ title: "Couldn't publish release", description: "Refresh and try again.", variant: "error" });
       return;
     }
     setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: "Published", publishedDate: "Just now", time: "Just now" } : row));
@@ -159,7 +162,7 @@ export function Releases() {
       .maybeSingle();
     setWorking(false);
     if (error || !(data as { id: string } | null)?.id) {
-      useAppStore.getState().pushToast({ title: "Couldn't delete release", description: "Refresh and try again.", variant: "info" });
+      useAppStore.getState().pushToast({ title: "Couldn't delete release", description: "Refresh and try again.", variant: "error" });
       return;
     }
     setLive((rows) => rows.filter((row) => row.id !== selected.id));
@@ -199,7 +202,7 @@ export function Releases() {
         subtitle="Manage everything you've published, scheduled or drafted."
         actions={
           org.can.publish ? <Link to="/inst/publish" className="pp-btn pp-btn-primary">
-            <Plus size={16} /> New Release
+            <Plus size={16} /> New release
           </Link> : undefined
         }
       />
@@ -251,8 +254,19 @@ export function Releases() {
 
       {/* table */}
       {loading ? (
-        <div className="pp-card" role="status" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-          Loading releases…
+        <div className="pp-card" role="status" aria-label="Loading releases" style={{ overflow: "hidden" }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+              <Skeleton w={52} h={38} r={7} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <Skeleton w="42%" h={13} />
+                <Skeleton w="64%" h={11} />
+              </div>
+              <Skeleton w={90} h={20} r={999} />
+              <Skeleton w={72} h={20} r={999} />
+              <Skeleton w={56} h={12} />
+            </div>
+          ))}
         </div>
       ) : !loadError ? (
         <>
@@ -268,7 +282,32 @@ export function Releases() {
             </div>
             {rows.length === 0 ? (
               <div style={{ padding: "40px 18px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-                {live.length === 0 ? "No releases yet. Create a release or save a draft to see it here." : "No releases match the current search and filters."}
+                {live.length === 0 ? (
+                  <>
+                    <p>No releases yet — your first one is a few fields away.</p>
+                    {org.can.publish && (
+                      <Link to="/inst/publish" className="pp-btn pp-btn-primary" style={{ marginTop: 14 }}>
+                        <Plus size={15} /> Create your first release
+                      </Link>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p>No releases match the current search and filters.</p>
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-outline"
+                      style={{ marginTop: 14 }}
+                      onClick={() => {
+                        setQuery("");
+                        setTypeFilter("All types");
+                        setStatusFilter("All statuses");
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               rows.map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
@@ -297,7 +336,7 @@ export function Releases() {
                   <Eye size={16} /> View public release
                 </button>
               )}
-              {selected.status !== "Published" && org.can.publish && (
+              {org.can.publish && (
                 <button type="button" className="pp-btn pp-btn-outline" onClick={() => navigate(`/inst/publish/${selected.id}`)} style={{ justifyContent: "flex-start" }}>
                   <Pencil size={16} /> Edit release
                 </button>

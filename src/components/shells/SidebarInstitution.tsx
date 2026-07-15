@@ -21,13 +21,13 @@ export function SidebarInstitution() {
         { label: "Drafts", value: "—" },
         { label: "Scheduled", value: "—" },
         { label: "Published", value: "—" },
-        { label: "Total Releases", value: "—" },
+        { label: "Total releases", value: "—" },
       ]
     : [
         { label: "Drafts", value: String(stats.draftCount) },
         { label: "Scheduled", value: String(stats.scheduledCount) },
         { label: "Published", value: String(stats.publishedCount), color: "var(--green)" },
-        { label: "Total Releases", value: String(stats.releaseCount) },
+        { label: "Total releases", value: String(stats.releaseCount) },
       ];
   return (
     <aside
@@ -45,11 +45,18 @@ export function SidebarInstitution() {
       }}
     >
       <nav className="pp-sidebar-nav" aria-label="Institution navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <SidebarCaption>Publishing</SidebarCaption>
         <NavItem to="/inst" end icon={<LayoutDashboard size={ic} />} label="Dashboard" />
         <NavItem to="/inst/publish" icon={<PenSquare size={ic} />} label="Publish" />
         <NavItem to="/inst/releases" icon={<FileText size={ic} />} label="Releases" />
+
+        <div style={{ height: 12 }} />
+        <SidebarCaption>Insights</SidebarCaption>
         <NavItem to="/inst/analytics" icon={<BarChart3 size={ic} />} label="Analytics" />
         <NavItem to="/inst/audience" icon={<Users size={ic} />} label="Audience" />
+
+        <div style={{ height: 12 }} />
+        <SidebarCaption>Organisation</SidebarCaption>
         <NavItem to="/inst/profile" icon={<Building2 size={ic} />} label="Profile" />
         <NavItem to="/inst/team" icon={<UserCog size={ic} />} label="Team" />
         <NavItem to="/inst/settings" icon={<Settings size={ic} />} label="Settings" />
@@ -57,7 +64,7 @@ export function SidebarInstitution() {
 
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
-      <SidebarCaption>Publishing Status</SidebarCaption>
+      <SidebarCaption>Publishing status</SidebarCaption>
       <div className="pp-sidebar-status" style={{ display: "flex", flexDirection: "column", gap: 9, padding: "0 11px" }}>
         {PUBLISHING_STATUS.map((s) => (
           <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

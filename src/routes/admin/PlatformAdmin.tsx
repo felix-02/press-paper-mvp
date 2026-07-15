@@ -431,7 +431,7 @@ export function PlatformAdmin() {
                 {lastLink && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, padding: "9px 11px", background: "var(--surface-2)", borderRadius: "var(--r-md)" }}>
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12.5 }}>{lastLink}</span>
-                    <button type="button" onClick={() => void navigator.clipboard.writeText(lastLink).then(() => pushToast({ title: "Copied", variant: "success" }), () => pushToast({ title: "Copy failed", variant: "info" }))} className="pp-btn pp-btn-ghost"><Copy size={13} /> Copy</button>
+                    <button type="button" onClick={() => void navigator.clipboard.writeText(lastLink).then(() => pushToast({ title: "Copied", variant: "success" }), () => pushToast({ title: "Copy failed", variant: "error" }))} className="pp-btn pp-btn-ghost"><Copy size={13} /> Copy</button>
                   </div>
                 )}
               </section>

@@ -56,6 +56,24 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
   const hasSearchResults = results.institutions.length > 0 || results.releases.length > 0;
   const wrapRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Global search shortcut: "/" or ⌘K / Ctrl+K focuses the search box.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     const slug = profile?.institution_slug;
@@ -189,6 +207,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
           >
             <Search size={16} />
             <input
+              ref={searchInputRef}
               value={query}
               maxLength={100}
               onChange={(e) => {
@@ -201,13 +220,21 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                 setSearchOpen(true);
                 setAccountOpen(false);
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchOpen(false);
+                  e.currentTarget.blur();
+                }
+              }}
               placeholder="Search institutions, topics or issues…"
               style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13.5 }}
             />
-            {query && (
+            {query ? (
               <button type="button" onClick={() => setQuery("")} aria-label="Clear" style={{ color: "var(--text-muted)", display: "grid", placeItems: "center" }}>
                 <X size={15} />
               </button>
+            ) : (
+              <kbd className="pp-kbd" aria-hidden>/</kbd>
             )}
           </div>
 
@@ -304,6 +331,16 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                       </span>
                     </button>
                   ))}
+
+                  {kind === "individual" && (
+                    <button
+                      type="button"
+                      onClick={() => go(`/explore?q=${encodeURIComponent(query.trim())}`)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", marginTop: 4, padding: "10px 10px", borderTop: "1px solid var(--border)", fontSize: 13, fontWeight: 600, color: "var(--blue)" }}
+                    >
+                      See everything matching “{query.trim().slice(0, 40)}” in Explore
+                    </button>
+                  )}
                 </>
               )}
             </div>

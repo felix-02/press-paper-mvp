@@ -4,8 +4,10 @@ import { AlertCircle, ArrowRight, KeyRound } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export function ResetPassword() {
+  usePageTitle("Reset password");
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [password, setPassword] = useState("");
@@ -53,7 +55,7 @@ export function ResetPassword() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
-          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><input className="pp-input" type="password" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><input className="pp-input" type="password" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submit()} autoFocus /></label>
           <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Confirm password</span><input className="pp-input" type="password" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submit()} /></label>
         </div>
         <button type="button" className="pp-btn pp-btn-primary" disabled={saving} onClick={() => void submit()} style={{ width: "100%", marginTop: 22, padding: 12, opacity: saving ? 0.7 : 1 }}>
