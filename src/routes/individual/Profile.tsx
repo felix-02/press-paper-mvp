@@ -38,7 +38,9 @@ export function Profile() {
   const { releases: saved } = useResolvedSaved();
   const activity = useActivity();
   const directory = usePublicInstitutions();
-  const followedSlugs = [...followed];
+  // Only institutions that still exist in the live directory are listed —
+  // stale follow rows are never fabricated into placeholder entries.
+  const followedInstitutions: Institution[] = directory.institutions.filter((institution) => followed.has(institution.slug));
   const [params, setParams] = useSearchParams();
   const tabParam = (params.get("tab") || "following").toLowerCase();
   const tab = tabParam === "saved" ? "Saved" : tabParam === "activity" ? "Activity" : "Following";
@@ -54,19 +56,10 @@ export function Profile() {
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
     : null;
-  const institutionForSlug = (slug: string): Institution => {
-    const live = directory.institutions.find((institution) => institution.slug === slug);
-    if (live) return live;
-    return {
-      slug,
-      name: slug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
-      category: "Institution",
-      verified: false,
-      color: "#1d4ed8",
-      color2: "#312e81",
-      mark: "generic",
-    };
-  };
+  // For historical activity rows, show the live name when the institution
+  // still exists, otherwise the raw slug — never an invented display name.
+  const institutionNameForSlug = (slug: string): string =>
+    directory.institutions.find((institution) => institution.slug === slug)?.name ?? slug;
 
   const logout = async () => {
     await signOut();
@@ -110,7 +103,7 @@ export function Profile() {
           </div>
 
           <div style={{ display: "flex", gap: 34, marginTop: 20 }}>
-            <Stat value={String(followedSlugs.length)} label="Following" />
+            <Stat value={directory.loading ? "…" : String(followedInstitutions.length)} label="Following" />
             <Stat value={String(saved.length)} label="Saved" />
             <Stat value={String(watchlists.length)} label="Watchlists" />
           </div>
@@ -123,7 +116,9 @@ export function Profile() {
       {tab === "Following" && (
         <>
           <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Institutions you follow</h2>
-          {followedSlugs.length === 0 ? (
+          {directory.loading ? (
+            <div className="pp-card" role="status" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>Loading institutions…</div>
+          ) : followedInstitutions.length === 0 ? (
             <EmptyState
               compact
               icon={<Compass size={22} />}
@@ -137,21 +132,18 @@ export function Profile() {
             />
           ) : (
             <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-              {followedSlugs.map((slug) => {
-                const i = institutionForSlug(slug);
-                return (
-                  <Link key={slug} to={`/institution/${slug}`} className="pp-card" style={{ padding: 14, display: "flex", alignItems: "center", gap: 11 }}>
-                    <InstitutionMark institution={i} size={36} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.name}</span>
-                        {i.verified && <Verified size={11} />}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{i.category}</div>
+              {followedInstitutions.map((i) => (
+                <Link key={i.slug} to={`/institution/${i.slug}`} className="pp-card" style={{ padding: 14, display: "flex", alignItems: "center", gap: 11 }}>
+                  <InstitutionMark institution={i} size={36} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.name}</span>
+                      {i.verified && <Verified size={11} />}
                     </div>
-                  </Link>
-                );
-              })}
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{i.category}</div>
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
         </>
@@ -211,7 +203,7 @@ export function Profile() {
                         <UserPlus size={15} color="var(--green)" />
                       </span>
                       <span style={{ fontSize: 13.5, flex: 1 }}>
-                        You followed <strong>{institutionForSlug(a.slug!).name}</strong>
+                        You followed <strong>{institutionNameForSlug(a.slug!)}</strong>
                       </span>
                       <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>{relativeTime(a.ts)}</span>
                     </Link>

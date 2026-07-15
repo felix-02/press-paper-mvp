@@ -207,7 +207,7 @@ export function PlatformAdmin() {
     const result = await admin.createInstitutionInvite(email, name);
     setActionBusy(null);
     if (!result.token) {
-      pushToast({ title: result.error ?? "The invitation couldn't be created", variant: "info" });
+      pushToast({ title: "Couldn't create the invitation", description: result.error ?? undefined, variant: "error" });
       return;
     }
     const link = `${window.location.origin}/institution-invite/${result.token}`;
