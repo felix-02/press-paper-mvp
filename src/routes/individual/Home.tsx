@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { TrendingUp, AlertCircle, ArrowUp } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { TrendingUp, AlertCircle, ArrowUp, Compass, Inbox } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
+import { FeedSkeleton } from "@/components/primitives/Skeleton";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
@@ -13,6 +15,7 @@ import { rowToRelease } from "@/lib/releaseMap";
 import { useRealtimeReleases } from "@/lib/useRealtimeReleases";
 import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution, Release } from "@/types";
 
 const FILTERS = ["Latest", "Following", "For You"] as const;
@@ -46,7 +49,19 @@ function SuggestRow({ institution: i }: { institution: Institution }) {
   );
 }
 
+/** Rough engagement score used to rank the "For You" tab (real counts only). */
+function engagementScore(release: Release): number {
+  const parse = (label: string): number => {
+    const amount = Number.parseFloat(label.replace(/[^0-9.]/g, "")) || 0;
+    if (/k/i.test(label)) return amount * 1_000;
+    if (/m/i.test(label)) return amount * 1_000_000;
+    return amount;
+  };
+  return parse(release.views) + parse(release.comments) * 4;
+}
+
 export function Home() {
+  usePageTitle("Home");
   const { configured } = useAuth();
   const followed = useAppStore((s) => s.followedSlugs);
   const navigate = useNavigate();
@@ -153,9 +168,21 @@ export function Home() {
     ready: configured && !liveLoading && !liveError,
     visibleIds,
   });
-  const feed = tab === "Following"
-    ? base.filter((r) => followed.has(r.institutionSlug))
-    : base;
+  // "Latest" is strict recency. "Following" narrows to followed publishers.
+  // "For You" is a real ranking: releases from followed institutions first
+  // (newest first), then everything else ordered by measured engagement.
+  const feed = useMemo(() => {
+    if (tab === "Following") return base.filter((r) => followed.has(r.institutionSlug));
+    if (tab === "For You") {
+      const fromFollowed = base.filter((r) => followed.has(r.institutionSlug));
+      const rest = base
+        .filter((r) => !followed.has(r.institutionSlug))
+        .slice()
+        .sort((a, b) => engagementScore(b) - engagementScore(a));
+      return [...fromFollowed, ...rest];
+    }
+    return base;
+  }, [base, tab, followed]);
   const feedScroll = useInfiniteScroll(feed.length, 8, tab);
 
   const bufferedForTab = useMemo(
@@ -199,7 +226,7 @@ export function Home() {
         {/* main feed */}
         <div className="pp-reader-main" style={{ flex: 1, minWidth: 0, maxWidth: 680 }}>
           <div ref={feedTopRef} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>Your Feed</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>Your feed</h1>
             <div style={{ display: "flex", gap: 6 }}>
               {FILTERS.map((f) => {
                 const active = tab === f;
@@ -282,13 +309,31 @@ export function Home() {
               <button type="button" className="pp-btn pp-btn-outline" onClick={() => setRetryKey((key) => key + 1)} style={{ marginTop: 14 }}>Retry</button>
             </div>
           ) : liveLoading ? (
-            <div style={{ padding: 36, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>Loading your feed…</div>
+            <FeedSkeleton count={3} />
           ) : feed.length === 0 ? (
-            <div className="pp-card" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-              {tab === "Following"
-                ? "You're not following any institutions yet. Follow some to see their releases here."
-                : "No releases to show yet."}
-            </div>
+            tab === "Following" ? (
+              <EmptyState
+                icon={<Compass size={24} />}
+                title="You're not following anyone yet"
+                body="Follow the institutions you care about and their releases will appear here the moment they publish."
+                action={
+                  <Link to="/explore" className="pp-btn pp-btn-primary">
+                    <Compass size={15} /> Explore institutions
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={<Inbox size={24} />}
+                title="No releases yet"
+                body="Verified institutions publish here directly. Explore sources to find the ones worth following."
+                action={
+                  <Link to="/explore" className="pp-btn pp-btn-primary">
+                    <Compass size={15} /> Explore sources
+                  </Link>
+                }
+              />
+            )
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {feed.slice(0, feedScroll.visible).map((r) => (
@@ -303,7 +348,7 @@ export function Home() {
         <aside className="pp-reader-rail" style={{ width: 304, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18, position: "sticky", top: 0 }}>
           <section className="pp-card" style={{ padding: 18 }}>
             <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600, marginBottom: 14 }}>
-              <TrendingUp size={16} color="var(--green)" /> Trending Topics
+              <TrendingUp size={16} color="var(--green)" /> Trending topics
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               {trending.length === 0 ? (

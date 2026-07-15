@@ -113,7 +113,7 @@ export function SidebarIndividual() {
 
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
-      <SidebarCaption>Followed Institutions</SidebarCaption>
+      <SidebarCaption>Followed institutions</SidebarCaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {slugs.length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px", lineHeight: 1.5 }}>
@@ -126,7 +126,7 @@ export function SidebarIndividual() {
 
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
-      <SidebarCaption>My Watchlists</SidebarCaption>
+      <SidebarCaption>Watchlists</SidebarCaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {!available ? (
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px", lineHeight: 1.5 }}>
@@ -191,7 +191,7 @@ export function SidebarIndividual() {
               onClick={() => setCreating(true)}
               style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "8px 11px", borderRadius: "var(--r-md)", fontSize: 13.5, color: "var(--text-secondary)", background: "transparent" }}
             >
-              <Plus size={ic} style={{ flexShrink: 0 }} /> Create Watchlist
+              <Plus size={ic} style={{ flexShrink: 0 }} /> Create watchlist
             </button>
           )
         )}

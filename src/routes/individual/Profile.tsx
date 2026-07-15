@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, LogOut, Settings, Bookmark, UserPlus, X } from "lucide-react";
+import { CalendarDays, LogOut, Pencil, Bookmark, UserPlus, X, Compass } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { Avatar } from "@/components/brand/Avatar";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { Verified } from "@/components/primitives/Bits";
+import { Tabs } from "@/components/primitives/Tabs";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResolvedSaved } from "@/lib/useResolvedSaved";
 import { useActivity, relativeTime } from "@/lib/useActivity";
 import { supabase } from "@/lib/supabase";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution } from "@/types";
 
-const TABS = ["Following", "Saved", "Activity"];
+const TABS = ["Following", "Saved", "Activity"] as const;
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
@@ -26,6 +29,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 export function Profile() {
+  usePageTitle("Your profile");
   const followed = useAppStore((s) => s.followedSlugs);
   const watchlists = useAppStore((s) => s.watchlists);
   const pushToast = useAppStore((s) => s.pushToast);
@@ -89,10 +93,10 @@ export function Profile() {
             </div>
             <div className="pp-profile-actions" style={{ display: "flex", gap: 10, paddingBottom: 6 }}>
               <button type="button" onClick={() => setEditing(true)} className="pp-btn pp-btn-ghost">
-                <Settings size={15} /> Edit Profile
+                <Pencil size={15} /> Edit profile
               </button>
               <button type="button" onClick={logout} className="pp-btn pp-btn-outline">
-                <LogOut size={15} /> Log Out
+                <LogOut size={15} /> Log out
               </button>
             </div>
           </div>
@@ -114,37 +118,23 @@ export function Profile() {
       </div>
 
       {/* tabs */}
-      <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--border)", marginTop: 26, marginBottom: 22 }}>
-        {TABS.map((t) => {
-          const active = tab === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              style={{
-                fontSize: 14,
-                fontWeight: active ? 600 : 500,
-                padding: "10px 4px",
-                marginRight: 18,
-                color: active ? "var(--text)" : "var(--text-muted)",
-                borderBottom: `2px solid ${active ? "var(--text)" : "transparent"}`,
-                marginBottom: -1,
-              }}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs tabs={TABS} active={tab} onChange={setTab} style={{ marginTop: 26, marginBottom: 22 }} />
 
       {tab === "Following" && (
         <>
           <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Institutions you follow</h2>
           {followedSlugs.length === 0 ? (
-            <div className="pp-card" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-              You're not following any institutions yet. Explore sources and follow the ones you care about.
-            </div>
+            <EmptyState
+              compact
+              icon={<Compass size={22} />}
+              title="You're not following anyone yet"
+              body="Explore sources and follow the institutions you care about."
+              action={
+                <Link to="/explore" className="pp-btn pp-btn-primary">
+                  <Compass size={15} /> Explore institutions
+                </Link>
+              }
+            />
           ) : (
             <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
               {followedSlugs.map((slug) => {
@@ -171,9 +161,17 @@ export function Profile() {
         <>
           <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Saved releases</h2>
           {saved.length === 0 ? (
-            <div className="pp-card" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-              Nothing saved yet. Tap the bookmark on any release to keep it here.
-            </div>
+            <EmptyState
+              compact
+              icon={<Bookmark size={22} />}
+              title="Nothing saved yet"
+              body="Tap the bookmark on any release to keep it here."
+              action={
+                <Link to="/home" className="pp-btn pp-btn-outline">
+                  Browse your feed
+                </Link>
+              }
+            />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {saved.map((r) => (
@@ -244,7 +242,7 @@ export function Profile() {
               }
               const { error } = await supabase.from("profiles").update({ full_name: cleanName, bio: cleanBio || null }).eq("id", user.id);
               if (error) {
-                pushToast({ title: "Couldn't save", description: "Check the name and try again.", variant: "info" });
+                pushToast({ title: "Couldn't save", description: "Check the name and try again.", variant: "error" });
                 return;
               }
               await refreshProfile();

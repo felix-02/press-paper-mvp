@@ -15,6 +15,7 @@ import { useOrg } from "@/lib/useOrg";
 import { RichTextEditor } from "@/components/common/RichTextEditor";
 import { track } from "@/lib/analytics";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const TYPES: ReleaseType[] = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
 const SCENES: { scene: MediaScene; label: string }[] = [
@@ -46,6 +47,7 @@ function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: stri
 export function Publish() {
   const navigate = useNavigate();
   const { id: editingId } = useParams();
+  usePageTitle(editingId ? "Edit release" : "Publish");
   const pushToast = useAppStore((s) => s.pushToast);
   const { user, profile, profileReady } = useAuth();
   const org = useOrg();
@@ -68,11 +70,27 @@ export function Publish() {
   const [loadingRelease, setLoadingRelease] = useState(Boolean(editingId));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [headingError, setHeadingError] = useState(false);
+  const [subheadingError, setSubheadingError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
 
   const headingRef = useRef<HTMLInputElement>(null);
   const subheadingRef = useRef<HTMLInputElement>(null);
+
+  // Guard against losing unsaved work on refresh/close. In-app navigation is
+  // still free — drafts save in one click and nothing here is destructive.
+  const snapshot = JSON.stringify([heading, subheading, body, type, scene]);
+  const dirty = !busy && !loadingRelease && snapshot !== savedSnapshot && Boolean(heading.trim() || subheading.trim() || body.replace(/<[^>]*>/g, "").trim());
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     if (!editingId) {
@@ -83,9 +101,11 @@ export function Publish() {
       setScene("wind-farm");
       setOriginalPublishedAt(null);
       setHeadingError(false);
+      setSubheadingError(false);
       setReviewing(false);
       setLoadingRelease(false);
       setLoadError(null);
+      setSavedSnapshot(JSON.stringify(["", "", "", "Announcement", "wind-farm"]));
       return;
     }
     if (!profileReady || org.loading) {
@@ -121,6 +141,13 @@ export function Publish() {
         setType(isReleaseType(row.type) ? row.type : "Announcement");
         setScene(isMediaScene(row.scene) ? row.scene : "wind-farm");
         setOriginalPublishedAt(row.published_at);
+        setSavedSnapshot(JSON.stringify([
+          row.heading,
+          row.subheading ?? "",
+          row.body ?? "",
+          isReleaseType(row.type) ? row.type : "Announcement",
+          isMediaScene(row.scene) ? row.scene : "wind-farm",
+        ]));
         setLoadingRelease(false);
       });
 
@@ -146,6 +173,7 @@ export function Publish() {
   const validateForPublish = (): boolean => {
     if (!requireHeading()) return false;
     if (!subheading.trim()) {
+      setSubheadingError(true);
       subheadingRef.current?.focus();
       pushToast({ title: "Add a subheading to continue", description: "Summarise the release before reviewing it.", variant: "info" });
       return false;
@@ -162,11 +190,11 @@ export function Publish() {
   // All releases persist to the organisation workspace in Postgres.
   const persist = async (status: ReleaseStatus): Promise<string | null> => {
     if (!supabase || !user) {
-      pushToast({ title: "Publishing is unavailable", description: "Reconnect your account and try again.", variant: "info" });
+      pushToast({ title: "Publishing is unavailable", description: "Reconnect your account and try again.", variant: "error" });
       return null;
     }
     if (!org.slug || !org.can.publish || (status === "Published" && !org.verified)) {
-      pushToast({ title: "Publishing access is unavailable", description: "Your organisation membership or verification is incomplete.", variant: "info" });
+      pushToast({ title: "Publishing access is unavailable", description: "Your organisation membership or verification is incomplete.", variant: "error" });
       return null;
     }
 
@@ -197,7 +225,7 @@ export function Publish() {
 
     const persisted = result.data as { id: string } | null;
     if (result.error || !persisted?.id) {
-      pushToast({ title: "Couldn't save release", description: "Check your publishing access and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save release", description: "Check your publishing access and try again.", variant: "error" });
       return null;
     }
     return persisted.id;
@@ -210,6 +238,7 @@ export function Publish() {
     const releaseId = await persist(status);
     setBusy(false);
     if (!releaseId) return;
+    setSavedSnapshot(JSON.stringify([heading, subheading, body, type, scene]));
     track(status === "Published" ? "release_published" : "release_draft_saved", { releaseId, status, type });
     if (status === "Published") {
       pushToast({ title: "Release published", description: "It's now live in your organisation's releases.", variant: "success" });
@@ -304,7 +333,7 @@ export function Publish() {
         {/* form */}
         <div className="pp-card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="Required · 200 characters">Heading</FieldLabel>
+            <FieldLabel hint={heading.length > 150 ? `${heading.length}/200` : "Required"}>Heading</FieldLabel>
             <input
               ref={headingRef}
               className="pp-input"
@@ -329,15 +358,27 @@ export function Publish() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="250 characters">Subheading</FieldLabel>
+            <FieldLabel hint={subheading.length > 190 ? `${subheading.length}/250` : "Required to publish"}>Subheading</FieldLabel>
             <input
               ref={subheadingRef}
               className="pp-input"
               placeholder="One or two sentences summarising the release"
               value={subheading}
               maxLength={250}
-              onChange={(e) => setSubheading(e.target.value)}
+              onChange={(e) => {
+                setSubheading(e.target.value);
+                if (subheadingError && e.target.value.trim()) setSubheadingError(false);
+              }}
+              style={{
+                borderColor: subheadingError ? "var(--red)" : undefined,
+                boxShadow: subheadingError ? "0 0 0 3px rgba(248,113,113,0.15)" : undefined,
+              }}
             />
+            {subheadingError && (
+              <span style={{ display: "block", fontSize: 12.5, color: "var(--red)", marginTop: 6 }}>
+                Add a short summary — it's what readers see in their feed.
+              </span>
+            )}
           </div>
 
           <div style={{ marginBottom: 20 }}>
@@ -417,11 +458,11 @@ export function Publish() {
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px", opacity: busy || !org.verified ? 0.6 : 1 }}>
-              <Send size={16} /> {busy ? "Publishing…" : !org.verified ? "Approval required" : "Review & Publish"}
+            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px" }}>
+              <Send size={16} /> {busy ? "Publishing…" : !org.verified ? "Approval required" : originalPublishedAt ? "Review & republish" : "Review & publish"}
             </button>
-            <button type="button" onClick={saveDraft} disabled={busy} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }}>
-              <FileText size={16} /> Save as draft
+            <button type="button" onClick={saveDraft} disabled={busy} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }} title={originalPublishedAt ? "Removes the release from public view and keeps it as a draft" : undefined}>
+              <FileText size={16} /> {originalPublishedAt ? "Unpublish to draft" : "Save as draft"}
             </button>
           </div>
         </div>

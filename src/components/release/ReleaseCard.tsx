@@ -8,7 +8,6 @@ import {
   BookmarkCheck,
   Plus,
   Sparkles,
-  MessageCircleQuestion,
   MoreHorizontal,
   Link2,
   ExternalLink,
@@ -139,12 +138,12 @@ function CardMenu({ release }: { release: Release }) {
           )}
           {row(<Link2 size={15} />, "Copy link", () => {
             if (!navigator.clipboard) {
-              pushToast({ title: "Couldn't copy link", variant: "info" });
+              pushToast({ title: "Couldn't copy link", variant: "error" });
               return;
             }
             void navigator.clipboard.writeText(releaseShareUrl(release)).then(
               () => pushToast({ title: "Link copied", variant: "success" }),
-              () => pushToast({ title: "Couldn't copy link", variant: "info" })
+              () => pushToast({ title: "Couldn't copy link", variant: "error" })
             );
           })}
         </div>
@@ -201,8 +200,8 @@ function CardFooter({ release }: { release: Release }) {
           active={saved}
         />
         <FooterAction icon={<Plus size={15} />} label="Watchlist" onClick={() => openSection("release-actions")} />
-        <FooterAction icon={<Sparkles size={15} />} label="AI Summary" onClick={() => openSection("ai-summary")} />
-        <FooterAction icon={<MessageCircleQuestion size={15} />} label="Quick answers" onClick={() => openSection("ask-anything")} />
+        <FooterAction icon={<Sparkles size={15} />} label="AI summary" onClick={() => openSection("ai-summary")} />
+        <FooterAction icon={<MessageSquare size={15} />} label="Discuss" onClick={() => openSection("comments")} />
       </div>
     </div>
   );
@@ -255,7 +254,8 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
           <TypeBadge type={release.type} />
           <h3
             onClick={open}
-            style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.32, marginTop: 10, cursor: "pointer", letterSpacing: "0" }}
+            className="pp-release-title"
+            style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.32, marginTop: 10, letterSpacing: "0" }}
           >
             {release.heading}
           </h3>
@@ -301,7 +301,8 @@ function SavedCard({ release }: { release: Release }) {
         <TypeBadge type={release.type} />
         <h3
           onClick={open}
-          style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.34, marginTop: 8, cursor: "pointer", letterSpacing: "0" }}
+          className="pp-release-title"
+          style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.34, marginTop: 8, letterSpacing: "0" }}
         >
           {release.heading}
         </h3>

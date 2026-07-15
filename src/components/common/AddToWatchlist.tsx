@@ -37,7 +37,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
     setCreating(false);
     const wl = await create(n);
     if (wl) await add(wl.id, wl.name, false);
-    else pushToast({ title: "Couldn't create watchlist", variant: "info" });
+    else pushToast({ title: "Couldn't create watchlist", variant: "error" });
   };
 
   return (

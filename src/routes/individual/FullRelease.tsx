@@ -33,6 +33,7 @@ import { useReleaseEngagement } from "@/lib/useReleaseEngagement";
 import { isReleaseUuid, releaseShareUrl } from "@/lib/releaseUrls";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 function publisherFromRelease(release: Release): Institution {
   return {
@@ -54,9 +55,9 @@ function plainText(value: string | null | undefined): string {
     .trim();
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section style={{ marginTop: 30 }}>
+    <section id={id} style={{ marginTop: 30, scrollMarginTop: 20 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0", marginBottom: 12 }}>{title}</h2>
       {children}
     </section>
@@ -204,6 +205,7 @@ export function FullRelease() {
 }
 
 function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "institution" | "individual" }) {
+  usePageTitle(release.heading);
   const navigate = useNavigate();
   const location = useLocation();
   const i = useMemo(() => publisherFromRelease(release), [release]);
@@ -270,7 +272,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
     }
     if (!isTranslationAvailable()) {
       setTranslating(false);
-      pushToast({ title: "Translation unavailable", description: "Deploy the translate function to enable other languages.", variant: "info" });
+      pushToast({ title: "Translation unavailable", description: "Deploy the translate function to enable other languages.", variant: "error" });
       setLang("English");
       return;
     }
@@ -281,7 +283,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
       if (!active) return;
       setTranslating(false);
       if (out === fields || out.length !== fields.length) {
-        pushToast({ title: "Couldn't translate", description: "Please try again.", variant: "info" });
+        pushToast({ title: "Couldn't translate", description: "Please try again.", variant: "error" });
         setLang("English");
         return;
       }
@@ -406,7 +408,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         </div>
 
         {attachmentsOpen && release.attachments && (
-          <div className="pp-card pp-fade" style={{ marginTop: 10, padding: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <div className="pp-card pp-fade pp-responsive-grid" style={{ marginTop: 10, padding: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
             {release.attachments.map((attachment) => (
               <div key={attachment.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: 10, borderRadius: "var(--r-md)", background: "var(--surface-2)" }}>
                 <span style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: "var(--surface-3)", color: "var(--text-secondary)", fontSize: 10.5, fontWeight: 700 }}>{attachment.format}</span>
@@ -463,7 +465,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
           )}
 
           {/* comments */}
-          <Section title="Comments">
+          <Section id="comments" title="Comments">
             <CommentThread releaseId={release.id} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
           </Section>
         </div>

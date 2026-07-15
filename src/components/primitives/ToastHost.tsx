@@ -1,4 +1,4 @@
-import { CheckCircle2, Info, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 /** Bottom-right toast stack. Used for "Published", "Saved as draft", etc. */
@@ -24,6 +24,7 @@ export function ToastHost() {
         <div
           key={t.id}
           className="pp-rise"
+          role={t.variant === "error" ? "alert" : undefined}
           style={{
             pointerEvents: "auto",
             minWidth: 280,
@@ -32,7 +33,7 @@ export function ToastHost() {
             gap: 12,
             alignItems: "flex-start",
             background: "var(--surface-2)",
-            border: "1px solid var(--border-strong)",
+            border: `1px solid ${t.variant === "error" ? "color-mix(in srgb, var(--red) 45%, transparent)" : "var(--border-strong)"}`,
             borderRadius: "var(--r-md)",
             padding: "13px 14px",
             boxShadow: "var(--shadow-lg)",
@@ -41,6 +42,8 @@ export function ToastHost() {
           <span style={{ marginTop: 1 }}>
             {t.variant === "success" ? (
               <CheckCircle2 size={18} color="var(--green)" />
+            ) : t.variant === "error" ? (
+              <AlertTriangle size={18} color="var(--red)" />
             ) : (
               <Info size={18} color="var(--blue)" />
             )}

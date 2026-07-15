@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import { AlertCircle, Globe, MapPin, ArrowUpRight, FileText } from "lucide-react";
+import { AlertCircle, Globe, MapPin, ArrowUpRight, FileText, Inbox } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { Verified } from "@/components/primitives/Bits";
+import { Tabs } from "@/components/primitives/Tabs";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease, formatCount } from "@/lib/releaseMap";
@@ -14,8 +16,9 @@ import { externalUrlLabel, safeExternalUrl } from "@/lib/externalUrl";
 import type { PublicInstitutionRow } from "@/lib/usePublicInstitutions";
 import { useAuth } from "@/auth/AuthProvider";
 import { PublicFooter, PublicHeader } from "@/components/shells/PublicChrome";
+import { usePageTitle } from "@/lib/usePageTitle";
 
-const TABS = ["Releases", "About", "Activity"];
+const TABS = ["Releases", "About", "Activity"] as const;
 
 function institutionFromRow(row: PublicInstitutionRow): Institution {
   return {
@@ -139,6 +142,7 @@ export function InstitutionPublic() {
   const liveFollowers = current.followers;
   const liveReleaseCount = current.releaseCount;
   const i = current.institution;
+  usePageTitle(i?.name);
 
   const seen = new Set<string>();
   const releases = liveReleases
@@ -259,35 +263,16 @@ export function InstitutionPublic() {
       </div>
 
       {/* tabs */}
-      <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--border)", marginTop: 26, marginBottom: 22 }}>
-        {TABS.map((t) => {
-          const active = tab === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              style={{
-                fontSize: 14,
-                fontWeight: active ? 600 : 500,
-                padding: "10px 4px",
-                marginRight: 18,
-                color: active ? "var(--text)" : "var(--text-muted)",
-                borderBottom: `2px solid ${active ? "var(--text)" : "transparent"}`,
-                marginBottom: -1,
-              }}
-            >
-              {t}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs tabs={TABS} active={tab} onChange={setTab} style={{ marginTop: 26, marginBottom: 22 }} />
 
       {tab === "Releases" && (
         releases.length === 0 ? (
-          <div className="pp-card" style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-            No releases published yet.
-          </div>
+          <EmptyState
+            compact
+            icon={<Inbox size={22} />}
+            title="No releases published yet"
+            body={`Follow ${i.name} to be notified the moment they publish.`}
+          />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {releases.map((r) => (

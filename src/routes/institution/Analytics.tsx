@@ -6,6 +6,8 @@ import { LineChart } from "@/components/charts/LineChart";
 import { Donut } from "@/components/charts/Donut";
 import { useInstitutionStats } from "@/lib/useInstitutionStats";
 import { formatCount } from "@/lib/releaseMap";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { MetricCardSkeleton, Skeleton } from "@/components/primitives/Skeleton";
 
 const RANGES: [string, number][] = [
   ["Today", 1],
@@ -42,6 +44,7 @@ function RangeTabs({ days, onChange }: { days: number; onChange: (d: number) => 
 }
 
 export function Analytics() {
+  usePageTitle("Analytics");
   const [params, setParams] = useSearchParams();
   const days = rangeFromSearchParam(params.get("range"), 365);
   const setDays = (nextDays: number) => {
@@ -63,7 +66,17 @@ export function Analytics() {
     return (
       <AppShell kind="institution">
         <PageHeader title="Analytics" subtitle="Performance across your published information." />
-        <div className="pp-card" role="status" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>Loading analytics…</div>
+        <div role="status" aria-label="Loading analytics">
+          <div className="pp-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 18 }}>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <MetricCardSkeleton key={i} />
+            ))}
+          </div>
+          <div className="pp-card" style={{ padding: 18 }}>
+            <Skeleton w={180} h={15} style={{ marginBottom: 18 }} />
+            <Skeleton w="100%" h={250} r={10} />
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -71,11 +84,11 @@ export function Analytics() {
   const avgViews = stats.releaseCount ? Math.round(stats.totalViews / stats.releaseCount) : 0;
 
   const metrics: Metric[] = [
-    { label: "Total Views", value: formatCount(stats.totalViews), delta: "all time", positive: true, color: "var(--series-1)" },
+    { label: "Total views", value: formatCount(stats.totalViews), delta: "all time", positive: true, color: "var(--series-1)" },
     { label: "Comments", value: formatCount(stats.totalComments), delta: "all time", positive: true, color: "var(--series-2)" },
     { label: "Releases", value: String(stats.releaseCount), delta: `${stats.publishedCount} published`, positive: true, color: "var(--series-3)" },
     { label: "Followers", value: formatCount(stats.followers), delta: "all time", positive: true, color: "var(--series-4)" },
-    { label: "Avg. Views / Release", value: formatCount(avgViews), delta: "across all", positive: true, color: "var(--series-5)" },
+    { label: "Avg. views / release", value: formatCount(avgViews), delta: "across all", positive: true, color: "var(--series-5)" },
     { label: `Views (${RANGE_LABEL[days]})`, value: formatCount(stats.rangeViews), delta: "selected range", positive: true, color: "var(--series-1)" },
   ];
 
@@ -121,8 +134,8 @@ export function Analytics() {
         title="Analytics"
         subtitle="Understand how your releases reach and engage the public."
         actions={
-          <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center", textTransform: "capitalize" }}>
-            {RANGE_LABEL[days]}
+          <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center" }}>
+            {(RANGE_LABEL[days] ?? "").replace(/^./, (c) => c.toUpperCase())}
           </span>
         }
       />
@@ -133,7 +146,7 @@ export function Analytics() {
         ))}
       </div>
 
-      <Panel title="Performance Overview" action={<RangeTabs days={days} onChange={setDays} />} style={{ marginBottom: 18 }}>
+      <Panel title="Performance overview" action={<RangeTabs days={days} onChange={setDays} />} style={{ marginBottom: 18 }}>
         {hasRealSeries ? (
             <>
               <LineChart
@@ -162,7 +175,7 @@ export function Analytics() {
       </Panel>
 
       <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
-        <Panel title="Content Type Performance">
+        <Panel title="Content type performance">
           {typePerf.length === 0 ? (
             <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>No releases yet.</div>
           ) : (
@@ -174,7 +187,7 @@ export function Analytics() {
           )}
         </Panel>
 
-        <Panel title="Engagement Breakdown">
+        <Panel title="Engagement breakdown">
           {totalEng === 0 ? (
             <div style={{ height: 150, display: "grid", placeItems: "center", textAlign: "center", color: "var(--text-muted)" }}>
               <div style={{ fontSize: 13, maxWidth: 260 }}>No engagement has been recorded yet. Views and comments will appear after people interact with published releases.</div>
@@ -199,16 +212,16 @@ export function Analytics() {
       </div>
 
       <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18, marginBottom: 18 }}>
-        <Panel title="Geographic Reach">
+        <Panel title="Geographic reach">
           <NotTracked what="Viewer location" />
         </Panel>
 
-        <Panel title="Device Breakdown">
+        <Panel title="Device breakdown">
           <NotTracked what="Device type" />
         </Panel>
       </div>
 
-      <Panel title="Top Releases by Views">
+      <Panel title="Top releases by views">
         {topReleases.length === 0 ? (
           <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>No releases yet.</div>
         ) : (

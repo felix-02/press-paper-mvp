@@ -3,6 +3,7 @@ import { Users, UserPlus, ShieldCheck, Check, X, Copy, Clock, Crown, AlertCircle
 import { AppShell } from "@/components/shells/AppShell";
 import { useOrg, type OrgRole } from "@/lib/useOrg";
 import { useAppStore } from "@/store/useAppStore";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 // Database roles stay permission-oriented; the labels match the institution
 // profile language supplied in the product screens.
@@ -43,6 +44,7 @@ function initials(name: string | null, email: string) {
 }
 
 export function InstitutionTeam() {
+  usePageTitle("Team");
   const org = useOrg();
   const pushToast = useAppStore((s) => s.pushToast);
   const [email, setEmail] = useState("");
@@ -82,7 +84,7 @@ export function InstitutionTeam() {
         pushToast({ title: "Invite created", description: "Copy the link below to share.", variant: "success" });
       }
     } else {
-      pushToast({ title: "Couldn't create invite", variant: "info" });
+      pushToast({ title: "Couldn't create invite", variant: "error" });
     }
   };
 
@@ -177,7 +179,16 @@ export function InstitutionTeam() {
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input className="pp-input" type="email" placeholder="name@organisation.gov" value={email} maxLength={320} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+              <input
+                className="pp-input"
+                type="email"
+                placeholder="name@organisation.gov"
+                value={email}
+                maxLength={320}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !sending && void sendInvite()}
+                style={{ flex: 1, minWidth: 220 }}
+              />
               <select className="pp-input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as OrgRole)} style={{ width: 130 }}>
                 <option value="admin">Publisher</option>
                 <option value="editor">Editor</option>
@@ -198,12 +209,12 @@ export function InstitutionTeam() {
                 type="button"
                 onClick={() => {
                   if (!navigator.clipboard) {
-                    pushToast({ title: "Couldn't copy link", variant: "info" });
+                    pushToast({ title: "Couldn't copy link", variant: "error" });
                     return;
                   }
                   void navigator.clipboard.writeText(lastLink).then(
                     () => pushToast({ title: "Link copied", variant: "success" }),
-                    () => pushToast({ title: "Couldn't copy link", variant: "info" })
+                    () => pushToast({ title: "Couldn't copy link", variant: "error" })
                   );
                 }}
                 className="pp-btn pp-btn-ghost"

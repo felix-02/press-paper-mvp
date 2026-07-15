@@ -11,6 +11,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { useOrg } from "@/lib/useOrg";
 import { supabase } from "@/lib/supabase";
 import { safeExternalUrl } from "@/lib/externalUrl";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution } from "@/types";
 
 function CheckRow({ label }: { label: string }) {
@@ -97,6 +98,7 @@ function initialsFrom(name: string | null, email: string): string {
 }
 
 export function Profile() {
+  usePageTitle("Organisation profile");
   const pushToast = useAppStore((s) => s.pushToast);
   const navigate = useNavigate();
   const { user, profile, profileReady, profileError, refreshProfile } = useAuth();
@@ -155,7 +157,7 @@ export function Profile() {
       return;
     }
     if (!supabase || !user) {
-      pushToast({ title: "Couldn't save", description: "Reconnect your account and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save", description: "Reconnect your account and try again.", variant: "error" });
       return;
     }
     setSaving(true);
@@ -168,7 +170,7 @@ export function Profile() {
     }).eq("id", user.id);
     setSaving(false);
     if (error) {
-      pushToast({ title: "Couldn't save", description: "Review the details and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save", description: "Review the details and try again.", variant: "error" });
       return;
     }
     await refreshProfile();
@@ -301,7 +303,7 @@ export function Profile() {
           </Panel>
 
           <Panel
-            title="Authorised People"
+            title="Authorised people"
             action={
               org.can.invite ? (
                 <button type="button" onClick={() => navigate("/inst/team")} className="pp-btn pp-btn-outline" style={{ padding: "6px 13px", fontSize: 13 }}>
