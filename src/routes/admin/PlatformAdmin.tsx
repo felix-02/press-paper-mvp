@@ -313,7 +313,7 @@ export function PlatformAdmin() {
 
       <nav aria-label="Administration sections" style={{ display: "flex", gap: 6, overflowX: "auto", borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" onClick={() => { setTab(id); setQuery(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
+          <button key={id} type="button" onClick={() => setTab(id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
             <Icon size={15} /> {label}
           </button>
         ))}

@@ -304,7 +304,8 @@ grant delete on table public.releases to authenticated;
 -- inherited by the existing release_details view. Preserve every existing
 -- column in its original position and append the non-sensitive moderation state
 -- so dependent queries remain compatible. Reasons stay admin-RPC-only.
-create or replace view public.release_details
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select
@@ -1223,7 +1224,8 @@ as $$
     );
 $$;
 
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text,
   name text,
@@ -1261,7 +1263,8 @@ begin
 end;
 $$;
 
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text,
   name text,

@@ -1199,7 +1199,8 @@ create trigger trg_canonicalize_release_identity
   before insert on public.releases
   for each row execute function public.canonicalize_release_identity();
 
-create or replace view public.release_details
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select r.*, public.org_is_verified(r.institution_slug) as institution_verified
@@ -2456,7 +2457,8 @@ as $$
     );
 $$;
 
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text,
   name text,
@@ -2501,7 +2503,8 @@ $$;
 
 -- Public directory data comes only from verified active owners. This avoids
 -- treating a legacy compatibility catalogue as live identity proof.
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text,
   name text,
@@ -3156,7 +3159,8 @@ grant delete on table public.releases to authenticated;
 -- inherited by the existing release_details view. Preserve every existing
 -- column in its original position and append the non-sensitive moderation state
 -- so dependent queries remain compatible. Reasons stay admin-RPC-only.
-create or replace view public.release_details
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select
@@ -4075,7 +4079,8 @@ as $$
     );
 $$;
 
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text,
   name text,
@@ -4113,7 +4118,8 @@ begin
 end;
 $$;
 
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text,
   name text,
@@ -4361,9 +4367,12 @@ create trigger trg_snapshot_release_revision
   before update of heading, subheading, body on public.releases
   for each row execute function public.snapshot_release_revision();
 
--- Expose the edit flag on the read model. Same shape as 0016 with two new
--- columns appended at the end (create or replace view allows appending).
-create or replace view public.release_details
+-- Expose the edit flag on the read model. Databases upgraded from different
+-- schema versions carry different view column orders, and CREATE OR REPLACE
+-- VIEW cannot reorder columns — so drop and recreate. Nothing else in the
+-- schema depends on the view, and its grants are re-applied right below.
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select
@@ -4442,9 +4451,13 @@ grant execute on function public.admin_add_platform_cover(text, text) to authent
 alter table public.profiles add column if not exists avatar_url text
   check (avatar_url is null or avatar_url ~ '^https://');
 grant update (avatar_url) on table public.profiles to authenticated;
+-- 0016 grants SELECT as an explicit column list, so the new column needs its
+-- own read grant or every profile load fails with permission denied.
+grant select (avatar_url) on table public.profiles to authenticated;
 
 drop function if exists public.public_institutions(integer);
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text, name text, website text, location text, description text,
   category text, verified boolean, followers_count bigint, releases_count bigint,
@@ -4471,7 +4484,8 @@ $$;
 grant execute on function public.public_institutions(integer) to anon, authenticated;
 
 drop function if exists public.public_institution(text);
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text, name text, website text, location text, description text,
   category text, verified boolean, followers_count bigint, releases_count bigint,
