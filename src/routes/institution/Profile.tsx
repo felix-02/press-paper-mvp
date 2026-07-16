@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Globe, MapPin, ShieldCheck, Pencil, UserPlus, Check } from "lucide-react";
+import { Globe, MapPin, ShieldCheck, Pencil, UserPlus, Check, Upload } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader, Panel } from "@/components/dashboard/Panels";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
@@ -120,11 +120,40 @@ export function Profile() {
   const [orgLocation, setOrgLocation] = useState(profile?.org_location ?? "");
   const [orgCategory, setOrgCategory] = useState(profile?.org_category ?? "");
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const uploadLogo = async (file: File) => {
+    if (!supabase || !user || !profile?.institution_slug) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
+      pushToast({ title: "Use a square PNG, JPEG or WebP under 2 MB", variant: "info" });
+      return;
+    }
+    setUploadingLogo(true);
+    const path = `${profile.institution_slug}/logo-${Date.now()}.${file.type.split("/")[1]}`;
+    const { error: uploadError } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000" });
+    if (uploadError) {
+      setUploadingLogo(false);
+      pushToast({ title: "Couldn't upload the logo", description: uploadError.message, variant: "error" });
+      return;
+    }
+    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
+    const url = data?.publicUrl;
+    const { error: saveError } = url
+      ? await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id)
+      : { error: new Error("no url") } as { error: Error };
+    setUploadingLogo(false);
+    if (saveError) {
+      pushToast({ title: "Couldn't save the logo", variant: "error" });
+      return;
+    }
+    await refreshProfile();
+    pushToast({ title: "Logo updated", description: "Readers now see it across the platform.", variant: "success" });
+  };
   const displayName = orgName.trim() || profile?.institution_name?.trim() || "Your organisation";
   const location = orgLocation.trim() || "Location not provided";
   const website = orgWebsite.trim() || "Website not provided";
   const category = orgCategory.trim() || "Category not provided";
-  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified" };
+  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified", avatarUrl: profile?.avatar_url || undefined };
 
   // Initialise the editable fields from the loaded profile (registration data).
   useEffect(() => {
@@ -233,9 +262,25 @@ export function Profile() {
               </div>
             </div>
             {canEditProfile && (
-              <button type="button" onClick={() => document.getElementById("organisation-description")?.focus()} className="pp-btn pp-btn-outline" style={{ marginBottom: 4 }}>
-                <Pencil size={14} /> Edit Profile
-              </button>
+              <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                <label className="pp-btn pp-btn-outline" style={{ cursor: "pointer" }}>
+                  <Upload size={14} /> {uploadingLogo ? "Uploading…" : "Update logo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: "none" }}
+                    disabled={uploadingLogo}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void uploadLogo(file);
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={() => document.getElementById("organisation-description")?.focus()} className="pp-btn pp-btn-outline">
+                  <Pencil size={14} /> Edit profile
+                </button>
+              </div>
             )}
           </div>
           <div style={{ display: "flex", gap: 20, marginTop: 16, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>

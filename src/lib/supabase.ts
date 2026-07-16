@@ -49,6 +49,8 @@ export interface ReleaseRow {
   comments_count?: number;
   institution_verified?: boolean;
   moderation_status?: "active" | "archived" | "deleted";
+  revision_count?: number;
+  last_edited_at?: string | null;
   moderation_reason?: string | null;
   moderation_changed_at?: string | null;
 }

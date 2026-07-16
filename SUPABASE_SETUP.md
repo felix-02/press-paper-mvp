@@ -2,9 +2,9 @@
 
 ## 1. Apply the schema
 
-For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0017` in order.
+For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0018` in order.
 
-For an existing project, apply [supabase/migrations/0017_invite_hardening.sql](./supabase/migrations/0017_invite_hardening.sql): institution invite links now expire after 30 minutes, remain single-use and email-locked, and the token functions resolve pgcrypto whether it is installed in the `public` or `extensions` schema (the latter is what the dashboard's "enable extension" uses, and previously broke invite creation with "function digest does not exist").
+For an existing project, apply [0017_invite_hardening.sql](./supabase/migrations/0017_invite_hardening.sql) and [0018_engagement_and_catalogue.sql](./supabase/migrations/0018_engagement_and_catalogue.sql). 0017: institution invite links now expire after 30 minutes, remain single-use and email-locked, and the token functions resolve pgcrypto whether it is installed in the `public` or `extensions` schema (the latter is what the dashboard's "enable extension" uses, and previously broke invite creation with "function digest does not exist").
 
 For an existing project, apply every migration after its current version. In particular:
 

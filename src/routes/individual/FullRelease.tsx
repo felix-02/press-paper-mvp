@@ -25,6 +25,7 @@ import { useAiSummary } from "@/lib/useAiSummary";
 import { track } from "@/lib/analytics";
 import { ShareMenu } from "@/components/common/ShareMenu";
 import { CommentThread } from "@/components/release/CommentThread";
+import { EditedBadge, ReactionBar } from "@/components/release/ReleaseExtras";
 import { TagList } from "@/components/common/TagList";
 import { LanguageMenu } from "@/components/common/LanguageMenu";
 import { AddToWatchlist } from "@/components/common/AddToWatchlist";
@@ -383,6 +384,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             <MessageSquare size={15} /> {commentsLabel} comments
           </span>
           {(release.tags.length > 0 || release.extraTags) && <TagList tags={release.tags} max={3} extra={release.extraTags} />}
+          <EditedBadge release={release} />
         </div>
       </div>
 
@@ -469,9 +471,14 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             </Section>
           )}
 
+          {/* reactions */}
+          <div style={{ marginTop: 26 }}>
+            <ReactionBar releaseId={release.id} />
+          </div>
+
           {/* comments */}
           <Section id="comments" title="Comments">
-            <CommentThread releaseId={release.id} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
+            <CommentThread releaseId={release.id} canModerate={isOwnInstitution} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
           </Section>
         </div>
 

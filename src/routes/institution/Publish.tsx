@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck } from "lucide-react";
+import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck, Upload } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
@@ -28,11 +28,11 @@ const SCENES: { scene: MediaScene; label: string }[] = [
 ];
 
 function isReleaseType(value: string): value is ReleaseType {
-  return TYPES.includes(value as ReleaseType);
+  return value.trim().length > 0;
 }
 
 function isMediaScene(value: string): value is MediaScene {
-  return SCENES.some(({ scene }) => scene === value);
+  return SCENES.some(({ scene }) => scene === value) || /^https:\/\//.test(value);
 }
 
 function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
@@ -74,6 +74,45 @@ export function Publish() {
   const [busy, setBusy] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [dbTypes, setDbTypes] = useState<string[]>([]);
+  const [platformCovers, setPlatformCovers] = useState<{ label: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // Platform catalogue: release types + extra covers managed by the super admin.
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    void supabase.from("platform_release_types").select("name").order("created_at").then(({ data }) => {
+      if (active) setDbTypes(((data as { name: string }[] | null) ?? []).map((r) => r.name));
+    });
+    void supabase.from("platform_covers").select("label, url").order("created_at").then(({ data }) => {
+      if (active) setPlatformCovers(((data as { label: string; url: string }[] | null) ?? []));
+    });
+    return () => { active = false; };
+  }, []);
+  const availableTypes = dbTypes.length > 0 ? dbTypes : TYPES;
+
+  const uploadCover = async (file: File) => {
+    if (!supabase || !org.slug) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 3 * 1024 * 1024) {
+      pushToast({ title: "Use a PNG, JPEG or WebP under 3 MB", variant: "info" });
+      return;
+    }
+    setUploading(true);
+    const path = `${org.slug}/cover-${Date.now()}.${file.type.split("/")[1]}`;
+    const { error } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000", upsert: false });
+    if (error) {
+      setUploading(false);
+      pushToast({ title: "Couldn't upload the cover", description: error.message, variant: "error" });
+      return;
+    }
+    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
+    setUploading(false);
+    if (data?.publicUrl) {
+      setScene(data.publicUrl as MediaScene);
+      pushToast({ title: "Cover uploaded", variant: "success" });
+    }
+  };
 
   const headingRef = useRef<HTMLInputElement>(null);
   const subheadingRef = useRef<HTMLInputElement>(null);
@@ -389,13 +428,13 @@ export function Publish() {
           <div style={{ marginBottom: 20 }}>
             <FieldLabel>Release type</FieldLabel>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {TYPES.map((t) => {
+              {availableTypes.map((t) => {
                 const active = type === t;
                 return (
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setType(t)}
+                    onClick={() => setType(t as ReleaseType)}
                     style={{
                       fontSize: 13,
                       fontWeight: 500,
@@ -416,13 +455,13 @@ export function Publish() {
           <div>
             <FieldLabel hint="Choose a cover">Cover media</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {SCENES.map(({ scene: s, label }) => {
+              {[...SCENES.map(({ scene, label }) => ({ scene: scene as string, label })), ...platformCovers.map((c) => ({ scene: c.url, label: c.label }))].map(({ scene: s, label }) => {
                 const active = scene === s;
                 return (
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setScene(s)}
+                    onClick={() => setScene(s as MediaScene)}
                     style={{
                       position: "relative",
                       borderRadius: 10,
@@ -455,6 +494,23 @@ export function Publish() {
                 );
               })}
             </div>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 12.5, color: "var(--text-secondary)", cursor: "pointer" }}>
+              <span className="pp-btn pp-btn-outline" style={{ padding: "6px 12px", fontSize: 12.5 }}>
+                <Upload size={14} /> {uploading ? "Uploading…" : "Upload your own cover"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: "none" }}
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void uploadCover(file);
+                }}
+              />
+              PNG, JPEG or WebP · up to 3 MB
+            </label>
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 26 }}>

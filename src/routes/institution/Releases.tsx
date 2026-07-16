@@ -1,6 +1,6 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/primitives/Skeleton";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
 const TYPE_OPTIONS = ["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"];
-const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled"];
+const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled", "Archived"];
 
 function HeaderCell({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
@@ -166,6 +166,31 @@ export function Releases() {
     track("release_published", { releaseId: selected.id, status: "Published", type: selected.type });
     setSelected(null);
     useAppStore.getState().pushToast({ title: "Release published", variant: "success" });
+  };
+
+  // Archive keeps everything (a reversible rollback); publish restores it.
+  const setArchived = async (archived: boolean) => {
+    if (!selected || !supabase || !org.slug || !org.can.publish) return;
+    setWorking(true);
+    const { data, error } = await supabase
+      .from("releases")
+      .update(archived ? { status: "Archived" } : { status: "Draft" })
+      .eq("id", selected.id)
+      .eq("institution_slug", org.slug)
+      .select("id")
+      .maybeSingle();
+    setWorking(false);
+    if (error || !(data as { id: string } | null)?.id) {
+      useAppStore.getState().pushToast({ title: archived ? "Couldn't archive release" : "Couldn't restore release", variant: "error" });
+      return;
+    }
+    setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: archived ? "Archived" : "Draft" } : row));
+    setSelected(null);
+    useAppStore.getState().pushToast({
+      title: archived ? "Release archived" : "Release restored to drafts",
+      description: archived ? "It's hidden from the public but fully recoverable here." : "Publish it again whenever you're ready.",
+      variant: "success",
+    });
   };
 
   const deleteRelease = async () => {
@@ -369,6 +394,16 @@ export function Releases() {
               {selected.status !== "Published" && org.can.publish && (
                 <button type="button" className="pp-btn pp-btn-primary" onClick={() => void publishNow()} disabled={working || !org.verified} style={{ justifyContent: "flex-start", opacity: working || !org.verified ? 0.65 : 1 }}>
                   <Send size={16} /> {org.verified ? "Publish now" : "Approval required to publish"}
+                </button>
+              )}
+              {org.can.publish && selected.status !== "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(true)} disabled={working} style={{ justifyContent: "flex-start" }}>
+                  <Archive size={16} /> Archive (reversible)
+                </button>
+              )}
+              {org.can.publish && selected.status === "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(false)} disabled={working} style={{ justifyContent: "flex-start" }}>
+                  <ArchiveRestore size={16} /> Unarchive to drafts
                 </button>
               )}
               {org.can.publish && (

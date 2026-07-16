@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const sql = readFileSync(new URL("../supabase/migrations/0015_security_hardening.sql", import.meta.url), "utf8");
 const moderationSql = readFileSync(new URL("../supabase/migrations/0016_super_admin_moderation.sql", import.meta.url), "utf8");
 const inviteHardeningSql = readFileSync(new URL("../supabase/migrations/0017_invite_hardening.sql", import.meta.url), "utf8");
+const engagementSql = readFileSync(new URL("../supabase/migrations/0018_engagement_and_catalogue.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -35,7 +36,20 @@ describe("security migration", () => {
   it("keeps the all-in-one migration synchronized", () => {
     expect(aggregate).toContain(sql);
     expect(aggregate).toContain(moderationSql);
-    expect(aggregate.endsWith(inviteHardeningSql)).toBe(true);
+    expect(aggregate).toContain(inviteHardeningSql);
+    expect(aggregate.endsWith(engagementSql)).toBe(true);
+  });
+});
+
+describe("engagement and catalogue migration", () => {
+  it("keeps rollback, history, reactions and moderation database-enforced", () => {
+    expect(engagementSql).toContain("'Archived'");
+    expect(engagementSql).toContain("release_revisions");
+    expect(engagementSql).toContain("snapshot_release_revision");
+    expect(engagementSql).toContain("block_self_follow");
+    expect(engagementSql).toContain("comments_delete_org");
+    expect(engagementSql).toContain("release_reactions");
+    expect(engagementSql).toContain("is_platform_admin");
   });
 });
 

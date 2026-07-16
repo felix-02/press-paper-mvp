@@ -23,6 +23,7 @@ export interface Profile {
   org_location?: string | null;
   org_description?: string | null;
   org_category?: string | null;
+  avatar_url?: string | null;
   account_status?: AccountStatus;
   status_reason?: string | null;
   status_changed_at?: string | null;
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, role, full_name, institution_slug, institution_name, bio, verification_status, verification_domain, verified_at, is_admin, onboarding_complete, org_website, org_location, org_description, org_category, account_status, status_reason, status_changed_at"
+        "id, role, full_name, institution_slug, institution_name, bio, verification_status, verification_domain, verified_at, is_admin, onboarding_complete, org_website, org_location, org_description, org_category, avatar_url, account_status, status_reason, status_changed_at"
       )
       .eq("id", uid)
       .maybeSingle();
