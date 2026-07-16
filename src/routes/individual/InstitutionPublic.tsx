@@ -8,6 +8,7 @@ import { Verified } from "@/components/primitives/Bits";
 import { Tabs } from "@/components/primitives/Tabs";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease, formatCount } from "@/lib/releaseMap";
 import type { Institution, Release } from "@/types";
@@ -69,7 +70,8 @@ type InstitutionLookup = {
 
 export function InstitutionPublic() {
   const { slug = "" } = useParams();
-  const { configured, user } = useAuth();
+  const { configured, user, profile } = useAuth();
+  const isOwnInstitution = profile?.role === "institution" && profile.institution_slug === slug;
   const shellKind = useReaderShellKind();
   const following = useAppStore((s) => s.followedSlugs.has(slug));
   const toggleFollow = useAppStore((s) => s.toggleFollow);
@@ -147,6 +149,7 @@ export function InstitutionPublic() {
   const seen = new Set<string>();
   const releases = liveReleases
     .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+  const releasesScroll = useInfiniteScroll(releases.length, 10, slug);
 
   const onFollow = () => {
     if (!i) return;
@@ -224,6 +227,8 @@ export function InstitutionPublic() {
                 <Link to={`/login?next=${encodeURIComponent(`/institution/${i.slug}`)}`} className="pp-btn pp-btn-blue" style={{ minWidth: 104 }}>
                   Follow
                 </Link>
+              ) : isOwnInstitution ? (
+                <span style={{ fontSize: 12.5, color: "var(--text-muted)", alignSelf: "center" }}>This is your organisation's public page</span>
               ) : (
                 <button
                   type="button"
@@ -275,9 +280,10 @@ export function InstitutionPublic() {
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {releases.map((r) => (
+            {releases.slice(0, releasesScroll.visible).map((r) => (
               <ReleaseCard key={r.id} release={r} variant="saved" />
             ))}
+            {releasesScroll.hasMore && <div ref={releasesScroll.sentinelRef} style={{ height: 1 }} />}
           </div>
         )
       )}

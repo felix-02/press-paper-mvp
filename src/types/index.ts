@@ -42,6 +42,7 @@ export interface Institution {
   location?: string;
   website?: string;
   description?: string;
+  avatarUrl?: string;
 }
 
 export interface Release {
@@ -71,6 +72,8 @@ export interface Release {
   body?: string | null;
   /** Marks a release created recently (rendered with a subtle "New" pill). */
   isNew?: boolean;
+  revisionCount?: number;
+  lastEditedAt?: string | null;
   /** Timestamp used for ordering and realtime buffering. */
   createdAt?: number;
   /** Supporting documents displayed with the release. */

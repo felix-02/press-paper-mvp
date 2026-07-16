@@ -24,6 +24,7 @@ import { AdminShell } from "@/components/shells/AdminShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAppStore } from "@/store/useAppStore";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { supabase } from "@/lib/supabase";
 import {
   useAdminConsole,
   type AccountStatus,
@@ -122,20 +123,51 @@ export function PlatformAdmin() {
   const tabParam = params.get("tab") ?? "overview";
   const tab: Tab = TABS.some(({ id }) => id === tabParam) ? (tabParam as Tab) : "overview";
   const query = (params.get("q") ?? "").slice(0, 100);
+  // Functional updates so consecutive calls in one tick (switch tab + clear
+  // search) can't clobber each other with stale params.
   const setTab = (nextTab: Tab) => {
-    const p = new URLSearchParams(params);
-    if (nextTab === "overview") p.delete("tab");
-    else p.set("tab", nextTab);
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (nextTab === "overview") p.delete("tab");
+      else p.set("tab", nextTab);
+      p.delete("q");
+      return p;
+    }, { replace: true });
   };
   const setQuery = (value: string) => {
-    const p = new URLSearchParams(params);
-    if (value) p.set("q", value);
-    else p.delete("q");
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (value) p.set("q", value);
+      else p.delete("q");
+      return p;
+    }, { replace: true });
   };
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [orgName, setOrgName] = useState("");
+  const [newType, setNewType] = useState("");
+  const [coverLabel, setCoverLabel] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
+
+  const addReleaseType = async () => {
+    const name = newType.trim();
+    if (name.length < 2 || !supabase) return;
+    const { data, error } = await supabase.rpc("admin_add_release_type", { p_name: name });
+    const ok = !error && String(data) === "ok";
+    pushToast(ok ? { title: `Release type "${name}" added`, description: "Publishers can use it immediately.", variant: "success" } : { title: "Couldn't add release type", variant: "error" });
+    if (ok) setNewType("");
+  };
+  const addCover = async () => {
+    const label = coverLabel.trim();
+    const url = coverUrl.trim();
+    if (label.length < 2 || !/^https:\/\//.test(url) || !supabase) {
+      pushToast({ title: "Add a label and an https image URL", variant: "info" });
+      return;
+    }
+    const { data, error } = await supabase.rpc("admin_add_platform_cover", { p_label: label, p_url: url });
+    const ok = !error && String(data) === "ok";
+    pushToast(ok ? { title: `Cover "${label}" added for all publishers`, variant: "success" } : { title: "Couldn't add cover", variant: "error" });
+    if (ok) { setCoverLabel(""); setCoverUrl(""); }
+  };
   const [inviteEmail, setInviteEmail] = useState("");
   const [lastLink, setLastLink] = useState<string | null>(null);
   const [moderationRequest, setModerationRequest] = useState<ModerationRequest | null>(null);
@@ -469,6 +501,20 @@ export function PlatformAdmin() {
                   ))}
                 </section>
               )}
+
+              <section className="pp-card" style={{ padding: 18 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700 }}>Publishing catalogue</h2>
+                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 12 }}>Release types and cover images added here become available to every institution immediately.</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <input className="pp-input" value={newType} onChange={(e) => setNewType(e.target.value)} maxLength={60} placeholder="New release type (e.g. Speech)" style={{ flex: 1, minWidth: 200 }} onKeyDown={(e) => e.key === "Enter" && void addReleaseType()} />
+                  <button type="button" className="pp-btn pp-btn-outline" onClick={() => void addReleaseType()}>Add type</button>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input className="pp-input" value={coverLabel} onChange={(e) => setCoverLabel(e.target.value)} maxLength={60} placeholder="Cover label" style={{ width: 160 }} />
+                  <input className="pp-input" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} maxLength={500} placeholder="https:// image URL" style={{ flex: 1, minWidth: 220 }} onKeyDown={(e) => e.key === "Enter" && void addCover()} />
+                  <button type="button" className="pp-btn pp-btn-outline" onClick={() => void addCover()}>Add cover</button>
+                </div>
+              </section>
 
               <section className="pp-card" style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 9 }}>Issued invitations ({admin.invites.length})</h2>

@@ -1,6 +1,6 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
@@ -13,11 +13,12 @@ import { rowToRelease } from "@/lib/releaseMap";
 import { useOrg } from "@/lib/useOrg";
 import { track } from "@/lib/analytics";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { Skeleton } from "@/components/primitives/Skeleton";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
 const TYPE_OPTIONS = ["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"];
-const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled"];
+const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled", "Archived"];
 
 function HeaderCell({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
@@ -97,10 +98,12 @@ export function Releases() {
   const typeFilter = TYPE_OPTIONS.includes(params.get("type") ?? "") ? (params.get("type") as string) : "All types";
   const statusFilter = STATUS_OPTIONS.includes(params.get("status") ?? "") ? (params.get("status") as string) : "All statuses";
   const setUrlParam = (key: string, value: string, defaultValue: string) => {
-    const p = new URLSearchParams(params);
-    if (!value || value === defaultValue) p.delete(key);
-    else p.set(key, value);
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (!value || value === defaultValue) p.delete(key);
+      else p.set(key, value);
+      return p;
+    }, { replace: true });
   };
   const setQuery = (value: string) => setUrlParam("q", value, "");
   const setTypeFilter = (value: string) => setUrlParam("type", value, "All types");
@@ -165,6 +168,31 @@ export function Releases() {
     useAppStore.getState().pushToast({ title: "Release published", variant: "success" });
   };
 
+  // Archive keeps everything (a reversible rollback); publish restores it.
+  const setArchived = async (archived: boolean) => {
+    if (!selected || !supabase || !org.slug || !org.can.publish) return;
+    setWorking(true);
+    const { data, error } = await supabase
+      .from("releases")
+      .update(archived ? { status: "Archived" } : { status: "Draft" })
+      .eq("id", selected.id)
+      .eq("institution_slug", org.slug)
+      .select("id")
+      .maybeSingle();
+    setWorking(false);
+    if (error || !(data as { id: string } | null)?.id) {
+      useAppStore.getState().pushToast({ title: archived ? "Couldn't archive release" : "Couldn't restore release", variant: "error" });
+      return;
+    }
+    setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: archived ? "Archived" : "Draft" } : row));
+    setSelected(null);
+    useAppStore.getState().pushToast({
+      title: archived ? "Release archived" : "Release restored to drafts",
+      description: archived ? "It's hidden from the public but fully recoverable here." : "Publish it again whenever you're ready.",
+      variant: "success",
+    });
+  };
+
   const deleteRelease = async () => {
     if (!selected || !supabase || !org.slug || !org.can.publish) return;
     setWorking(true);
@@ -193,6 +221,7 @@ export function Releases() {
     const matchesStatus = statusFilter === "All statuses" || r.status === statusFilter;
     return matchesQuery && matchesType && matchesStatus;
   });
+  const tableScroll = useInfiniteScroll(rows.length, 25, `${query}:${typeFilter}:${statusFilter}`);
 
   const selectStyle: React.CSSProperties = {
     fontWeight: 500,
@@ -325,12 +354,13 @@ export function Releases() {
                 )}
               </div>
             ) : (
-              rows.map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
+              rows.slice(0, tableScroll.visible).map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
             )}
           </div>
 
+          {tableScroll.hasMore && <div ref={tableScroll.sentinelRef} style={{ height: 1 }} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
-            <span>Showing {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
+            <span>Showing {Math.min(tableScroll.visible, rows.length)} of {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
           </div>
         </>
       ) : null}
@@ -364,6 +394,16 @@ export function Releases() {
               {selected.status !== "Published" && org.can.publish && (
                 <button type="button" className="pp-btn pp-btn-primary" onClick={() => void publishNow()} disabled={working || !org.verified} style={{ justifyContent: "flex-start", opacity: working || !org.verified ? 0.65 : 1 }}>
                   <Send size={16} /> {org.verified ? "Publish now" : "Approval required to publish"}
+                </button>
+              )}
+              {org.can.publish && selected.status !== "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(true)} disabled={working} style={{ justifyContent: "flex-start" }}>
+                  <Archive size={16} /> Archive (reversible)
+                </button>
+              )}
+              {org.can.publish && selected.status === "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(false)} disabled={working} style={{ justifyContent: "flex-start" }}>
+                  <ArchiveRestore size={16} /> Unarchive to drafts
                 </button>
               )}
               {org.can.publish && (

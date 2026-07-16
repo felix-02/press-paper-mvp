@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/primitives/EmptyState";
 import { ListRowSkeleton } from "@/components/primitives/Skeleton";
 import { useWatchlists } from "@/lib/useWatchlists";
 import { resolveReleases } from "@/lib/releaseResolve";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { usePageTitle } from "@/lib/usePageTitle";
 import type { Release } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -22,6 +23,7 @@ export function WatchlistView() {
   const idsKey = ids.join(",");
   const [releases, setReleases] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
+  const listScroll = useInfiniteScroll(releases.length, 10, id);
 
   useEffect(() => {
     if (loadingLists) return;
@@ -106,7 +108,7 @@ export function WatchlistView() {
         />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {releases.map((r) => (
+          {releases.slice(0, listScroll.visible).map((r) => (
             <div key={r.id} style={{ position: "relative" }}>
               <ReleaseCard release={r} variant="saved" />
               <button
@@ -120,6 +122,7 @@ export function WatchlistView() {
               </button>
             </div>
           ))}
+          {listScroll.hasMore && <div ref={listScroll.sentinelRef} style={{ height: 1 }} />}
         </div>
       )}
     </AppShell>

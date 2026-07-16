@@ -87,5 +87,7 @@ export function rowToRelease(row: ReleaseRow): Release {
     engagement: formatCount((row.views ?? 0) + (row.comments_count ?? 0)),
     body: row.body ?? null,
     isNew: fresh,
+    revisionCount: Number(row.revision_count ?? 0) || 0,
+    lastEditedAt: row.last_edited_at ?? null,
   };
 }

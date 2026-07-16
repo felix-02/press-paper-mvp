@@ -8,7 +8,7 @@ import {
   ListChecks,
   LifeBuoy,
 } from "lucide-react";
-import { NavItem, SidebarCaption } from "./NavItem";
+import { NavItem, SidebarCaption, SidebarToggle } from "./NavItem";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
 import { useAppStore } from "@/store/useAppStore";
@@ -56,7 +56,7 @@ function FollowedRow({ institution: i }: { institution: Institution }) {
   );
 }
 
-export function SidebarIndividual() {
+export function SidebarIndividual({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const ic = 18;
   const followed = useAppStore((s) => s.followedSlugs);
   const { lists, available, create } = useWatchlists();
@@ -96,11 +96,13 @@ export function SidebarIndividual() {
       }}
     >
       <nav className="pp-sidebar-nav" aria-label="Personal navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <NavItem to="/home" end icon={<Home size={ic} />} label="Home" />
-        <NavItem to="/explore" icon={<Compass size={ic} />} label="Explore" />
-        <NavItem to="/saved" icon={<Bookmark size={ic} />} label="Saved" />
+        <NavItem collapsed={collapsed} to="/home" end icon={<Home size={ic} />} label="Home" />
+        <NavItem collapsed={collapsed} to="/explore" icon={<Compass size={ic} />} label="Explore" />
+        <NavItem collapsed={collapsed} to="/saved" icon={<Bookmark size={ic} />} label="Saved" />
       </nav>
 
+      {!collapsed && (
+        <>
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
       <SidebarCaption>Followed institutions</SidebarCaption>
@@ -188,9 +190,12 @@ export function SidebarIndividual() {
           )
         )}
       </div>
+        </>
+      )}
 
       <div style={{ marginTop: "auto", paddingTop: 16 }}>
-        <NavItem to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        <NavItem collapsed={collapsed} to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        {onToggle && <SidebarToggle collapsed={collapsed} onToggle={onToggle} />}
       </div>
     </aside>
   );

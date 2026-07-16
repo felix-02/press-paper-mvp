@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/brand/Avatar";
 import { useComments, type CommentNode } from "@/lib/useComments";
 import { useAuth } from "@/auth/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import { useAppStore } from "@/store/useAppStore";
 
-export function CommentThread({ releaseId, onCommentPosted }: { releaseId: string; onCommentPosted?: () => void }) {
-  const { profile } = useAuth();
+export function CommentThread({ releaseId, canModerate = false, onCommentPosted }: { releaseId: string; canModerate?: boolean; onCommentPosted?: () => void }) {
+  const { profile, user } = useAuth();
+  const pushToast = useAppStore((s) => s.pushToast);
   const { tree, post, posting, loading, loadError, postError, reload } = useComments(releaseId);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -29,6 +32,17 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
     }
   };
 
+  const removeComment = async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from("comments").delete().eq("id", id);
+    if (error) {
+      pushToast({ title: "Couldn't remove comment", variant: "error" });
+      return;
+    }
+    pushToast({ title: "Comment removed", variant: "info" });
+    reload();
+  };
+
   const renderNode = (c: CommentNode, depth: number) => {
     return (
       <div key={c.id} style={{ display: "flex", gap: 12, marginLeft: depth ? 44 : 0 }}>
@@ -40,6 +54,16 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
           </div>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 5 }}>{c.body}</p>
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+            {(canModerate || (user && c.authorId === user.id)) && (
+              <button
+                type="button"
+                onClick={() => void removeComment(c.id)}
+                title={canModerate ? "Remove this comment from your release" : "Delete your comment"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}
+              >
+                <Trash2 size={12} /> Remove
+              </button>
+            )}
             {depth === 0 && (
               <button
                 type="button"
