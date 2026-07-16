@@ -4361,9 +4361,12 @@ create trigger trg_snapshot_release_revision
   before update of heading, subheading, body on public.releases
   for each row execute function public.snapshot_release_revision();
 
--- Expose the edit flag on the read model. Same shape as 0016 with two new
--- columns appended at the end (create or replace view allows appending).
-create or replace view public.release_details
+-- Expose the edit flag on the read model. Databases upgraded from different
+-- schema versions carry different view column orders, and CREATE OR REPLACE
+-- VIEW cannot reorder columns — so drop and recreate. Nothing else in the
+-- schema depends on the view, and its grants are re-applied right below.
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select
