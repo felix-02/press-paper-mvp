@@ -9,10 +9,10 @@ import {
   Settings,
   LifeBuoy,
 } from "lucide-react";
-import { NavItem, SidebarCaption } from "./NavItem";
+import { NavItem, SidebarCaption, SidebarToggle } from "./NavItem";
 import { useInstitutionStats } from "@/lib/useInstitutionStats";
 
-export function SidebarInstitution() {
+export function SidebarInstitution({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const ic = 18;
   const stats = useInstitutionStats();
   const live = stats.live && stats.loaded && !stats.error;
@@ -45,37 +45,41 @@ export function SidebarInstitution() {
       }}
     >
       <nav className="pp-sidebar-nav" aria-label="Institution navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <SidebarCaption>Publishing</SidebarCaption>
-        <NavItem to="/inst" end icon={<LayoutDashboard size={ic} />} label="Dashboard" />
-        <NavItem to="/inst/publish" icon={<PenSquare size={ic} />} label="Publish" />
-        <NavItem to="/inst/releases" icon={<FileText size={ic} />} label="Releases" />
+        {!collapsed && <SidebarCaption>Publishing</SidebarCaption>}
+        <NavItem collapsed={collapsed} to="/inst" end icon={<LayoutDashboard size={ic} />} label="Dashboard" />
+        <NavItem collapsed={collapsed} to="/inst/publish" icon={<PenSquare size={ic} />} label="Publish" />
+        <NavItem collapsed={collapsed} to="/inst/releases" icon={<FileText size={ic} />} label="Releases" />
 
         <div style={{ height: 12 }} />
-        <SidebarCaption>Insights</SidebarCaption>
-        <NavItem to="/inst/analytics" icon={<BarChart3 size={ic} />} label="Analytics" />
-        <NavItem to="/inst/audience" icon={<Users size={ic} />} label="Audience" />
+        {!collapsed && <SidebarCaption>Insights</SidebarCaption>}
+        <NavItem collapsed={collapsed} to="/inst/analytics" icon={<BarChart3 size={ic} />} label="Analytics" />
+        <NavItem collapsed={collapsed} to="/inst/audience" icon={<Users size={ic} />} label="Audience" />
 
         <div style={{ height: 12 }} />
-        <SidebarCaption>Organisation</SidebarCaption>
-        <NavItem to="/inst/profile" icon={<Building2 size={ic} />} label="Profile" />
-        <NavItem to="/inst/team" icon={<UserCog size={ic} />} label="Team" />
-        <NavItem to="/inst/settings" icon={<Settings size={ic} />} label="Settings" />
+        {!collapsed && <SidebarCaption>Organisation</SidebarCaption>}
+        <NavItem collapsed={collapsed} to="/inst/profile" icon={<Building2 size={ic} />} label="Profile" />
+        <NavItem collapsed={collapsed} to="/inst/team" icon={<UserCog size={ic} />} label="Team" />
+        <NavItem collapsed={collapsed} to="/inst/settings" icon={<Settings size={ic} />} label="Settings" />
       </nav>
 
-      <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
-
-      <SidebarCaption>Publishing status</SidebarCaption>
-      <div className="pp-sidebar-status" style={{ display: "flex", flexDirection: "column", gap: 9, padding: "0 11px" }}>
-        {PUBLISHING_STATUS.map((s) => (
-          <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{s.label}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: s.color ?? "var(--text)" }}>{s.value}</span>
+      {!collapsed && (
+        <>
+          <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
+          <SidebarCaption>Publishing status</SidebarCaption>
+          <div className="pp-sidebar-status" style={{ display: "flex", flexDirection: "column", gap: 9, padding: "0 11px" }}>
+            {PUBLISHING_STATUS.map((s) => (
+              <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{s.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: s.color ?? "var(--text)" }}>{s.value}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
 
       <div style={{ marginTop: "auto", paddingTop: 16 }}>
-        <NavItem to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        <NavItem collapsed={collapsed} to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        {onToggle && <SidebarToggle collapsed={collapsed} onToggle={onToggle} />}
       </div>
     </aside>
   );

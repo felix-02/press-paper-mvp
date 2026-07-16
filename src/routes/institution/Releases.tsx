@@ -13,6 +13,7 @@ import { rowToRelease } from "@/lib/releaseMap";
 import { useOrg } from "@/lib/useOrg";
 import { track } from "@/lib/analytics";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { Skeleton } from "@/components/primitives/Skeleton";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
@@ -97,10 +98,12 @@ export function Releases() {
   const typeFilter = TYPE_OPTIONS.includes(params.get("type") ?? "") ? (params.get("type") as string) : "All types";
   const statusFilter = STATUS_OPTIONS.includes(params.get("status") ?? "") ? (params.get("status") as string) : "All statuses";
   const setUrlParam = (key: string, value: string, defaultValue: string) => {
-    const p = new URLSearchParams(params);
-    if (!value || value === defaultValue) p.delete(key);
-    else p.set(key, value);
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (!value || value === defaultValue) p.delete(key);
+      else p.set(key, value);
+      return p;
+    }, { replace: true });
   };
   const setQuery = (value: string) => setUrlParam("q", value, "");
   const setTypeFilter = (value: string) => setUrlParam("type", value, "All types");
@@ -193,6 +196,7 @@ export function Releases() {
     const matchesStatus = statusFilter === "All statuses" || r.status === statusFilter;
     return matchesQuery && matchesType && matchesStatus;
   });
+  const tableScroll = useInfiniteScroll(rows.length, 25, `${query}:${typeFilter}:${statusFilter}`);
 
   const selectStyle: React.CSSProperties = {
     fontWeight: 500,
@@ -325,12 +329,13 @@ export function Releases() {
                 )}
               </div>
             ) : (
-              rows.map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
+              rows.slice(0, tableScroll.visible).map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
             )}
           </div>
 
+          {tableScroll.hasMore && <div ref={tableScroll.sentinelRef} style={{ height: 1 }} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
-            <span>Showing {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
+            <span>Showing {Math.min(tableScroll.visible, rows.length)} of {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
           </div>
         </>
       ) : null}

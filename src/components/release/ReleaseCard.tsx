@@ -278,7 +278,7 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
           </div>
         </div>
         <div className="pp-release-card-media" onClick={open} style={{ width: 208, height: 152, flexShrink: 0, cursor: "pointer" }}>
-          <MediaTile scene={release.scene} play playPos="center" radius={12} />
+          <MediaTile scene={release.scene} radius={12} />
         </div>
       </div>
 
@@ -295,7 +295,7 @@ function SavedCard({ release }: { release: Release }) {
   return (
     <article className="pp-card pp-saved-card" style={{ padding: 16, display: "flex", gap: 16 }}>
       <div className="pp-saved-media" onClick={open} style={{ width: 168, height: 120, flexShrink: 0, cursor: "pointer" }}>
-        <MediaTile scene={release.scene} play playPos="center" radius={10} />
+        <MediaTile scene={release.scene} radius={10} />
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <TypeBadge type={release.type} />

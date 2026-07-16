@@ -1,5 +1,4 @@
-import { useId, useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { useId } from "react";
 import type { MediaScene } from "@/types";
 
 // Which scenes are "video" (show a play affordance and can play a clip) vs a
@@ -311,112 +310,68 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
 };
 
+/**
+ * Release cover. Custom uploads (any http(s) URL in the `scene` column) render
+ * as an image; the built-in scene names render as generated SVG stills. Covers
+ * never show a play affordance anywhere in the product.
+ */
 export function MediaTile({
   scene,
   radius = 12,
-  play = false,
-  playable = false,
-  playPos = "bottom-left",
   className,
   style,
 }: {
-  scene: MediaScene;
+  scene: MediaScene | string;
   radius?: number;
-  play?: boolean;
-  /** Plays a self-contained animated preview for motion-enabled scenes. */
-  playable?: boolean;
-  playPos?: "bottom-left" | "center";
   className?: string;
   style?: React.CSSProperties;
 }) {
   const id = useId().replace(/[:]/g, "");
-  const def = SCENES[scene] ?? SCENES["wind-farm"];
-  const video = isVideoScene(scene);
-  const [playing, setPlaying] = useState(false);
-  const canPlay = playable && video;
+  const isImageUrl = typeof scene === "string" && /^https:\/\//.test(scene);
+  const def = SCENES[scene as MediaScene] ?? SCENES["wind-farm"];
 
   return (
     <div
       className={className}
-      onClick={canPlay ? () => setPlaying((value) => !value) : undefined}
-      onKeyDown={canPlay ? (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          setPlaying((value) => !value);
-        }
-      } : undefined}
-      role={canPlay ? "button" : undefined}
-      tabIndex={canPlay ? 0 : undefined}
-      aria-label={canPlay ? (playing ? "Pause media preview" : "Play media preview") : undefined}
       style={{
         position: "relative",
         width: "100%",
         height: "100%",
         borderRadius: radius,
         overflow: "hidden",
-        cursor: canPlay ? "pointer" : undefined,
+        background: "var(--surface-3)",
         ...style,
       }}
     >
-      <svg
-        viewBox="0 0 480 240"
-        preserveAspectRatio="xMidYMid slice"
-        width="100%"
-        height="100%"
-        style={{ display: "block", animation: playing ? "pp-media-preview 5s ease-in-out infinite alternate" : undefined }}
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id={`sky-${id}`} x1="0" y1="0" x2="0" y2="1">
-            {def.sky.map(([c, o], i) => (
-              <stop key={i} offset={o} stopColor={c} />
-            ))}
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width="480" height="240" fill={`url(#sky-${id})`} />
-        {def.paint()}
-        <rect x="0" y="0" width="480" height="240" fill="rgba(0,0,0,0.06)" />
-      </svg>
-
-      {/* Play button only for video scenes. */}
-      {play && video && <PlayButton position={playPos} playing={playing} />}
+      {isImageUrl ? (
+        <img
+          src={scene}
+          alt=""
+          loading="lazy"
+          style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <svg
+          viewBox="0 0 480 240"
+          preserveAspectRatio="xMidYMid slice"
+          width="100%"
+          height="100%"
+          style={{ display: "block" }}
+          aria-hidden
+        >
+          <defs>
+            <linearGradient id={`sky-${id}`} x1="0" y1="0" x2="0" y2="1">
+              {def.sky.map(([c, o], i) => (
+                <stop key={i} offset={o} stopColor={c} />
+              ))}
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="480" height="240" fill={`url(#sky-${id})`} />
+          {def.paint()}
+          <rect x="0" y="0" width="480" height="240" fill="rgba(0,0,0,0.06)" />
+        </svg>
+      )}
     </div>
   );
 }
 
-export function PlayButton({
-  position = "bottom-left",
-  size = 44,
-  playing = false,
-}: {
-  position?: "bottom-left" | "center";
-  size?: number;
-  playing?: boolean;
-}) {
-  const pos: React.CSSProperties =
-    position === "center"
-      ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
-      : { bottom: 14, left: 14 };
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "absolute",
-        ...pos,
-        width: size,
-        height: size,
-        borderRadius: 999,
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(2px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "1px solid rgba(255,255,255,0.18)",
-      }}
-    >
-      {playing
-        ? <Pause size={size * 0.4} fill="#fff" color="#fff" />
-        : <Play size={size * 0.4} fill="#fff" color="#fff" style={{ marginLeft: 2 }} />}
-    </div>
-  );
-}

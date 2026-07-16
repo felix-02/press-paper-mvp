@@ -122,17 +122,24 @@ export function PlatformAdmin() {
   const tabParam = params.get("tab") ?? "overview";
   const tab: Tab = TABS.some(({ id }) => id === tabParam) ? (tabParam as Tab) : "overview";
   const query = (params.get("q") ?? "").slice(0, 100);
+  // Functional updates so consecutive calls in one tick (switch tab + clear
+  // search) can't clobber each other with stale params.
   const setTab = (nextTab: Tab) => {
-    const p = new URLSearchParams(params);
-    if (nextTab === "overview") p.delete("tab");
-    else p.set("tab", nextTab);
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (nextTab === "overview") p.delete("tab");
+      else p.set("tab", nextTab);
+      p.delete("q");
+      return p;
+    }, { replace: true });
   };
   const setQuery = (value: string) => {
-    const p = new URLSearchParams(params);
-    if (value) p.set("q", value);
-    else p.delete("q");
-    setParams(p, { replace: true });
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (value) p.set("q", value);
+      else p.delete("q");
+      return p;
+    }, { replace: true });
   };
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [orgName, setOrgName] = useState("");

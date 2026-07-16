@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar";
 import { SidebarInstitution } from "./SidebarInstitution";
 import { SidebarIndividual } from "./SidebarIndividual";
 import { useTheme } from "@/lib/useTheme";
+import { useSidebarCollapsed } from "@/lib/useSidebarCollapsed";
 
 const MOBILE_LINKS = {
   institution: [
@@ -57,16 +58,19 @@ export function AppShell({
   contentPad?: number;
 }) {
   const { resolvedTheme } = useTheme();
+  const [collapsed, toggleCollapsed] = useSidebarCollapsed();
 
   return (
     <div
       className="pp-app-min pp-app-shell"
       data-theme={resolvedTheme}
-      style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}
+      style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", ...({ "--sidebar-w": collapsed ? "64px" : "248px" } as React.CSSProperties) }}
     >
       <TopBar kind={kind} />
       <div className="pp-app-body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        {kind === "institution" ? <SidebarInstitution /> : <SidebarIndividual />}
+        {kind === "institution"
+          ? <SidebarInstitution collapsed={collapsed} onToggle={toggleCollapsed} />
+          : <SidebarIndividual collapsed={collapsed} onToggle={toggleCollapsed} />}
         <main className="pp-app-main" style={{ flex: 1, overflowY: "auto" }}>
           <div
             className="pp-app-content"

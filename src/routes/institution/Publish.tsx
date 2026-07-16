@@ -484,7 +484,7 @@ export function Publish() {
               </div>
             </div>
             <div style={{ height: 168, marginBottom: 14 }}>
-              <MediaTile scene={scene} play radius={12} />
+              <MediaTile scene={scene} radius={12} />
             </div>
             <TypeBadge type={type} />
             <h3 style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, marginTop: 10, color: heading.trim() ? "var(--text)" : "var(--text-faint)" }}>
@@ -524,7 +524,7 @@ export function Publish() {
             </div>
 
             <div style={{ height: 240, marginTop: 22 }}>
-              <MediaTile scene={scene} play radius={13} />
+              <MediaTile scene={scene} radius={13} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
               <InstitutionMark institution={previewInstitution} size={36} />

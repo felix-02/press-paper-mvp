@@ -7,6 +7,7 @@ import { Tabs } from "@/components/primitives/Tabs";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { ListRowSkeleton } from "@/components/primitives/Skeleton";
 import { useResolvedSaved } from "@/lib/useResolvedSaved";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { useWatchlists } from "@/lib/useWatchlists";
 import { useAppStore } from "@/store/useAppStore";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -16,6 +17,7 @@ const TABS = ["Saved", "Watchlists"] as const;
 export function Saved() {
   usePageTitle("Saved");
   const { releases, loading, error } = useResolvedSaved();
+  const savedScroll = useInfiniteScroll(releases.length, 10);
   const [params, setParams] = useSearchParams();
   const urlTab = (params.get("tab") || "saved").toLowerCase();
   const tab = urlTab === "watchlists" ? "Watchlists" : "Saved";
@@ -60,9 +62,10 @@ export function Saved() {
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {releases.map((r) => (
+            {releases.slice(0, savedScroll.visible).map((r) => (
               <ReleaseCard key={r.id} release={r} variant="saved" />
             ))}
+            {savedScroll.hasMore && <div ref={savedScroll.sentinelRef} style={{ height: 1 }} />}
           </div>
         )
       ) : (

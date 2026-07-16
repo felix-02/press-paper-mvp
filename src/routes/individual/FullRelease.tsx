@@ -33,6 +33,7 @@ import { useReleaseEngagement } from "@/lib/useReleaseEngagement";
 import { isReleaseUuid, releaseShareUrl } from "@/lib/releaseUrls";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
+import { useAuth } from "@/auth/AuthProvider";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 function publisherFromRelease(release: Release): Institution {
@@ -206,6 +207,7 @@ export function FullRelease() {
 
 function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "institution" | "individual" }) {
   usePageTitle(release.heading);
+  const { profile: authProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const i = useMemo(() => publisherFromRelease(release), [release]);
@@ -223,6 +225,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
   const saved = useAppStore((s) => s.savedIds.has(release.id));
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const following = useAppStore((s) => s.followedSlugs.has(i.slug));
+  const isOwnInstitution = authProfile?.role === "institution" && authProfile.institution_slug === i.slug;
   const toggleFollow = useAppStore((s) => s.toggleFollow);
   const pushToast = useAppStore((s) => s.pushToast);
 
@@ -350,13 +353,15 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             <div className="pp-release-publisher-line" style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 600 }}>{i.name}</span>
               {i.verified && <Verified size={14} />}
-              <button
-                type="button"
-                onClick={() => toggleFollow(i.slug)}
-                style={{ fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600, marginLeft: 4 }}
-              >
-                {following ? "· Following" : "· Follow"}
-              </button>
+              {!isOwnInstitution && (
+                <button
+                  type="button"
+                  onClick={() => toggleFollow(i.slug)}
+                  style={{ fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600, marginLeft: 4 }}
+                >
+                  {following ? "· Following" : "· Follow"}
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
           </div>

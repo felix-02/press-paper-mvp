@@ -1557,6 +1557,7 @@ input, textarea, select {
 .pp-rte li { margin: 4px 0; }
 .pp-rte blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid var(--border); color: var(--text-secondary); font-style: italic; }
 .pp-rte a { color: var(--blue); text-decoration: underline; }
+.pp-rte hr { border: 0; border-top: 1px solid var(--border-strong); margin: 18px 0; }
 
 /* Rendered release body (HTML from the editor) */
 .pp-prose h2 { font-size: 20px; font-weight: 700; margin: 22px 0 10px; letter-spacing: 0; }
@@ -1566,3 +1567,4 @@ input, textarea, select {
 .pp-prose li { margin: 6px 0; line-height: 1.6; }
 .pp-prose blockquote { margin: 16px 0; padding: 8px 16px; border-left: 3px solid var(--blue); color: var(--text); font-style: italic; }
 .pp-prose a { color: var(--blue); text-decoration: underline; }
+.pp-prose hr { border: 0; border-top: 1px solid var(--border-strong); margin: 20px 0; }
