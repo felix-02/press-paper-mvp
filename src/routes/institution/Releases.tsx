@@ -106,6 +106,17 @@ export function Releases() {
     }, { replace: true });
   };
   const setQuery = (value: string) => setUrlParam("q", value, "");
+  // One URL update — multiple setSearchParams calls in the same tick do not
+  // compose in React Router (the updater reads last-rendered params).
+  const clearFilters = () => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("q");
+      p.delete("type");
+      p.delete("status");
+      return p;
+    }, { replace: true });
+  };
   const setTypeFilter = (value: string) => setUrlParam("type", value, "All types");
   const setStatusFilter = (value: string) => setUrlParam("status", value, "All statuses");
 
@@ -342,11 +353,7 @@ export function Releases() {
                       type="button"
                       className="pp-btn pp-btn-outline"
                       style={{ marginTop: 14 }}
-                      onClick={() => {
-                        setQuery("");
-                        setTypeFilter("All types");
-                        setStatusFilter("All statuses");
-                      }}
+                      onClick={clearFilters}
                     >
                       Clear filters
                     </button>
