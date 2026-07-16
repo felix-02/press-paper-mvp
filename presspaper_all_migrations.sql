@@ -4451,6 +4451,9 @@ grant execute on function public.admin_add_platform_cover(text, text) to authent
 alter table public.profiles add column if not exists avatar_url text
   check (avatar_url is null or avatar_url ~ '^https://');
 grant update (avatar_url) on table public.profiles to authenticated;
+-- 0016 grants SELECT as an explicit column list, so the new column needs its
+-- own read grant or every profile load fails with permission denied.
+grant select (avatar_url) on table public.profiles to authenticated;
 
 drop function if exists public.public_institutions(integer);
 drop function if exists public.public_institutions(integer);
