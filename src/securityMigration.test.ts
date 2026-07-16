@@ -91,7 +91,7 @@ describe("super-admin moderation migration", () => {
     expect(moderationSql).toContain("create or replace function public.record_user_activity");
     expect(moderationSql).toContain("create or replace function public.record_core_mutation_activity");
     expect(moderationSql).toContain("activity_metadata_is_safe");
-    expect(moderationSql).toContain("create or replace view public.release_details");
+    expect(moderationSql).toContain("create view public.release_details");
     expect(moderationSql).toContain("r.moderation_status");
     expect(moderationSql).toContain("alter publication supabase_realtime add table public.releases");
   });

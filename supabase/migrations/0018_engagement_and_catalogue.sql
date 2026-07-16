@@ -140,7 +140,8 @@ alter table public.profiles add column if not exists avatar_url text
 grant update (avatar_url) on table public.profiles to authenticated;
 
 drop function if exists public.public_institutions(integer);
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text, name text, website text, location text, description text,
   category text, verified boolean, followers_count bigint, releases_count bigint,
@@ -167,7 +168,8 @@ $$;
 grant execute on function public.public_institutions(integer) to anon, authenticated;
 
 drop function if exists public.public_institution(text);
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text, name text, website text, location text, description text,
   category text, verified boolean, followers_count bigint, releases_count bigint,
