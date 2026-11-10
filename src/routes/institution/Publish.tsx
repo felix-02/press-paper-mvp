@@ -54,8 +54,8 @@ export function Publish() {
     name: profile?.institution_name?.trim() || "Your organisation",
     category: profile?.org_category?.trim() || "Institution",
     verified: org.verified,
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
   };
 
@@ -293,7 +293,7 @@ export function Publish() {
       <PageHeader title={editingId ? "Edit release" : "Publish"} subtitle={editingId ? "Update this release, review it, then save or publish when ready." : "Create and publish an official release to the public."} />
 
       {!org.verified && (
-        <div className="pp-card" style={{ padding: 14, marginBottom: 18, display: "flex", alignItems: "center", gap: 12, borderColor: "rgba(245,158,11,0.35)" }}>
+        <div className="pp-card" style={{ padding: 14, marginBottom: 18, display: "flex", alignItems: "center", gap: 12, borderColor: "rgba(166, 166, 166, 0.35)" }}>
           <ShieldCheck size={18} color="var(--amber)" />
           <div style={{ flex: 1, fontSize: 13.5, color: "var(--text-secondary)" }}>You can save drafts now. Publishing unlocks after platform approval.</div>
           {org.role === "owner" && <button type="button" onClick={() => navigate("/inst/profile")} className="pp-btn pp-btn-ghost">View review status</button>}
@@ -318,7 +318,7 @@ export function Publish() {
               style={{
                 fontSize: 15.5,
                 borderColor: headingError ? "var(--red)" : undefined,
-                boxShadow: headingError ? "0 0 0 3px rgba(248,113,113,0.15)" : undefined,
+                boxShadow: headingError ? "0 0 0 3px rgba(142, 142, 142, 0.15)" : undefined,
               }}
             />
             {headingError && (
@@ -361,7 +361,7 @@ export function Publish() {
                       padding: "8px 14px",
                       borderRadius: "var(--r-pill)",
                       border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
-                      background: active ? "rgba(59,130,246,0.1)" : "var(--surface-2)",
+                      background: active ? "rgba(123, 123, 123, 0.1)" : "var(--surface-2)",
                       color: active ? "var(--blue)" : "var(--text-secondary)",
                     }}
                   >
@@ -407,7 +407,7 @@ export function Publish() {
                     </span>
                     {active && (
                       <span style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 999, background: "var(--blue)", display: "grid", placeItems: "center" }}>
-                        <Check size={11} color="#fff" strokeWidth={3} />
+                        <Check size={11} color="var(--accent-contrast)" strokeWidth={3} />
                       </span>
                     )}
                   </button>
@@ -462,15 +462,16 @@ export function Publish() {
 
       {reviewing && (
         <div
+          className="pp-modal-layer"
           onClick={() => !busy && setReviewing(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 100, display: "grid", placeItems: "center", padding: 24, background: "rgba(0,0,0,0.68)" }}
+          style={{ display: "grid", placeItems: "center", padding: 24 }}
         >
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="review-release-title"
             onClick={(event) => event.stopPropagation()}
-            className="pp-card"
+            className="pp-card pp-modal-dialog"
             style={{ width: "100%", maxWidth: 760, maxHeight: "88vh", overflowY: "auto", padding: 26 }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "flex-start" }}>

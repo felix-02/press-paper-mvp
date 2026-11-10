@@ -1,6 +1,17 @@
 import type { ReactNode } from "react";
 import { BadgeCheck } from "lucide-react";
 
+/** Compact progress indicator for buttons with an in-flight async action. */
+export function InlineSpinner({ size = 14 }: { size?: number }) {
+  return (
+    <span
+      className="pp-action-spinner"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    />
+  );
+}
+
 /** Blue verified check used beside institution + user names. */
 export function Verified({ size = 15 }: { size?: number }) {
   return <BadgeCheck size={size} className="pp-verified" strokeWidth={2.2} aria-label="Verified" />;
@@ -31,7 +42,7 @@ export function Delta({
 export function ProgressBar({
   pct,
   color = "var(--blue)",
-  track = "rgba(255,255,255,0.08)",
+  track = "var(--surface-3)",
   height = 6,
 }: {
   pct: number;

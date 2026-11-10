@@ -39,8 +39,8 @@ function onLand(x: number, y: number): boolean {
 
 export function WorldMap({
   height = 200,
-  dot = "rgba(59,130,246,0.30)",
-  dotActive = "rgba(96,165,250,0.95)",
+  dot = "rgba(123, 123, 123, 0.30)",
+  dotActive = "rgba(156, 156, 156, 0.95)",
   markers = [],
   gap = 4.4,
 }: {

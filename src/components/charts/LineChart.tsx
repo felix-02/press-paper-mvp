@@ -95,7 +95,7 @@ export function LineChart({
       {/* y grid + labels */}
       {ticks.map((t, i) => (
         <g key={i}>
-          <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--border-strong)" strokeWidth="1" />
           <text x={padL - 8} y={y(t) + 3} textAnchor="end" fontSize="10.5" fill="var(--text-faint)">
             {formatY(t)}
           </text>

@@ -2,11 +2,11 @@ import type { ReleaseStatus, MediaScene } from "@/types";
 import { MediaTile } from "@/components/media/MediaTile";
 
 const STATUS_STYLES: Record<ReleaseStatus, { color: string; bg: string }> = {
-  Published: { color: "var(--green)", bg: "rgba(52,211,153,0.12)" },
-  Scheduled: { color: "var(--blue)", bg: "rgba(59,130,246,0.12)" },
-  "Awaiting Review": { color: "var(--amber)", bg: "rgba(251,191,36,0.12)" },
-  Draft: { color: "var(--text-secondary)", bg: "rgba(255,255,255,0.06)" },
-  Archived: { color: "var(--text-muted)", bg: "rgba(255,255,255,0.04)" },
+  Published: { color: "var(--green)", bg: "color-mix(in srgb, var(--green) 12%, transparent)" },
+  Scheduled: { color: "var(--blue)", bg: "color-mix(in srgb, var(--blue) 12%, transparent)" },
+  "Awaiting Review": { color: "var(--amber)", bg: "color-mix(in srgb, var(--amber) 12%, transparent)" },
+  Draft: { color: "var(--text-secondary)", bg: "color-mix(in srgb, var(--text) 6%, transparent)" },
+  Archived: { color: "var(--text-muted)", bg: "color-mix(in srgb, var(--text) 4%, transparent)" },
 };
 
 /** Coloured status pill (Published / Scheduled / Draft / Archived). */

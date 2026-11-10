@@ -42,7 +42,7 @@ export function WatchlistView() {
       </button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-        <span style={{ width: 42, height: 42, borderRadius: 11, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center" }}>
+        <span style={{ width: 42, height: 42, borderRadius: 11, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}>
           <ListChecks size={21} color="var(--blue)" />
         </span>
         <div>

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { ArrowRight, AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Logo } from "@/components/brand/Logo";
-import { GlobeArt } from "@/components/brand/Illustrations";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import { PrelaunchGlobe } from "@/components/landing/PrelaunchGlobe";
 import { useAuth } from "@/auth/AuthProvider";
 
 export function AdminLogin() {
@@ -45,8 +46,8 @@ export function AdminLogin() {
 
   return (
     <div className="pp-admin-login-page">
-      <div className="pp-admin-login-globe pp-admin-login-globe-left"><GlobeArt size={500} /></div>
-      <div className="pp-admin-login-globe pp-admin-login-globe-right"><GlobeArt size={420} /></div>
+      <div className="pp-admin-login-globe pp-admin-login-globe-left"><PrelaunchGlobe size={500} decorative /></div>
+      <div className="pp-admin-login-globe pp-admin-login-globe-right"><PrelaunchGlobe size={420} decorative /></div>
       <div className="pp-admin-login-logo"><Logo size={20} to="/" /></div>
 
       <main className="pp-admin-login-card">
@@ -73,7 +74,7 @@ export function AdminLogin() {
               </label>
               <label>
                 <span>Password</span>
-                <input className="pp-input" type="password" autoComplete="current-password" maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void submit()} placeholder="Enter your password" />
+                <PasswordInput className="pp-input" autoComplete="current-password" maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void submit()} placeholder="Enter your password" />
               </label>
             </div>
             <button type="button" className="pp-btn pp-btn-primary pp-admin-login-submit" onClick={() => void submit()} disabled={loading}>

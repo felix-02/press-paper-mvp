@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, KeyRound } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { PasswordInput } from "@/components/common/PasswordInput";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
 
@@ -47,14 +48,14 @@ export function ResetPassword() {
         <p style={{ marginTop: 8, color: "var(--text-secondary)", fontSize: 14, textAlign: "center" }}>Choose a new password for your Presspaper account.</p>
 
         {error && (
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 18, padding: "10px 12px", color: "var(--red)", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: "var(--r-sm)", fontSize: 13 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 18, padding: "10px 12px", color: "var(--red)", background: "rgba(142, 142, 142, 0.1)", border: "1px solid rgba(142, 142, 142, 0.25)", borderRadius: "var(--r-sm)", fontSize: 13 }}>
             <AlertCircle size={15} /> {error}
           </div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
-          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><input className="pp-input" type="password" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Confirm password</span><input className="pp-input" type="password" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submit()} /></label>
+          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Confirm password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submit()} /></label>
         </div>
         <button type="button" className="pp-btn pp-btn-primary" disabled={saving} onClick={() => void submit()} style={{ width: "100%", marginTop: 22, padding: 12, opacity: saving ? 0.7 : 1 }}>
           {saving ? "Updating…" : "Update password"} <ArrowRight size={16} />

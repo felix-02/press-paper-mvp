@@ -41,6 +41,7 @@ export function LanguageMenu({
 
       {open && (
         <div
+          className="pp-popover"
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
@@ -50,7 +51,6 @@ export function LanguageMenu({
             border: "1px solid var(--border)",
             borderRadius: "var(--r-lg)",
             boxShadow: "var(--shadow-lg)",
-            zIndex: 60,
             overflow: "hidden",
           }}
         >

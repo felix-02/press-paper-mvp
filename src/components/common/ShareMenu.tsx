@@ -3,18 +3,17 @@ import { Share2, Check } from "lucide-react";
 
 interface Channel {
   label: string;
-  color: string;
   href?: (url: string, title: string) => string;
   copy?: boolean;
 }
 
 const CHANNELS: Channel[] = [
-  { label: "WhatsApp", color: "#25D366", href: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
-  { label: "X", color: "#000000", href: (u, t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
-  { label: "Facebook", color: "#1877F2", href: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
-  { label: "LinkedIn", color: "#0A66C2", href: (u) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}` },
-  { label: "Email", color: "#6B7280", href: (u, t) => `mailto:?subject=${encodeURIComponent(t)}&body=${encodeURIComponent(`${t}\n\n${u}`)}` },
-  { label: "Copy link", color: "#3B82F6", copy: true },
+  { label: "WhatsApp", href: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
+  { label: "X", href: (u, t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
+  { label: "Facebook", href: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
+  { label: "LinkedIn", href: (u) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}` },
+  { label: "Email", href: (u, t) => `mailto:?subject=${encodeURIComponent(t)}&body=${encodeURIComponent(`${t}\n\n${u}`)}` },
+  { label: "Copy link", copy: true },
 ];
 
 /** Share dropdown with real social-share links + copy. */
@@ -78,6 +77,7 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
 
       {open && (
         <div
+          className="pp-popover"
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
@@ -88,7 +88,6 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
             borderRadius: "var(--r-lg)",
             boxShadow: "var(--shadow-lg)",
             padding: 6,
-            zIndex: 50,
           }}
         >
           {CHANNELS.map((c) => (
@@ -111,11 +110,11 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <span style={{ width: 26, height: 26, borderRadius: 999, background: c.color, display: "grid", placeItems: "center", flexShrink: 0, border: c.color === "#000000" ? "1px solid var(--border)" : "none" }}>
+              <span style={{ width: 26, height: 26, borderRadius: 999, background: "var(--text)", color: "var(--bg)", display: "grid", placeItems: "center", flexShrink: 0 }}>
                 {c.copy && copyState === "copied" ? (
-                  <Check size={13} color="#fff" strokeWidth={3} />
+                  <Check size={13} strokeWidth={3} />
                 ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{c.label[0]}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>{c.label[0]}</span>
                 )}
               </span>
               {c.copy && copyState === "copied" ? "Copied!" : c.copy && copyState === "failed" ? "Copy failed" : c.label}

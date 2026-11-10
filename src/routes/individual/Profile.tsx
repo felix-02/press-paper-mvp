@@ -58,8 +58,8 @@ export function Profile() {
       name: slug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
       category: "Institution",
       verified: false,
-      color: "#1d4ed8",
-      color2: "#312e81",
+      color: "#4e4e4e",
+      color2: "#353535",
       mark: "generic",
     };
   };
@@ -73,7 +73,7 @@ export function Profile() {
     <AppShell kind="individual" maxWidth={900}>
       {/* header card */}
       <div className="pp-card" style={{ overflow: "hidden" }}>
-        <div style={{ height: 96, background: "linear-gradient(120deg, #2563eb 0%, #6366f1 55%, #0ea5e9 100%)" }} />
+        <div style={{ height: 96, background: "linear-gradient(120deg, #606060 0%, #6f6f6f 55%, #8a8a8a 100%)" }} />
         <div style={{ padding: "0 24px 22px" }}>
           <div className="pp-profile-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -34 }}>
             <div className="pp-profile-identity" style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
@@ -195,11 +195,11 @@ export function Profile() {
                 No activity yet. Follow institutions and save releases to see them here.
               </div>
             ) : (
-              <div className="pp-card" style={{ padding: 6 }}>
+              <div className="pp-card pp-divided-list" style={{ padding: 6 }}>
                 {activity.items.map((a) =>
                   a.kind === "save" ? (
                     <Link key={a.key} to={`/release/${a.releaseId}`} style={activityRow}>
-                      <span style={activityIcon("rgba(59,130,246,0.12)")}>
+                      <span style={activityIcon("rgba(123, 123, 123, 0.12)")}>
                         <Bookmark size={15} color="var(--blue)" />
                       </span>
                       <span style={{ fontSize: 13.5, flex: 1 }}>
@@ -209,7 +209,7 @@ export function Profile() {
                     </Link>
                   ) : (
                     <Link key={a.key} to={`/institution/${a.slug}`} style={activityRow}>
-                      <span style={activityIcon("rgba(52,211,153,0.14)")}>
+                      <span style={activityIcon("rgba(173, 173, 173, 0.14)")}>
                         <UserPlus size={15} color="var(--green)" />
                       </span>
                       <span style={{ fontSize: 13.5, flex: 1 }}>
@@ -263,7 +263,6 @@ const activityRow: React.CSSProperties = {
   alignItems: "center",
   gap: 11,
   padding: "11px 12px",
-  borderBottom: "1px solid var(--border)",
 };
 const activityIcon = (bg: string): React.CSSProperties => ({
   width: 30,
@@ -298,10 +297,11 @@ function EditProfileModal({
   }, [onClose]);
   return (
     <div
+      className="pp-modal-layer"
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 }}
+      style={{ display: "grid", placeItems: "center", padding: 20 }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onClick={(e) => e.stopPropagation()} className="pp-card" style={{ width: "100%", maxWidth: 440, padding: 22 }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onClick={(e) => e.stopPropagation()} className="pp-card pp-modal-dialog" style={{ width: "100%", maxWidth: 440, padding: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h3 id="edit-profile-title" style={{ fontSize: 17, fontWeight: 700 }}>Edit profile</h3>
           <button type="button" onClick={onClose} aria-label="Close" style={{ color: "var(--text-muted)" }}>

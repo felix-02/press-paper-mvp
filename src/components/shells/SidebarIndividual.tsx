@@ -74,8 +74,8 @@ export function SidebarIndividual() {
       name: slug.split("-").filter(Boolean).map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`).join(" ") || "Institution",
       category: "Institution",
       verified: false,
-      color: "#2563eb",
-      color2: "#4338ca",
+      color: "#606060",
+      color2: "#454545",
       mark: "generic",
     };
   };

@@ -23,8 +23,8 @@ function institutionFromRow(row: PublicInstitutionRow): Institution {
     name: row.name,
     category: row.category,
     verified: row.verified === true,
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
     website: row.website || undefined,
     location: row.location || undefined,
@@ -199,7 +199,7 @@ export function InstitutionPublic() {
         <div
           style={{
             height: 120,
-            background: `linear-gradient(125deg, ${i.color} 0%, ${i.color2 ?? i.color} 100%)`,
+            background: "linear-gradient(125deg, #555555 0%, #171717 100%)",
             position: "relative",
           }}
         >
@@ -330,10 +330,10 @@ export function InstitutionPublic() {
             No activity yet.
           </div>
         ) : (
-          <div className="pp-card" style={{ padding: 6 }}>
+          <div className="pp-card pp-divided-list" style={{ padding: 6 }}>
             {releases.map((r) => (
-              <Link key={r.id} to={`/release/${r.id}`} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 12px", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ width: 30, height: 30, borderRadius: 999, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center", flexShrink: 0, marginTop: 1 }}>
+              <Link key={r.id} to={`/release/${r.id}`} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 12px" }}>
+                <span style={{ width: 30, height: 30, borderRadius: 999, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center", flexShrink: 0, marginTop: 1 }}>
                   <FileText size={15} color="var(--blue)" />
                 </span>
                 <span style={{ minWidth: 0 }}>

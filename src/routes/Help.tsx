@@ -62,7 +62,7 @@ export function Help() {
       </button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-        <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center" }}>
+        <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}>
           <LifeBuoy size={22} color="var(--blue)" />
         </span>
         <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>Help Centre</h1>

@@ -8,11 +8,11 @@ export function ToastHost() {
 
   return (
     <div
+      className="pp-toast-host"
       style={{
         position: "fixed",
         right: 24,
         bottom: 24,
-        zIndex: 200,
         display: "flex",
         flexDirection: "column",
         gap: 10,
@@ -23,7 +23,7 @@ export function ToastHost() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="pp-rise"
+          className="pp-toast pp-rise"
           style={{
             pointerEvents: "auto",
             minWidth: 280,

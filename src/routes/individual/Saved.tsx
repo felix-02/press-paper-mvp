@@ -187,7 +187,7 @@ function WatchlistsPanel() {
               ) : (
                 <>
                   <button type="button" onClick={() => navigate(`/watchlist/${l.id}`)} style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", flex: 1, minWidth: 0 }}>
-                    <span style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center", flexShrink: 0 }}>
                       <ListChecks size={19} color="var(--blue)" />
                     </span>
                     <span style={{ minWidth: 0 }}>

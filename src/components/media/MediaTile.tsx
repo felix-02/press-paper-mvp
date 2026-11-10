@@ -59,28 +59,28 @@ function turbine(x: number, y: number, s: number, color: string, rot = 0) {
 const SCENES: Record<MediaScene, SceneDef> = {
   "wind-farm": {
     sky: [
-      ["#f6b66b", "0%"],
-      ["#f3cd87", "34%"],
-      ["#9fb46a", "70%"],
-      ["#4f7a3f", "100%"],
+      ["#bebebe", "0%"],
+      ["#d0d0d0", "34%"],
+      ["#aaaaaa", "70%"],
+      ["#6d6d6d", "100%"],
     ],
     paint: () => (
       <g>
-        <circle cx="78" cy="120" r="40" fill="rgba(255,244,214,0.55)" />
-        {hill("M0 168 Q120 132 240 156 T480 150 V240 H0 Z", "#6f9150", 0.95)}
-        {hill("M0 188 Q140 160 280 182 T520 176 V240 H0 Z", "#42632f")}
-        {turbine(150, 150, 1.25, "rgba(250,250,245,0.92)", 20)}
-        {turbine(208, 138, 1.55, "rgba(252,252,247,0.96)", 70)}
-        {turbine(270, 156, 1.1, "rgba(245,245,238,0.85)", 140)}
-        {turbine(330, 144, 1.35, "rgba(250,250,245,0.9)", 200)}
+        <circle cx="78" cy="120" r="40" fill="rgba(244, 244, 244, 0.55)" />
+        {hill("M0 168 Q120 132 240 156 T480 150 V240 H0 Z", "#858585", 0.95)}
+        {hill("M0 188 Q140 160 280 182 T520 176 V240 H0 Z", "#585858")}
+        {turbine(150, 150, 1.25, "rgba(250, 250, 250, 0.92)", 20)}
+        {turbine(208, 138, 1.55, "rgba(252, 252, 252, 0.96)", 70)}
+        {turbine(270, 156, 1.1, "rgba(244, 244, 244, 0.85)", 140)}
+        {turbine(330, 144, 1.35, "rgba(250, 250, 250, 0.9)", 200)}
       </g>
     ),
   },
   "city-solar": {
     sky: [
-      ["#3a6ea5", "0%"],
-      ["#5b8bbf", "48%"],
-      ["#8fb0cf", "100%"],
+      ["#676767", "0%"],
+      ["#858585", "48%"],
+      ["#ababab", "100%"],
     ],
     paint: () => (
       <g>
@@ -92,16 +92,16 @@ const SCENES: Record<MediaScene, SceneDef> = {
             width="26"
             height={120}
             rx="2"
-            fill="rgba(20,40,66,0.78)"
+            fill="rgba(38, 38, 38, 0.78)"
           />
         ))}
-        <rect x="0" y="168" width="480" height="72" fill="#15263c" />
+        <rect x="0" y="168" width="480" height="72" fill="#242424" />
         {[0, 1, 2].map((r) =>
           [0, 1, 2, 3, 4, 5].map((c) => (
             <g key={`${r}-${c}`} transform={`translate(${20 + c * 78} ${182 + r * 20})`}>
-              <path d="M0 12 L46 12 L40 0 L-6 0 Z" fill="#1b3a63" stroke="#2f5d96" strokeWidth="1" />
-              <line x1="11" y1="0" x2="5" y2="12" stroke="#3f78bd" strokeWidth="0.7" />
-              <line x1="28" y1="0" x2="22" y2="12" stroke="#3f78bd" strokeWidth="0.7" />
+              <path d="M0 12 L46 12 L40 0 L-6 0 Z" fill="#363636" stroke="#575757" strokeWidth="1" />
+              <line x1="11" y1="0" x2="5" y2="12" stroke="#717171" strokeWidth="0.7" />
+              <line x1="28" y1="0" x2="22" y2="12" stroke="#717171" strokeWidth="0.7" />
             </g>
           ))
         )}
@@ -110,17 +110,17 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   parliament: {
     sky: [
-      ["#26344f", "0%"],
-      ["#3f5170", "55%"],
-      ["#c98a63", "100%"],
+      ["#333333", "0%"],
+      ["#4f4f4f", "55%"],
+      ["#959595", "100%"],
     ],
     paint: () => (
-      <g fill="rgba(16,22,38,0.86)">
+      <g fill="rgba(22, 22, 22, 0.86)">
         <rect x="40" y="92" width="22" height="148" />
         <path d="M38 92 L51 64 L64 92 Z" />
         <rect x="48" y="56" width="6" height="10" />
         <rect x="80" y="120" width="320" height="120" />
-        <g stroke="rgba(70,86,120,0.55)" strokeWidth="2">
+        <g stroke="rgba(85, 85, 85, 0.55)" strokeWidth="2">
           {[96, 128, 160, 192, 224, 256, 288, 320, 352, 384].map((x, i) => (
             <line key={i} x1={x} y1="124" x2={x} y2="236" />
           ))}
@@ -133,25 +133,25 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   coast: {
     sky: [
-      ["#88b6c9", "0%"],
-      ["#b9d4dd", "42%"],
-      ["#6f9f76", "100%"],
+      ["#aeaeae", "0%"],
+      ["#cfcfcf", "42%"],
+      ["#929292", "100%"],
     ],
     paint: () => (
       <g>
-        <rect x="0" y="150" width="480" height="46" fill="#5e93b0" opacity="0.85" />
-        {hill("M0 150 Q90 120 200 138 Q320 156 480 128 V196 H0 Z", "#3f6f4a")}
-        {hill("M0 168 Q140 150 300 166 T480 158 V240 H0 Z", "#2c5235")}
+        <rect x="0" y="150" width="480" height="46" fill="#8a8a8a" opacity="0.85" />
+        {hill("M0 150 Q90 120 200 138 Q320 156 480 128 V196 H0 Z", "#626262")}
+        {hill("M0 168 Q140 150 300 166 T480 158 V240 H0 Z", "#484848")}
         <path d="M0 150 Q90 120 200 138 Q320 156 480 128" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.4" />
-        <rect x="0" y="196" width="480" height="44" fill="#244a2c" />
+        <rect x="0" y="196" width="480" height="44" fill="#404040" />
       </g>
     ),
   },
   "cardiff-bay": {
     sky: [
-      ["#2c3e63", "0%"],
-      ["#3f5c86", "50%"],
-      ["#e2a06f", "100%"],
+      ["#3d3d3d", "0%"],
+      ["#595959", "50%"],
+      ["#aaaaaa", "100%"],
     ],
     paint: () => (
       <g>
@@ -166,15 +166,15 @@ const SCENES: Record<MediaScene, SceneDef> = {
           [308, 90, 30, 130],
           [344, 118, 42, 102],
         ].map(([x, y, w, h], i) => (
-          <rect key={i} x={x} y={y} width={w} height={h} fill="rgba(18,28,52,0.85)" />
+          <rect key={i} x={x} y={y} width={w} height={h} fill="rgba(28, 28, 28, 0.85)" />
         ))}
-        <g fill="rgba(240,200,150,0.85)">
+        <g fill="rgba(205, 205, 205, 0.85)">
           {[50, 90, 160, 200, 240, 318].map((x, i) => (
             <rect key={i} x={x} y={120 - (i % 3) * 10} width="4" height="4" />
           ))}
         </g>
-        <rect x="0" y="170" width="480" height="70" fill="#1c3357" />
-        <g stroke="rgba(226,160,111,0.4)" strokeWidth="2">
+        <rect x="0" y="170" width="480" height="70" fill="#313131" />
+        <g stroke="rgba(170, 170, 170, 0.4)" strokeWidth="2">
           {[60, 120, 200, 280, 340].map((x, i) => (
             <line key={i} x1={x} y1="172" x2={x} y2="206" />
           ))}
@@ -184,12 +184,12 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   town: {
     sky: [
-      ["#c9b89c", "0%"],
-      ["#d8cab0", "45%"],
-      ["#a89274", "100%"],
+      ["#bababa", "0%"],
+      ["#cbcbcb", "45%"],
+      ["#959595", "100%"],
     ],
     paint: () => (
-      <g fill="rgba(74,58,46,0.82)">
+      <g fill="rgba(61, 61, 61, 0.82)">
         {[
           [30, 150, 60],
           [96, 132, 54],
@@ -203,7 +203,7 @@ const SCENES: Record<MediaScene, SceneDef> = {
             <path d={`M${(x as number) - 4} ${y} L${(x as number) + (w as number) / 2} ${(y as number) - 18} L${(x as number) + (w as number) + 4} ${y} Z`} />
           </g>
         ))}
-        <g fill="rgba(216,202,176,0.7)">
+        <g fill="rgba(203, 203, 203, 0.7)">
           {[44, 112, 172, 232, 300, 360].map((x, i) => (
             <rect key={i} x={x} y={166 + (i % 2) * 14} width="8" height="10" />
           ))}
@@ -213,9 +213,9 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   skyline: {
     sky: [
-      ["#1f2a4a", "0%"],
-      ["#33457a", "55%"],
-      ["#5e7bb0", "100%"],
+      ["#2a2a2a", "0%"],
+      ["#454545", "55%"],
+      ["#797979", "100%"],
     ],
     paint: () => (
       <g>
@@ -232,9 +232,9 @@ const SCENES: Record<MediaScene, SceneDef> = {
           [330, 70, 32],
           [368, 116, 28],
         ].map(([x, y, w], i) => (
-          <rect key={i} x={x} y={y} width={w} height={240 - (y as number)} rx="1.5" fill="rgba(14,22,44,0.8)" />
+          <rect key={i} x={x} y={y} width={w} height={240 - (y as number)} rx="1.5" fill="rgba(22, 22, 22, 0.8)" />
         ))}
-        <g fill="rgba(150,180,225,0.5)">
+        <g fill="rgba(177, 177, 177, 0.5)">
           {Array.from({ length: 40 }, (_, i) => (
             <rect key={i} x={28 + (i * 37) % 360} y={70 + ((i * 53) % 130)} width="3.5" height="5" />
           ))}
@@ -244,18 +244,18 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   flags: {
     sky: [
-      ["#4a6178", "0%"],
-      ["#6e879e", "50%"],
-      ["#9fb3c4", "100%"],
+      ["#5e5e5e", "0%"],
+      ["#838383", "50%"],
+      ["#b0b0b0", "100%"],
     ],
     paint: () => (
       <g>
-        <rect x="0" y="172" width="480" height="68" fill="#3c4a5a" />
+        <rect x="0" y="172" width="480" height="68" fill="#484848" />
         {[60, 130, 200, 270, 340, 410].map((x, i) => {
-          const colors = ["#d65745", "#4f86c6", "#54a06a", "#e0a94e", "#9b6fc0", "#46b0a8"];
+          const colors = ["#717171", "#7f7f7f", "#8c8c8c", "#aeaeae", "#7e7e7e", "#999999"];
           return (
             <g key={i}>
-              <line x1={x} y1="70" x2={x} y2="178" stroke="rgba(220,224,230,0.85)" strokeWidth="2.4" />
+              <line x1={x} y1="70" x2={x} y2="178" stroke="rgba(224, 224, 224, 0.85)" strokeWidth="2.4" />
               <path d={`M${x} 74 Q${x + 18} 80 ${x + 36} 74 L${x + 36} 100 Q${x + 18} 106 ${x} 100 Z`} fill={colors[i]} opacity="0.9" />
             </g>
           );
@@ -265,47 +265,47 @@ const SCENES: Record<MediaScene, SceneDef> = {
   },
   ecb: {
     sky: [
-      ["#16234a", "0%"],
-      ["#26407e", "55%"],
-      ["#3f63b0", "100%"],
+      ["#232323", "0%"],
+      ["#3f3f3f", "55%"],
+      ["#616161", "100%"],
     ],
     paint: () => (
       <g>
         <g transform="translate(150 70)">
-          <path d="M40 0 L96 14 L96 170 L40 170 Z" fill="rgba(20,40,86,0.9)" />
-          <path d="M40 0 L96 14 L96 170 L40 170 Z" fill="none" stroke="rgba(110,150,220,0.5)" strokeWidth="1.5" />
-          <g stroke="rgba(120,160,230,0.45)" strokeWidth="1">
+          <path d="M40 0 L96 14 L96 170 L40 170 Z" fill="rgba(39, 39, 39, 0.9)" />
+          <path d="M40 0 L96 14 L96 170 L40 170 Z" fill="none" stroke="rgba(147, 147, 147, 0.5)" strokeWidth="1.5" />
+          <g stroke="rgba(157, 157, 157, 0.45)" strokeWidth="1">
             {Array.from({ length: 9 }, (_, i) => (
               <line key={i} x1="40" y1={16 + i * 18} x2="96" y2={16 + i * 18 + 4} />
             ))}
           </g>
         </g>
-        <g stroke="#f5c542" strokeWidth="3" fill="none" opacity="0.92">
+        <g stroke="#c6c6c6" strokeWidth="3" fill="none" opacity="0.92">
           <path d="M60 150 Q44 168 60 186" />
           <line x1="50" y1="160" x2="70" y2="160" />
           <line x1="48" y1="176" x2="68" y2="176" />
         </g>
-        <rect x="0" y="196" width="480" height="44" fill="#10203f" />
+        <rect x="0" y="196" width="480" height="44" fill="#1f1f1f" />
       </g>
     ),
   },
   imf: {
     sky: [
-      ["#1c2c50", "0%"],
-      ["#324a82", "52%"],
-      ["#d2966a", "100%"],
+      ["#2b2b2b", "0%"],
+      ["#494949", "52%"],
+      ["#a0a0a0", "100%"],
     ],
     paint: () => (
       <g>
-        <rect x="120" y="78" width="240" height="162" fill="rgba(18,30,58,0.88)" />
-        <path d="M118 78 L240 50 L362 78 Z" fill="rgba(22,36,68,0.92)" />
-        <g stroke="rgba(90,120,180,0.5)" strokeWidth="2">
+        <rect x="120" y="78" width="240" height="162" fill="rgba(29, 29, 29, 0.88)" />
+        <path d="M118 78 L240 50 L362 78 Z" fill="rgba(35, 35, 35, 0.92)" />
+        <g stroke="rgba(118, 118, 118, 0.5)" strokeWidth="2">
           {[140, 172, 204, 236, 268, 300, 332].map((x, i) => (
             <line key={i} x1={x} y1="82" x2={x} y2="236" />
           ))}
         </g>
-        <rect x="120" y="70" width="240" height="10" fill="rgba(28,44,80,0.95)" />
-        <rect x="0" y="236" width="480" height="4" fill="#0e1c38" />
+        <rect x="120" y="70" width="240" height="10" fill="rgba(43, 43, 43, 0.95)" />
+        <rect x="0" y="236" width="480" height="4" fill="#1b1b1b" />
       </g>
     ),
   },

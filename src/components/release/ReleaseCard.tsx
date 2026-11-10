@@ -115,6 +115,7 @@ function CardMenu({ release }: { release: Release }) {
       </button>
       {open && (
         <div
+          className="pp-popover"
           style={{
             position: "absolute",
             top: "calc(100% + 6px)",
@@ -125,7 +126,6 @@ function CardMenu({ release }: { release: Release }) {
             borderRadius: "var(--r-lg)",
             boxShadow: "var(--shadow-lg)",
             padding: 5,
-            zIndex: 50,
           }}
         >
           {row(<ExternalLink size={15} />, "Open release", () => navigate(releasePath(release.id)))}

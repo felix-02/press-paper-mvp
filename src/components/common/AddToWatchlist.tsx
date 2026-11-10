@@ -48,6 +48,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
 
       {open && (
         <div
+          className="pp-popover"
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",
@@ -58,7 +59,6 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
             borderRadius: "var(--r-lg)",
             boxShadow: "var(--shadow-lg)",
             padding: 6,
-            zIndex: 50,
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0", padding: "6px 10px" }}>

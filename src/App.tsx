@@ -14,6 +14,7 @@ import { Login } from "@/routes/public/Login";
 import { ExploreSources } from "@/routes/public/ExploreSources";
 import { ResetPassword } from "@/routes/public/ResetPassword";
 import { AdminLogin } from "@/routes/public/AdminLogin";
+import { Contact } from "@/routes/public/Contact";
 
 // Individual
 import { Home } from "@/routes/individual/Home";
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/sources" element={<ExploreSources />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/r/:id" element={<SharedReleaseFallback />} />
 
           {/* Individual — requires an individual session (LIVE mode) */}

@@ -94,7 +94,7 @@ export function InstitutionOnboarding() {
                     fontSize: 12.5,
                     fontWeight: 600,
                     background: idx < step ? "var(--blue)" : idx === step ? "var(--surface-3)" : "var(--surface-2)",
-                    color: idx <= step ? "#fff" : "var(--text-muted)",
+                    color: idx < step ? "var(--accent-contrast)" : idx === step ? "var(--text)" : "var(--text-muted)",
                     border: idx === step ? "1px solid var(--blue)" : "1px solid transparent",
                   }}
                 >

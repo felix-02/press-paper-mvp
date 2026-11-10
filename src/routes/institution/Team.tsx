@@ -26,8 +26,8 @@ function RoleBadge({ role }: { role: OrgRole }) {
         fontWeight: 600,
         padding: "3px 9px",
         borderRadius: "var(--r-pill)",
-        background: isOwner ? "rgba(245,158,11,0.14)" : "var(--surface-2)",
-        color: isOwner ? "#b45309" : "var(--text-secondary)",
+        background: isOwner ? "rgba(166, 166, 166, 0.14)" : "var(--surface-2)",
+        color: isOwner ? "var(--amber)" : "var(--text-secondary)",
       }}
     >
       {isOwner && <Crown size={12} />}
@@ -109,8 +109,8 @@ export function InstitutionTeam() {
       </p>
 
       {org.error && (
-        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 18, display: "flex", alignItems: "center", gap: 10, borderColor: "rgba(220,38,38,0.35)" }}>
-          <AlertCircle size={17} color="#dc2626" />
+        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 18, display: "flex", alignItems: "center", gap: 10, borderColor: "rgba(77, 77, 77, 0.35)" }}>
+          <AlertCircle size={17} color="var(--red)" />
           <span style={{ flex: 1, fontSize: 13.5 }}>{org.error}</span>
           <button type="button" className="pp-btn pp-btn-outline" onClick={() => void org.refresh()} disabled={org.loading} style={{ padding: "6px 10px", fontSize: 12.5 }}>
             Retry
@@ -119,8 +119,8 @@ export function InstitutionTeam() {
       )}
 
       {!org.loading && org.status !== "active" && (
-        <div className="pp-card" style={{ padding: 16, marginBottom: 18, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", gap: 10, alignItems: "center" }}>
-          <Clock size={18} color="#b45309" />
+        <div className="pp-card" style={{ padding: 16, marginBottom: 18, background: "rgba(166, 166, 166, 0.08)", border: "1px solid rgba(166, 166, 166, 0.3)", display: "flex", gap: 10, alignItems: "center" }}>
+          <Clock size={18} color="var(--amber)" />
           <span style={{ fontSize: 13.5, color: "var(--text)" }}>
             {org.status === "pending"
               ? "Your membership is awaiting approval from the organisation owner. You'll get full access once approved."
@@ -287,7 +287,7 @@ export function InstitutionTeam() {
 
 function Disc({ text }: { text: string }) {
   return (
-    <span style={{ width: 38, height: 38, borderRadius: 999, background: "linear-gradient(135deg,#6366f1,#2563eb)", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+    <span style={{ width: 38, height: 38, borderRadius: 999, background: "linear-gradient(135deg,#6f6f6f,#606060)", color: "#fff", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
       {text}
     </span>
   );

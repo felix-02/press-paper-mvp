@@ -51,7 +51,7 @@ export function Donut({
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Donut chart">
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={thickness} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-3)" strokeWidth={thickness} />
       {arcs}
       {(centerTop || centerBottom) && (
         <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">

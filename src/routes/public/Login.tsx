@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, AlertCircle, MailCheck } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
-import { GlobeArt } from "@/components/brand/Illustrations";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import { PrelaunchGlobe } from "@/components/landing/PrelaunchGlobe";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { safeRedirectTarget } from "@/lib/redirect";
@@ -65,12 +66,9 @@ export function Login() {
   };
 
   return (
-    <div style={{ background: "#000", minHeight: "100vh", position: "relative", overflow: "hidden", display: "grid", placeItems: "center" }}>
-      <div style={{ position: "absolute", left: -160, top: "50%", transform: "translateY(-50%)", opacity: 0.5, pointerEvents: "none" }}>
-        <GlobeArt size={520} />
-      </div>
-      <div style={{ position: "absolute", right: -180, top: "42%", transform: "translateY(-50%)", opacity: 0.4, pointerEvents: "none" }}>
-        <GlobeArt size={440} />
+    <div className="pp-login-page">
+      <div className="pp-login-globe">
+        <PrelaunchGlobe size={440} decorative />
       </div>
 
       <div style={{ position: "absolute", top: 28, left: 28 }}>
@@ -78,6 +76,7 @@ export function Login() {
       </div>
 
       <div
+        className="pp-login-card"
         style={{
           position: "relative",
           width: "100%",
@@ -102,8 +101,8 @@ export function Login() {
               gap: 9,
               fontSize: 13,
               color: "var(--red)",
-              background: "rgba(248,113,113,0.1)",
-              border: "1px solid rgba(248,113,113,0.25)",
+              background: "rgba(142, 142, 142, 0.1)",
+              border: "1px solid rgba(142, 142, 142, 0.25)",
               borderRadius: "var(--r-sm)",
               padding: "10px 12px",
               marginTop: 18,
@@ -114,7 +113,7 @@ export function Login() {
         )}
 
         {resetSent && (
-          <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--green)", background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: "var(--r-sm)", padding: "10px 12px", marginTop: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--green)", background: "rgba(173, 173, 173, 0.1)", border: "1px solid rgba(173, 173, 173, 0.25)", borderRadius: "var(--r-sm)", padding: "10px 12px", marginTop: 18 }}>
             <MailCheck size={15} /> If an account exists for that address, a reset link is on its way.
           </div>
         )}
@@ -140,9 +139,8 @@ export function Login() {
                 {resetting ? "Sending…" : "Forgot password?"}
               </button>
             </div>
-            <input
+            <PasswordInput
               className="pp-input"
-              type="password"
               autoComplete="current-password"
               maxLength={128}
               placeholder="Enter your password"

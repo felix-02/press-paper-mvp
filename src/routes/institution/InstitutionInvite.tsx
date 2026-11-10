@@ -123,7 +123,7 @@ export function InstitutionInvite() {
       </div>
 
       {error && (
-        <div style={{ marginTop: 16, padding: "10px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--r-md)", fontSize: 13, color: "var(--text)" }}>
+        <div style={{ marginTop: 16, padding: "10px 12px", background: "rgba(104, 104, 104, 0.08)", border: "1px solid rgba(104, 104, 104, 0.3)", borderRadius: "var(--r-md)", fontSize: 13, color: "var(--text)" }}>
           {error}
         </div>
       )}

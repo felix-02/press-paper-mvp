@@ -250,10 +250,10 @@ export function Home() {
                   minHeight: 38,
                   padding: "8px 14px 8px 11px",
                   borderRadius: 999,
-                  color: "#f8fafc",
-                  background: "linear-gradient(135deg, rgba(37,99,235,0.96), rgba(79,70,229,0.96))",
+                  color: "#fafafa",
+                  background: "linear-gradient(135deg, rgba(96, 96, 96, 0.96), rgba(83, 83, 83, 0.96))",
                   border: "1px solid rgba(255,255,255,0.24)",
-                  boxShadow: "0 12px 32px rgba(37,99,235,0.34), 0 2px 8px rgba(0,0,0,0.4)",
+                  boxShadow: "0 12px 32px rgba(96, 96, 96, 0.34), 0 2px 8px rgba(0,0,0,0.4)",
                   backdropFilter: "blur(12px)",
                   fontSize: 13,
                   fontWeight: 650,
@@ -265,8 +265,8 @@ export function Home() {
                     width: 8,
                     height: 8,
                     borderRadius: 999,
-                    background: "#bfdbfe",
-                    boxShadow: "0 0 0 4px rgba(191,219,254,0.16)",
+                    background: "#d8d8d8",
+                    boxShadow: "0 0 0 4px rgba(216, 216, 216, 0.16)",
                   }}
                 />
                 {bufferedForTab.length} new {bufferedForTab.length === 1 ? "release" : "releases"}

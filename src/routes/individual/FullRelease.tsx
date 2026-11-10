@@ -40,8 +40,8 @@ function publisherFromRelease(release: Release): Institution {
     name: release.institutionName?.trim() || release.institutionSlug,
     category: "Institution",
     verified: release.institutionVerified === true,
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
   };
 }
@@ -429,8 +429,8 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
                 gap: 8,
                 fontSize: 12.5,
                 color: "var(--blue)",
-                background: "rgba(59,130,246,0.1)",
-                border: "1px solid rgba(59,130,246,0.25)",
+                background: "rgba(123, 123, 123, 0.1)",
+                border: "1px solid rgba(123, 123, 123, 0.25)",
                 borderRadius: "var(--r-pill)",
                 padding: "5px 12px",
                 marginTop: 24,

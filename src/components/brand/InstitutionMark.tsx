@@ -6,33 +6,10 @@ import type { Institution } from "@/types";
 //
 // DESIGN DECISION (documented in DOCUMENTATION.md): real institutions own
 // trademarked logos we cannot reproduce. Instead every institution is rendered
-// as an *original* branded emblem — a gradient disc with a clean monogram
-// derived from the database name. This keeps the set coherent, premium and
-// unambiguous without maintaining an embedded catalogue of organisations.
+// as an *original* monochrome emblem with a clean monogram derived from the
+// database name. Institution-supplied colours are deliberately ignored so the
+// application remains strictly black, white, and grey.
 // ---------------------------------------------------------------------------
-
-/** Darken / lighten a hex colour by amt (−1..1). */
-function shade(hex: string, amt: number): string {
-  const h = hex.replace("#", "");
-  const n = parseInt(
-    h.length === 3
-      ? h
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : h,
-    16
-  );
-  let r = (n >> 16) & 255;
-  let g = (n >> 8) & 255;
-  let b = n & 255;
-  const f = (v: number) =>
-    Math.max(0, Math.min(255, Math.round(v + (amt < 0 ? v : 255 - v) * amt)));
-  r = f(r);
-  g = f(g);
-  b = f(b);
-  return `rgb(${r}, ${g}, ${b})`;
-}
 
 function initials(institution: Institution): string {
   const stop = new Set(["the", "of", "for", "and", "a"]);
@@ -54,8 +31,8 @@ export function InstitutionMark({
   shape?: "circle" | "square";
 }) {
   const id = useId().replace(/[:]/g, "");
-  const c1 = institution.color;
-  const c2 = institution.color2 ?? shade(institution.color, -0.34);
+  const c1 = "#5a5a5a";
+  const c2 = "#242424";
   const text = initials(institution);
   const radius = shape === "circle" ? 50 : 26;
 
@@ -73,7 +50,7 @@ export function InstitutionMark({
     >
       <defs>
         <linearGradient id={`mk-${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={shade(c1, 0.12)} />
+          <stop offset="0%" stopColor={c1} />
           <stop offset="100%" stopColor={c2} />
         </linearGradient>
         <linearGradient id={`hl-${id}`} x1="0" y1="0" x2="0" y2="1">

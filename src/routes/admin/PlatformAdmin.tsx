@@ -48,14 +48,14 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
 ];
 
 const STATUS_COLORS: Record<string, { color: string; background: string }> = {
-  active: { color: "var(--green)", background: "rgba(52,211,153,0.12)" },
-  verified: { color: "var(--green)", background: "rgba(52,211,153,0.12)" },
-  published: { color: "var(--green)", background: "rgba(52,211,153,0.12)" },
-  pending: { color: "var(--amber)", background: "rgba(245,158,11,0.12)" },
-  archived: { color: "var(--amber)", background: "rgba(245,158,11,0.12)" },
-  banned: { color: "var(--red)", background: "rgba(248,113,113,0.12)" },
-  rejected: { color: "var(--red)", background: "rgba(248,113,113,0.12)" },
-  deleted: { color: "var(--red)", background: "rgba(248,113,113,0.12)" },
+  active: { color: "var(--green)", background: "rgba(173, 173, 173, 0.12)" },
+  verified: { color: "var(--green)", background: "rgba(173, 173, 173, 0.12)" },
+  published: { color: "var(--green)", background: "rgba(173, 173, 173, 0.12)" },
+  pending: { color: "var(--amber)", background: "rgba(166, 166, 166, 0.12)" },
+  archived: { color: "var(--amber)", background: "rgba(166, 166, 166, 0.12)" },
+  banned: { color: "var(--red)", background: "rgba(142, 142, 142, 0.12)" },
+  rejected: { color: "var(--red)", background: "rgba(142, 142, 142, 0.12)" },
+  deleted: { color: "var(--red)", background: "rgba(142, 142, 142, 0.12)" },
 };
 
 function StatusPill({ value }: { value: string | null | undefined }) {
@@ -251,7 +251,7 @@ export function PlatformAdmin() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 18 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center" }}><ShieldCheck size={22} color="var(--blue)" /></span>
+            <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}><ShieldCheck size={22} color="var(--blue)" /></span>
             <div>
               <h1 style={{ fontSize: 25, fontWeight: 750 }}>Global administration</h1>
               <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 2 }}>Users, institutions, posts, activity and immutable moderation history.</p>
@@ -270,7 +270,7 @@ export function PlatformAdmin() {
       </nav>
 
       {admin.error && (
-        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 18, display: "flex", gap: 10, alignItems: "center", borderColor: "rgba(248,113,113,0.35)" }}>
+        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 18, display: "flex", gap: 10, alignItems: "center", borderColor: "rgba(142, 142, 142, 0.35)" }}>
           <AlertCircle size={17} color="var(--red)" /><span style={{ flex: 1, fontSize: 13.5 }}>{admin.error}</span>
           <button type="button" onClick={() => void admin.refresh()} className="pp-btn pp-btn-outline">Retry</button>
         </div>
@@ -467,16 +467,17 @@ export function PlatformAdmin() {
           )}
           {moderationRequest && (
             <div
+              className="pp-modal-layer"
               role="presentation"
               onMouseDown={() => !actionBusy && setModerationRequest(null)}
-              style={{ position: "fixed", inset: 0, zIndex: 120, display: "grid", placeItems: "center", padding: 20, background: "rgba(2,6,23,0.68)", backdropFilter: "blur(10px)" }}
+              style={{ display: "grid", placeItems: "center", padding: 20 }}
             >
               <section
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="moderation-dialog-title"
                 onMouseDown={(event) => event.stopPropagation()}
-                className="pp-card pp-rise"
+                className="pp-card pp-modal-dialog pp-rise"
                 style={{ width: "100%", maxWidth: 480, padding: 24, boxShadow: "var(--shadow-lg)" }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 11 }}>

@@ -39,8 +39,8 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
     name: liveIdentity?.name ?? profile?.institution_name ?? "Institution",
     category: "Institution",
     verified: liveIdentity?.verified ?? profile?.verification_status === "verified",
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
   };
   const orgName = institution.name;
@@ -213,7 +213,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
 
           {searchOpen && query.trim() && (
             <div
-              className="pp-search-popover"
+              className="pp-search-popover pp-popover"
               aria-busy={results.loading}
               aria-live="polite"
               style={{
@@ -228,7 +228,6 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                 padding: 8,
                 maxHeight: 440,
                 overflowY: "auto",
-                zIndex: 40,
               }}
             >
               {results.loading && (
@@ -361,7 +360,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
           {notifOpen && (
             <div
               id="pp-notifications"
-              className="pp-notification-popover"
+              className="pp-notification-popover pp-popover"
               style={{
                 position: "absolute",
                 top: "calc(100% + 8px)",
@@ -372,11 +371,10 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                 borderRadius: "var(--r-lg)",
                 boxShadow: "var(--shadow-lg)",
                 overflow: "hidden",
-                zIndex: 40,
               }}
             >
               <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--border)", fontSize: 14, fontWeight: 700 }}>Notifications</div>
-              <div style={{ maxHeight: 420, overflowY: "auto" }}>
+              <div className="pp-divided-list" style={{ maxHeight: 420, overflowY: "auto" }}>
                 {notifications.length === 0 ? (
                   <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
                     You're all caught up. Follow institutions to get notified of new releases.
@@ -388,8 +386,8 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                       name: n.institutionName,
                       category: "Institution",
                       verified: n.institutionVerified,
-                      color: "#2563eb",
-                      color2: "#4338ca",
+                      color: "#606060",
+                      color2: "#454545",
                       mark: "generic",
                     };
                     const unread = n.ts > lastSeen;
@@ -405,12 +403,11 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                           width: "100%",
                           textAlign: "left",
                           padding: "12px 16px",
-                          borderBottom: "1px solid var(--border)",
                           borderLeft: `3px solid ${unread ? "var(--blue)" : "transparent"}`,
-                          background: unread ? "rgba(59,130,246,0.05)" : "transparent",
+                          background: unread ? "rgba(123, 123, 123, 0.05)" : "transparent",
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = unread ? "rgba(59,130,246,0.05)" : "transparent")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = unread ? "rgba(123, 123, 123, 0.05)" : "transparent")}
                       >
                         <InstitutionMark institution={i} size={32} />
                         <span style={{ minWidth: 0, flex: 1 }}>
@@ -467,7 +464,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
           </button>
 
           {accountOpen && (
-            <div id="pp-account-menu" className="pp-account-menu pp-rise" role="region" aria-label="Account options">
+            <div id="pp-account-menu" className="pp-account-menu pp-popover pp-rise" role="region" aria-label="Account options">
               <div className="pp-account-menu-header">
                 <strong>{kind === "institution" ? orgName : personName}</strong>
                 <span>{user?.email ?? (kind === "institution" ? "Institution account" : "Individual account")}</span>

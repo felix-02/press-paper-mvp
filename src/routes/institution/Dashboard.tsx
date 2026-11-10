@@ -150,9 +150,9 @@ export function Dashboard() {
         <Link
           to={org.role === "owner" ? "/inst/profile" : "/inst/team"}
           className="pp-card"
-          style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, marginBottom: 18, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" }}
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, marginBottom: 18, background: "rgba(166, 166, 166, 0.08)", border: "1px solid rgba(166, 166, 166, 0.3)" }}
         >
-          <ShieldAlert size={20} color="#b45309" style={{ flexShrink: 0 }} />
+          <ShieldAlert size={20} color="var(--amber)" style={{ flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>Your organisation isn't verified yet</div>
             <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>

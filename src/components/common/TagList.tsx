@@ -49,11 +49,11 @@ export function TagList({ tags, max = 2, extra = 0 }: { tags: string[]; max?: nu
           </button>
           {open && (
             <div
+              className="pp-popover"
               style={{
                 position: "absolute",
                 top: "calc(100% + 6px)",
                 left: 0,
-                zIndex: 50,
                 background: "var(--surface-1)",
                 border: "1px solid var(--border)",
                 borderRadius: "var(--r-md)",

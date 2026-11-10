@@ -16,7 +16,7 @@ import type { Institution } from "@/types";
 function CheckRow({ label }: { label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--text-secondary)" }}>
-      <span style={{ width: 18, height: 18, borderRadius: 999, background: "rgba(52,211,153,0.14)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <span style={{ width: 18, height: 18, borderRadius: 999, background: "rgba(173, 173, 173, 0.14)", display: "grid", placeItems: "center", flexShrink: 0 }}>
         <Check size={11} color="var(--green)" strokeWidth={3} />
       </span>
       {label}
@@ -29,7 +29,7 @@ function VerifiedBlock({ domain, since }: { domain?: string | null; since?: stri
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 4px 4px" }}>
-        <div style={{ width: 56, height: 56, borderRadius: 999, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center" }}>
+        <div style={{ width: 56, height: 56, borderRadius: 999, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}>
           <ShieldCheck size={28} className="pp-verified" />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
@@ -60,7 +60,7 @@ function VerificationPanel({ orgVerified }: { orgVerified: boolean }) {
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", background: "rgba(239,68,68,0.12)", padding: "3px 9px", borderRadius: 999 }}>NOT APPROVED</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", background: "var(--danger-soft)", padding: "3px 9px", borderRadius: 999 }}>NOT APPROVED</span>
         </div>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
           This institution account wasn't approved. If you believe this is a mistake, contact support from your organisation's official email and we'll review it again.
@@ -74,7 +74,7 @@ function VerificationPanel({ orgVerified }: { orgVerified: boolean }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <ShieldCheck size={18} color="var(--amber)" />
-        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", background: "rgba(245,158,11,0.12)", padding: "3px 9px", borderRadius: 999 }}>PENDING REVIEW</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", background: "rgba(166, 166, 166, 0.12)", padding: "3px 9px", borderRadius: 999 }}>PENDING REVIEW</span>
       </div>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
         {storedDomain ? (
@@ -106,8 +106,8 @@ export function Profile() {
     name: profile?.institution_name?.trim() || "Your organisation",
     category: profile?.org_category?.trim() || "Institution",
     verified: org.verified,
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
   };
   const vstatus = org.verified ? "verified" : profile?.verification_status ?? "unverified";
@@ -198,7 +198,7 @@ export function Profile() {
 
       {/* header card */}
       <div className="pp-card" style={{ overflow: "hidden", marginBottom: 18 }}>
-        <div style={{ height: 110, background: `linear-gradient(125deg, ${i.color} 0%, ${i.color2 ?? i.color} 100%)`, position: "relative" }}>
+        <div style={{ height: 110, background: "linear-gradient(125deg, #555555 0%, #171717 100%)", position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.18)" }} />
         </div>
         <div style={{ padding: "0 24px 22px" }}>
@@ -218,7 +218,7 @@ export function Profile() {
                         fontSize: 11,
                         fontWeight: 600,
                         color: vstatus === "pending" ? "var(--amber)" : "var(--text-muted)",
-                        background: vstatus === "pending" ? "rgba(245,158,11,0.12)" : "var(--surface-2)",
+                        background: vstatus === "pending" ? "rgba(166, 166, 166, 0.12)" : "var(--surface-2)",
                         border: "1px solid var(--border)",
                         padding: "2px 9px",
                         borderRadius: 999,
@@ -330,7 +330,7 @@ export function Profile() {
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{p.full_name || p.email}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{p.email}</div>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: p.role === "owner" ? "#b45309" : "var(--text-secondary)", background: "var(--surface-3)", padding: "3px 10px", borderRadius: 999, textTransform: "capitalize" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: p.role === "owner" ? "var(--amber)" : "var(--text-secondary)", background: "var(--surface-3)", padding: "3px 10px", borderRadius: 999, textTransform: "capitalize" }}>
                     {p.role}
                   </span>
                 </div>

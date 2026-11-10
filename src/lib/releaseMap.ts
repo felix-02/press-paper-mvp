@@ -57,8 +57,8 @@ export function releaseInstitution(release: Release): Institution {
     name: release.institutionName?.trim() || derivedName || "Institution",
     category: "Institution",
     verified: release.institutionVerified === true,
-    color: "#2563eb",
-    color2: "#4338ca",
+    color: "#606060",
+    color2: "#454545",
     mark: "generic",
   };
 }

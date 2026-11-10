@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ArrowRight, AlertCircle, MailCheck } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
-import { GlobeArt } from "@/components/brand/Illustrations";
+import { PasswordInput } from "@/components/common/PasswordInput";
+import { PrelaunchGlobe } from "@/components/landing/PrelaunchGlobe";
 import { useAuth } from "@/auth/AuthProvider";
 import { isSensitiveRedirect, safeRedirectTarget } from "@/lib/redirect";
 
@@ -25,7 +26,11 @@ function Field({
   return (
     <label style={{ display: "block" }}>
       <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>{label}</span>
-      <input className="pp-input" type={type} placeholder={placeholder} value={value} maxLength={maxLength} onChange={onChange ? (e) => onChange(e.target.value) : undefined} />
+      {type === "password" ? (
+        <PasswordInput className="pp-input" placeholder={placeholder} value={value} maxLength={maxLength} onChange={onChange ? (e) => onChange(e.target.value) : undefined} autoComplete="new-password" />
+      ) : (
+        <input className="pp-input" type={type} placeholder={placeholder} value={value} maxLength={maxLength} onChange={onChange ? (e) => onChange(e.target.value) : undefined} />
+      )}
     </label>
   );
 }
@@ -77,7 +82,7 @@ export function SignUp() {
       <div className="pp-auth-brand-panel" style={{ width: "44%", borderRight: "1px solid var(--border-faint)", padding: "40px 48px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <Logo size={20} to="/" />
         <div style={{ display: "grid", placeItems: "center", flex: 1 }}>
-          <GlobeArt size={400} />
+          <PrelaunchGlobe size={400} decorative />
         </div>
         <div>
           <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0", lineHeight: 1.25 }}>
@@ -94,7 +99,7 @@ export function SignUp() {
         <div style={{ width: "100%", maxWidth: 420 }}>
           {confirmEmail ? (
             <div style={{ textAlign: "center" }}>
-              <div style={{ width: 56, height: 56, borderRadius: 999, background: "rgba(59,130,246,0.12)", display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
+              <div style={{ width: 56, height: 56, borderRadius: 999, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
                 <MailCheck size={26} color="var(--blue)" />
               </div>
               <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0" }}>Confirm your email</h1>
@@ -112,7 +117,7 @@ export function SignUp() {
               <p style={{ fontSize: 14.5, color: "var(--text-secondary)", marginTop: 8 }}>Create your free account in seconds.</p>
 
               {error && (
-                <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--red)", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: "var(--r-sm)", padding: "10px 12px", marginTop: 18 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--red)", background: "rgba(142, 142, 142, 0.1)", border: "1px solid rgba(142, 142, 142, 0.25)", borderRadius: "var(--r-sm)", padding: "10px 12px", marginTop: 18 }}>
                   <AlertCircle size={15} /> {error}
                 </div>
               )}

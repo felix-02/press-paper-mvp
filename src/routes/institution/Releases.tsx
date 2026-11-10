@@ -45,7 +45,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
               {r.heading}
             </span>
             {r.isNew && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)", background: "rgba(52,211,153,0.14)", padding: "2px 7px", borderRadius: 999, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)", background: "rgba(173, 173, 173, 0.14)", padding: "2px 7px", borderRadius: 999, flexShrink: 0 }}>
                 NEW
               </span>
             )}
@@ -187,7 +187,7 @@ export function Releases() {
     appearance: "none",
     cursor: "pointer",
     backgroundImage:
-      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>\")",
+      "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23717171' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>\")",
     backgroundRepeat: "no-repeat",
     backgroundPosition: "right 12px center",
   };
@@ -242,8 +242,8 @@ export function Releases() {
       </div>
 
       {loadError && (
-        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, borderColor: "rgba(220,38,38,0.35)" }}>
-          <AlertCircle size={17} color="#dc2626" />
+        <div className="pp-card" role="alert" style={{ padding: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, borderColor: "rgba(77, 77, 77, 0.35)" }}>
+          <AlertCircle size={17} color="var(--red)" />
           <span style={{ flex: 1, fontSize: 13.5 }}>{loadError}</span>
           <button type="button" className="pp-btn pp-btn-outline" onClick={() => setRetryKey((key) => key + 1)}>Retry</button>
         </div>
@@ -282,8 +282,8 @@ export function Releases() {
       ) : null}
 
       {selected && (
-        <div onClick={() => !working && setSelected(null)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.5)", display: "grid", placeItems: "center", padding: 20 }}>
-          <div onClick={(event) => event.stopPropagation()} className="pp-card" role="dialog" aria-modal="true" aria-label={`Actions for ${selected.heading}`} style={{ width: "100%", maxWidth: 430, padding: 22 }}>
+        <div className="pp-modal-layer" onClick={() => !working && setSelected(null)} style={{ display: "grid", placeItems: "center", padding: 20 }}>
+          <div onClick={(event) => event.stopPropagation()} className="pp-card pp-modal-dialog" role="dialog" aria-modal="true" aria-label={`Actions for ${selected.heading}`} style={{ width: "100%", maxWidth: 430, padding: 22 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 style={{ fontSize: 17, fontWeight: 700 }}>Release actions</h2>
