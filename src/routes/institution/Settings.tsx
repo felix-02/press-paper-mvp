@@ -4,6 +4,8 @@ import { AppShell } from "@/components/shells/AppShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { useTheme, type ThemePreference } from "@/lib/useTheme";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; description: string; icon: typeof Monitor }[] = [
   { value: "system", label: "System", description: "Match this device", icon: Monitor },
@@ -12,6 +14,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; description: strin
 ];
 
 export function InstitutionSettings() {
+  usePageTitle("Settings");
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const { preference, setPreference } = useTheme();
@@ -84,8 +87,8 @@ export function InstitutionSettings() {
             <strong>Sign out of Presspaper</strong>
             <small>You’ll return to the public homepage.</small>
           </span>
-          <button type="button" className="pp-btn pp-btn-outline" disabled={signingOut} onClick={() => void logout()}>
-            <LogOut size={15} /> {signingOut ? "Signing out…" : "Sign out"}
+          <button type="button" className="pp-btn pp-btn-outline" disabled={signingOut} aria-busy={signingOut} onClick={() => void logout()}>
+            {signingOut ? <InlineSpinner /> : <LogOut size={15} />} {signingOut ? "Signing out…" : "Sign out"}
           </button>
         </div>
       </section>

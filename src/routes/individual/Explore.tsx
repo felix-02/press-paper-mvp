@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { SearchX, X } from "lucide-react";
 import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { AppShell } from "@/components/shells/AppShell";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
+import { FeedSkeleton, Skeleton } from "@/components/primitives/Skeleton";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution, Release } from "@/types";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease } from "@/lib/releaseMap";
@@ -41,6 +45,7 @@ function DiscoverCard({ institution: i }: { institution: Institution }) {
 }
 
 export function Explore() {
+  usePageTitle("Explore");
   const [live, setLive] = useState<Release[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -49,9 +54,15 @@ export function Explore() {
   const publicDirectory = usePublicInstitutions();
   const cat = optionFromSearchParam(CATEGORIES, params.get("category"), "For You");
   const query = (params.get("q") || "").trim().toLowerCase().slice(0, 100);
+  const queryLabel = (params.get("q") || "").trim().slice(0, 100);
   const setCat = (nextCategory: ExploreCategory) => {
     const p = new URLSearchParams(params);
     p.set("category", searchParamValue(nextCategory));
+    p.delete("q");
+    setParams(p);
+  };
+  const clearQuery = () => {
+    const p = new URLSearchParams(params);
     p.delete("q");
     setParams(p);
   };
@@ -113,9 +124,9 @@ export function Explore() {
         Discover institutions and official releases from around the world.
       </p>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
         {CATEGORIES.map((c) => {
-          const active = cat === c;
+          const active = cat === c && !query;
           return (
             <button
               key={c}
@@ -135,15 +146,52 @@ export function Explore() {
             </button>
           );
         })}
+        {query && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              fontSize: 13,
+              fontWeight: 600,
+              padding: "6px 8px 6px 14px",
+              borderRadius: "var(--r-pill)",
+              border: "1px solid color-mix(in srgb, var(--blue) 35%, transparent)",
+              background: "var(--accent-soft)",
+              color: "var(--blue)",
+            }}
+          >
+            #{queryLabel.replace(/\s/g, "")}
+            <button
+              type="button"
+              onClick={clearQuery}
+              aria-label={`Clear topic filter ${queryLabel}`}
+              style={{ display: "grid", placeItems: "center", width: 20, height: 20, borderRadius: 999, color: "inherit" }}
+            >
+              <X size={13} />
+            </button>
+          </span>
+        )}
       </div>
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 28, marginBottom: 14 }}>Institutions to follow</h2>
       {publicDirectory.loading ? (
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)" }}>Loading institutions…</p>
+        <div style={{ display: "flex", gap: 14, overflowX: "hidden", paddingBottom: 6 }} role="status" aria-label="Loading institutions">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="pp-card" style={{ padding: 16, width: 210, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <Skeleton w={48} h={48} r={999} />
+              <Skeleton w={120} h={13} />
+              <Skeleton w={80} h={11} />
+              <Skeleton w="100%" h={32} r={8} style={{ marginTop: 4 }} />
+            </div>
+          ))}
+        </div>
       ) : publicDirectory.error ? (
         <button type="button" onClick={publicDirectory.refresh} className="pp-btn pp-btn-outline">Retry institutions</button>
       ) : institutions.length === 0 ? (
-        <p style={{ fontSize: 13.5, color: "var(--text-muted)" }}>No institutions in {cat} yet.</p>
+        <p style={{ fontSize: 13.5, color: "var(--text-muted)" }}>
+          {query ? `No institutions match “${queryLabel}”.` : `No institutions in ${cat} yet.`}
+        </p>
       ) : (
         <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 6 }}>
           {institutions.map((institution) => (
@@ -153,7 +201,7 @@ export function Explore() {
       )}
 
       <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 30, marginBottom: 14 }}>
-        {query ? `Releases matching “${params.get("q")?.trim().slice(0, 100)}”` : all ? "Trending releases" : `${cat} releases`}
+        {query ? `Releases matching “${queryLabel}”` : all ? "Latest releases" : `${cat} releases`}
       </h2>
       {loadError ? (
         <div className="pp-card" role="alert" style={{ padding: 36, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
@@ -161,11 +209,21 @@ export function Explore() {
           <button type="button" onClick={() => setRetryKey((key) => key + 1)} className="pp-btn pp-btn-outline" style={{ marginTop: 12 }}>Retry</button>
         </div>
       ) : loading ? (
-        <div style={{ padding: 36, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>Loading releases…</div>
+        <FeedSkeleton count={2} />
       ) : releases.length === 0 ? (
-        <div className="pp-card" style={{ padding: 36, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-          {query ? "No releases match this topic." : `No ${cat} releases right now. Try another category.`}
-        </div>
+        <EmptyState
+          compact
+          icon={<SearchX size={24} />}
+          title={query ? `Nothing matches “${queryLabel}”` : `No ${cat} releases right now`}
+          body={query ? "Try a different topic, or browse everything that's live." : "New releases land here the moment institutions publish them."}
+          action={
+            (query || !all) ? (
+              <button type="button" className="pp-btn pp-btn-outline" onClick={() => setCat("For You")}>
+                Browse all releases
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {releases.slice(0, relScroll.visible).map((r) => (

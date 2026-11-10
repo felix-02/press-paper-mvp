@@ -5,6 +5,7 @@ import { AppShell } from "@/components/shells/AppShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { PublicFooter, PublicHeader } from "@/components/shells/PublicChrome";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const FAQS: { q: string; a: string }[] = [
   {
@@ -51,6 +52,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export function Help() {
+  usePageTitle("Help Centre");
   const { user } = useAuth();
   const navigate = useNavigate();
   const kind = useReaderShellKind();

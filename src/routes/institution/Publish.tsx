@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck } from "lucide-react";
+import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck, Upload } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
 import { MediaTile } from "@/components/media/MediaTile";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
-import { Verified } from "@/components/primitives/Bits";
+import { InlineSpinner, Verified } from "@/components/primitives/Bits";
 import type { Institution, MediaScene, ReleaseStatus, ReleaseType } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
@@ -15,6 +15,7 @@ import { useOrg } from "@/lib/useOrg";
 import { RichTextEditor } from "@/components/common/RichTextEditor";
 import { track } from "@/lib/analytics";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const TYPES: ReleaseType[] = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
 const SCENES: { scene: MediaScene; label: string }[] = [
@@ -27,11 +28,11 @@ const SCENES: { scene: MediaScene; label: string }[] = [
 ];
 
 function isReleaseType(value: string): value is ReleaseType {
-  return TYPES.includes(value as ReleaseType);
+  return value.trim().length > 0;
 }
 
 function isMediaScene(value: string): value is MediaScene {
-  return SCENES.some(({ scene }) => scene === value);
+  return SCENES.some(({ scene }) => scene === value) || /^https:\/\//.test(value);
 }
 
 function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
@@ -46,6 +47,7 @@ function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: stri
 export function Publish() {
   const navigate = useNavigate();
   const { id: editingId } = useParams();
+  usePageTitle(editingId ? "Edit release" : "Publish");
   const pushToast = useAppStore((s) => s.pushToast);
   const { user, profile, profileReady } = useAuth();
   const org = useOrg();
@@ -68,11 +70,67 @@ export function Publish() {
   const [loadingRelease, setLoadingRelease] = useState(Boolean(editingId));
   const [loadError, setLoadError] = useState<string | null>(null);
   const [headingError, setHeadingError] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [subheadingError, setSubheadingError] = useState(false);
+  const [busyStatus, setBusyStatus] = useState<ReleaseStatus | null>(null);
+  const busy = busyStatus !== null;
   const [reviewing, setReviewing] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [dbTypes, setDbTypes] = useState<string[]>([]);
+  const [platformCovers, setPlatformCovers] = useState<{ label: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // Platform catalogue: release types + extra covers managed by the super admin.
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    void supabase.from("platform_release_types").select("name").order("created_at").then(({ data }) => {
+      if (active) setDbTypes(((data as { name: string }[] | null) ?? []).map((r) => r.name));
+    });
+    void supabase.from("platform_covers").select("label, url").order("created_at").then(({ data }) => {
+      if (active) setPlatformCovers(((data as { label: string; url: string }[] | null) ?? []));
+    });
+    return () => { active = false; };
+  }, []);
+  const availableTypes = dbTypes.length > 0 ? dbTypes : TYPES;
+
+  const uploadCover = async (file: File) => {
+    if (!supabase || !org.slug) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 3 * 1024 * 1024) {
+      pushToast({ title: "Use a PNG, JPEG or WebP under 3 MB", variant: "info" });
+      return;
+    }
+    setUploading(true);
+    const path = `${org.slug}/cover-${Date.now()}.${file.type.split("/")[1]}`;
+    const { error } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000", upsert: false });
+    if (error) {
+      setUploading(false);
+      pushToast({ title: "Couldn't upload the cover", description: error.message, variant: "error" });
+      return;
+    }
+    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
+    setUploading(false);
+    if (data?.publicUrl) {
+      setScene(data.publicUrl as MediaScene);
+      pushToast({ title: "Cover uploaded", variant: "success" });
+    }
+  };
 
   const headingRef = useRef<HTMLInputElement>(null);
   const subheadingRef = useRef<HTMLInputElement>(null);
+
+  // Guard against losing unsaved work on refresh/close. In-app navigation is
+  // still free — drafts save in one click and nothing here is destructive.
+  const snapshot = JSON.stringify([heading, subheading, body, type, scene]);
+  const dirty = !busy && !loadingRelease && snapshot !== savedSnapshot && Boolean(heading.trim() || subheading.trim() || body.replace(/<[^>]*>/g, "").trim());
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     if (!editingId) {
@@ -83,9 +141,11 @@ export function Publish() {
       setScene("wind-farm");
       setOriginalPublishedAt(null);
       setHeadingError(false);
+      setSubheadingError(false);
       setReviewing(false);
       setLoadingRelease(false);
       setLoadError(null);
+      setSavedSnapshot(JSON.stringify(["", "", "", "Announcement", "wind-farm"]));
       return;
     }
     if (!profileReady || org.loading) {
@@ -121,6 +181,13 @@ export function Publish() {
         setType(isReleaseType(row.type) ? row.type : "Announcement");
         setScene(isMediaScene(row.scene) ? row.scene : "wind-farm");
         setOriginalPublishedAt(row.published_at);
+        setSavedSnapshot(JSON.stringify([
+          row.heading,
+          row.subheading ?? "",
+          row.body ?? "",
+          isReleaseType(row.type) ? row.type : "Announcement",
+          isMediaScene(row.scene) ? row.scene : "wind-farm",
+        ]));
         setLoadingRelease(false);
       });
 
@@ -146,6 +213,7 @@ export function Publish() {
   const validateForPublish = (): boolean => {
     if (!requireHeading()) return false;
     if (!subheading.trim()) {
+      setSubheadingError(true);
       subheadingRef.current?.focus();
       pushToast({ title: "Add a subheading to continue", description: "Summarise the release before reviewing it.", variant: "info" });
       return false;
@@ -162,11 +230,11 @@ export function Publish() {
   // All releases persist to the organisation workspace in Postgres.
   const persist = async (status: ReleaseStatus): Promise<string | null> => {
     if (!supabase || !user) {
-      pushToast({ title: "Publishing is unavailable", description: "Reconnect your account and try again.", variant: "info" });
+      pushToast({ title: "Publishing is unavailable", description: "Reconnect your account and try again.", variant: "error" });
       return null;
     }
     if (!org.slug || !org.can.publish || (status === "Published" && !org.verified)) {
-      pushToast({ title: "Publishing access is unavailable", description: "Your organisation membership or verification is incomplete.", variant: "info" });
+      pushToast({ title: "Publishing access is unavailable", description: "Your organisation membership or verification is incomplete.", variant: "error" });
       return null;
     }
 
@@ -197,7 +265,7 @@ export function Publish() {
 
     const persisted = result.data as { id: string } | null;
     if (result.error || !persisted?.id) {
-      pushToast({ title: "Couldn't save release", description: "Check your publishing access and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save release", description: "Check your publishing access and try again.", variant: "error" });
       return null;
     }
     return persisted.id;
@@ -206,10 +274,11 @@ export function Publish() {
   const submit = async (status: ReleaseStatus) => {
     if (busy) return;
     if (!requireHeading()) return;
-    setBusy(true);
+    setBusyStatus(status);
     const releaseId = await persist(status);
-    setBusy(false);
+    setBusyStatus(null);
     if (!releaseId) return;
+    setSavedSnapshot(JSON.stringify([heading, subheading, body, type, scene]));
     track(status === "Published" ? "release_published" : "release_draft_saved", { releaseId, status, type });
     if (status === "Published") {
       pushToast({ title: "Release published", description: "It's now live in your organisation's releases.", variant: "success" });
@@ -304,7 +373,7 @@ export function Publish() {
         {/* form */}
         <div className="pp-card" style={{ padding: 24 }}>
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="Required · 200 characters">Heading</FieldLabel>
+            <FieldLabel hint={heading.length > 150 ? `${heading.length}/200` : "Required"}>Heading</FieldLabel>
             <input
               ref={headingRef}
               className="pp-input"
@@ -329,15 +398,27 @@ export function Publish() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint="250 characters">Subheading</FieldLabel>
+            <FieldLabel hint={subheading.length > 190 ? `${subheading.length}/250` : "Required to publish"}>Subheading</FieldLabel>
             <input
               ref={subheadingRef}
               className="pp-input"
               placeholder="One or two sentences summarising the release"
               value={subheading}
               maxLength={250}
-              onChange={(e) => setSubheading(e.target.value)}
+              onChange={(e) => {
+                setSubheading(e.target.value);
+                if (subheadingError && e.target.value.trim()) setSubheadingError(false);
+              }}
+              style={{
+                borderColor: subheadingError ? "var(--red)" : undefined,
+                boxShadow: subheadingError ? "0 0 0 3px rgba(142,142,142,0.15)" : undefined,
+              }}
             />
+            {subheadingError && (
+              <span style={{ display: "block", fontSize: 12.5, color: "var(--red)", marginTop: 6 }}>
+                Add a short summary — it's what readers see in their feed.
+              </span>
+            )}
           </div>
 
           <div style={{ marginBottom: 20 }}>
@@ -348,13 +429,13 @@ export function Publish() {
           <div style={{ marginBottom: 20 }}>
             <FieldLabel>Release type</FieldLabel>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {TYPES.map((t) => {
+              {availableTypes.map((t) => {
                 const active = type === t;
                 return (
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setType(t)}
+                    onClick={() => setType(t as ReleaseType)}
                     style={{
                       fontSize: 13,
                       fontWeight: 500,
@@ -375,13 +456,13 @@ export function Publish() {
           <div>
             <FieldLabel hint="Choose a cover">Cover media</FieldLabel>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {SCENES.map(({ scene: s, label }) => {
+              {[...SCENES.map(({ scene, label }) => ({ scene: scene as string, label })), ...platformCovers.map((c) => ({ scene: c.url, label: c.label }))].map(({ scene: s, label }) => {
                 const active = scene === s;
                 return (
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setScene(s)}
+                    onClick={() => setScene(s as MediaScene)}
                     style={{
                       position: "relative",
                       borderRadius: 10,
@@ -414,14 +495,31 @@ export function Publish() {
                 );
               })}
             </div>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 12.5, color: "var(--text-secondary)", cursor: "pointer" }}>
+              <span className="pp-btn pp-btn-outline" style={{ padding: "6px 12px", fontSize: 12.5 }}>
+                {uploading ? <InlineSpinner /> : <Upload size={14} />} {uploading ? "Uploading…" : "Upload your own cover"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: "none" }}
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void uploadCover(file);
+                }}
+              />
+              PNG, JPEG or WebP · up to 3 MB
+            </label>
           </div>
 
           <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px", opacity: busy || !org.verified ? 0.6 : 1 }}>
-              <Send size={16} /> {busy ? "Publishing…" : !org.verified ? "Approval required" : "Review & Publish"}
+            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px" }}>
+              <Send size={16} /> {!org.verified ? "Approval required" : originalPublishedAt ? "Review & republish" : "Review & publish"}
             </button>
-            <button type="button" onClick={saveDraft} disabled={busy} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }}>
-              <FileText size={16} /> Save as draft
+            <button type="button" onClick={saveDraft} disabled={busy} aria-busy={busyStatus === "Draft"} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }} title={originalPublishedAt ? "Removes the release from public view and keeps it as a draft" : undefined}>
+              {busyStatus === "Draft" ? <InlineSpinner /> : <FileText size={16} />} {busyStatus === "Draft" ? "Saving…" : originalPublishedAt ? "Unpublish to draft" : "Save as draft"}
             </button>
           </div>
         </div>
@@ -443,7 +541,7 @@ export function Publish() {
               </div>
             </div>
             <div style={{ height: 168, marginBottom: 14 }}>
-              <MediaTile scene={scene} play radius={12} />
+              <MediaTile scene={scene} radius={12} />
             </div>
             <TypeBadge type={type} />
             <h3 style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, marginTop: 10, color: heading.trim() ? "var(--text)" : "var(--text-faint)" }}>
@@ -484,7 +582,7 @@ export function Publish() {
             </div>
 
             <div style={{ height: 240, marginTop: 22 }}>
-              <MediaTile scene={scene} play radius={13} />
+              <MediaTile scene={scene} radius={13} />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
               <InstitutionMark institution={previewInstitution} size={36} />
@@ -501,8 +599,8 @@ export function Publish() {
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
               <button type="button" className="pp-btn pp-btn-ghost" onClick={() => setReviewing(false)} disabled={busy}>Back to edit</button>
-              <button type="button" className="pp-btn pp-btn-primary" onClick={() => void submit("Published")} disabled={busy} style={{ opacity: busy ? 0.7 : 1 }}>
-                <Send size={16} /> {busy ? "Publishing…" : "Publish release"}
+              <button type="button" className="pp-btn pp-btn-primary" onClick={() => void submit("Published")} disabled={busy} aria-busy={busyStatus === "Published"} style={{ opacity: busy ? 0.7 : 1 }}>
+                {busyStatus === "Published" ? <InlineSpinner /> : <Send size={16} />} {busyStatus === "Published" ? "Publishing…" : "Publish release"}
               </button>
             </div>
           </section>

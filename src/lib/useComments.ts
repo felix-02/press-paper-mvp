@@ -18,6 +18,7 @@ export interface CommentNode {
   id: string;
   parentId: string | null;
   author: string;
+  authorId: string;
   body: string;
   time: string;
   replies: CommentNode[];
@@ -28,6 +29,7 @@ function rowToComment(r: CommentRow): CommentNode {
     id: r.id,
     parentId: r.parent_id,
     author: r.author_name || "Reader",
+    authorId: r.author,
     body: r.body,
     time: relative(r.created_at),
     replies: [],

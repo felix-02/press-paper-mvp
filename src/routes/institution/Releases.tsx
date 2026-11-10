@@ -1,6 +1,6 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Send, Trash2, X, AlertCircle, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
@@ -12,8 +12,14 @@ import { useAuth } from "@/auth/AuthProvider";
 import { rowToRelease } from "@/lib/releaseMap";
 import { useOrg } from "@/lib/useOrg";
 import { track } from "@/lib/analytics";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
+import { Skeleton } from "@/components/primitives/Skeleton";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 const COLS = "minmax(0,1fr) 132px 118px 150px 74px 104px 40px";
+const TYPE_OPTIONS = ["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"];
+const STATUS_OPTIONS = ["All statuses", "Published", "Draft", "Scheduled", "Archived"];
 
 function HeaderCell({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
@@ -74,6 +80,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
 }
 
 export function Releases() {
+  usePageTitle("Releases");
   const { profile, profileReady } = useAuth();
   const org = useOrg();
   const navigate = useNavigate();
@@ -82,11 +89,38 @@ export function Releases() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [selected, setSelected] = useState<Release | null>(null);
-  const [working, setWorking] = useState(false);
+  const [workingAction, setWorkingAction] = useState<"publish" | "archive" | "restore" | "delete" | null>(null);
+  const working = workingAction !== null;
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All types");
-  const [statusFilter, setStatusFilter] = useState("All statuses");
+
+  // Search and filters live in the URL so filtered views survive refresh
+  // and can be shared between teammates.
+  const [params, setParams] = useSearchParams();
+  const query = (params.get("q") ?? "").slice(0, 100);
+  const typeFilter = TYPE_OPTIONS.includes(params.get("type") ?? "") ? (params.get("type") as string) : "All types";
+  const statusFilter = STATUS_OPTIONS.includes(params.get("status") ?? "") ? (params.get("status") as string) : "All statuses";
+  const setUrlParam = (key: string, value: string, defaultValue: string) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (!value || value === defaultValue) p.delete(key);
+      else p.set(key, value);
+      return p;
+    }, { replace: true });
+  };
+  const setQuery = (value: string) => setUrlParam("q", value, "");
+  // One URL update — multiple setSearchParams calls in the same tick do not
+  // compose in React Router (the updater reads last-rendered params).
+  const clearFilters = () => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("q");
+      p.delete("type");
+      p.delete("status");
+      return p;
+    }, { replace: true });
+  };
+  const setTypeFilter = (value: string) => setUrlParam("type", value, "All types");
+  const setStatusFilter = (value: string) => setUrlParam("status", value, "All statuses");
 
   // Load the whole organisation workspace, not only releases authored by this user.
   useEffect(() => {
@@ -127,7 +161,7 @@ export function Releases() {
 
   const publishNow = async () => {
     if (!selected || !supabase || !org.slug || !org.can.publish || !org.verified) return;
-    setWorking(true);
+    setWorkingAction("publish");
     const publishedAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("releases")
@@ -136,9 +170,9 @@ export function Releases() {
       .eq("institution_slug", org.slug)
       .select("id")
       .maybeSingle();
-    setWorking(false);
+    setWorkingAction(null);
     if (error || !(data as { id: string } | null)?.id) {
-      useAppStore.getState().pushToast({ title: "Couldn't publish release", description: "Refresh and try again.", variant: "info" });
+      useAppStore.getState().pushToast({ title: "Couldn't publish release", description: "Refresh and try again.", variant: "error" });
       return;
     }
     setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: "Published", publishedDate: "Just now", time: "Just now" } : row));
@@ -147,9 +181,34 @@ export function Releases() {
     useAppStore.getState().pushToast({ title: "Release published", variant: "success" });
   };
 
+  // Archive keeps everything (a reversible rollback); publish restores it.
+  const setArchived = async (archived: boolean) => {
+    if (!selected || !supabase || !org.slug || !org.can.publish) return;
+    setWorkingAction(archived ? "archive" : "restore");
+    const { data, error } = await supabase
+      .from("releases")
+      .update(archived ? { status: "Archived" } : { status: "Draft" })
+      .eq("id", selected.id)
+      .eq("institution_slug", org.slug)
+      .select("id")
+      .maybeSingle();
+    setWorkingAction(null);
+    if (error || !(data as { id: string } | null)?.id) {
+      useAppStore.getState().pushToast({ title: archived ? "Couldn't archive release" : "Couldn't restore release", variant: "error" });
+      return;
+    }
+    setLive((rows) => rows.map((row) => row.id === selected.id ? { ...row, status: archived ? "Archived" : "Draft" } : row));
+    setSelected(null);
+    useAppStore.getState().pushToast({
+      title: archived ? "Release archived" : "Release restored to drafts",
+      description: archived ? "It's hidden from the public but fully recoverable here." : "Publish it again whenever you're ready.",
+      variant: "success",
+    });
+  };
+
   const deleteRelease = async () => {
     if (!selected || !supabase || !org.slug || !org.can.publish) return;
-    setWorking(true);
+    setWorkingAction("delete");
     const { data, error } = await supabase
       .from("releases")
       .delete()
@@ -157,9 +216,9 @@ export function Releases() {
       .eq("institution_slug", org.slug)
       .select("id")
       .maybeSingle();
-    setWorking(false);
+    setWorkingAction(null);
     if (error || !(data as { id: string } | null)?.id) {
-      useAppStore.getState().pushToast({ title: "Couldn't delete release", description: "Refresh and try again.", variant: "info" });
+      useAppStore.getState().pushToast({ title: "Couldn't delete release", description: "Refresh and try again.", variant: "error" });
       return;
     }
     setLive((rows) => rows.filter((row) => row.id !== selected.id));
@@ -175,6 +234,7 @@ export function Releases() {
     const matchesStatus = statusFilter === "All statuses" || r.status === statusFilter;
     return matchesQuery && matchesType && matchesStatus;
   });
+  const tableScroll = useInfiniteScroll(rows.length, 25, `${query}:${typeFilter}:${statusFilter}`);
 
   const selectStyle: React.CSSProperties = {
     fontWeight: 500,
@@ -199,7 +259,7 @@ export function Releases() {
         subtitle="Manage everything you've published, scheduled or drafted."
         actions={
           org.can.publish ? <Link to="/inst/publish" className="pp-btn pp-btn-primary">
-            <Plus size={16} /> New Release
+            <Plus size={16} /> New release
           </Link> : undefined
         }
       />
@@ -230,12 +290,12 @@ export function Releases() {
           />
         </div>
         <select value={typeFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
-          {["All types", "Announcement", "Publication", "Consultation", "Statistics & Research"].map((t) => (
+          {TYPE_OPTIONS.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
         <select value={statusFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
-          {["All statuses", "Published", "Draft", "Scheduled"].map((s) => (
+          {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
@@ -251,8 +311,19 @@ export function Releases() {
 
       {/* table */}
       {loading ? (
-        <div className="pp-card" role="status" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-          Loading releases…
+        <div className="pp-card" role="status" aria-label="Loading releases" style={{ overflow: "hidden" }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+              <Skeleton w={52} h={38} r={7} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <Skeleton w="42%" h={13} />
+                <Skeleton w="64%" h={11} />
+              </div>
+              <Skeleton w={90} h={20} r={999} />
+              <Skeleton w={72} h={20} r={999} />
+              <Skeleton w={56} h={12} />
+            </div>
+          ))}
         </div>
       ) : !loadError ? (
         <>
@@ -268,15 +339,37 @@ export function Releases() {
             </div>
             {rows.length === 0 ? (
               <div style={{ padding: "40px 18px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-                {live.length === 0 ? "No releases yet. Create a release or save a draft to see it here." : "No releases match the current search and filters."}
+                {live.length === 0 ? (
+                  <>
+                    <p>No releases yet — your first one is a few fields away.</p>
+                    {org.can.publish && (
+                      <Link to="/inst/publish" className="pp-btn pp-btn-primary" style={{ marginTop: 14 }}>
+                        <Plus size={15} /> Create your first release
+                      </Link>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p>No releases match the current search and filters.</p>
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-outline"
+                      style={{ marginTop: 14 }}
+                      onClick={clearFilters}
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
-              rows.map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
+              rows.slice(0, tableScroll.visible).map((r) => <Row key={r.id} r={r} onActions={(release) => { setConfirmingDelete(false); setSelected(release); }} />)
             )}
           </div>
 
+          {tableScroll.hasMore && <div ref={tableScroll.sentinelRef} style={{ height: 1 }} />}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
-            <span>Showing {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
+            <span>Showing {Math.min(tableScroll.visible, rows.length)} of {rows.length} {rows.length === 1 ? "release" : "releases"}</span>
           </div>
         </>
       ) : null}
@@ -297,7 +390,7 @@ export function Releases() {
                   <Eye size={16} /> View public release
                 </button>
               )}
-              {selected.status !== "Published" && org.can.publish && (
+              {org.can.publish && (
                 <button type="button" className="pp-btn pp-btn-outline" onClick={() => navigate(`/inst/publish/${selected.id}`)} style={{ justifyContent: "flex-start" }}>
                   <Pencil size={16} /> Edit release
                 </button>
@@ -308,13 +401,23 @@ export function Releases() {
                 </p>
               )}
               {selected.status !== "Published" && org.can.publish && (
-                <button type="button" className="pp-btn pp-btn-primary" onClick={() => void publishNow()} disabled={working || !org.verified} style={{ justifyContent: "flex-start", opacity: working || !org.verified ? 0.65 : 1 }}>
-                  <Send size={16} /> {org.verified ? "Publish now" : "Approval required to publish"}
+                <button type="button" className="pp-btn pp-btn-primary" onClick={() => void publishNow()} disabled={working || !org.verified} aria-busy={workingAction === "publish"} style={{ justifyContent: "flex-start", opacity: working || !org.verified ? 0.65 : 1 }}>
+                  {workingAction === "publish" ? <InlineSpinner /> : <Send size={16} />} {workingAction === "publish" ? "Publishing…" : org.verified ? "Publish now" : "Approval required to publish"}
+                </button>
+              )}
+              {org.can.publish && selected.status !== "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(true)} disabled={working} aria-busy={workingAction === "archive"} style={{ justifyContent: "flex-start" }}>
+                  {workingAction === "archive" ? <InlineSpinner /> : <Archive size={16} />} {workingAction === "archive" ? "Archiving…" : "Archive (reversible)"}
+                </button>
+              )}
+              {org.can.publish && selected.status === "Archived" && (
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => void setArchived(false)} disabled={working} aria-busy={workingAction === "restore"} style={{ justifyContent: "flex-start" }}>
+                  {workingAction === "restore" ? <InlineSpinner /> : <ArchiveRestore size={16} />} {workingAction === "restore" ? "Restoring…" : "Unarchive to drafts"}
                 </button>
               )}
               {org.can.publish && (
-                <button type="button" className="pp-btn pp-btn-outline" onClick={() => confirmingDelete ? void deleteRelease() : setConfirmingDelete(true)} disabled={working} style={{ justifyContent: "flex-start", color: "var(--red)" }}>
-                  <Trash2 size={16} /> {working ? "Working…" : confirmingDelete ? "Confirm permanent deletion" : "Delete release"}
+                <button type="button" className="pp-btn pp-btn-outline" onClick={() => confirmingDelete ? void deleteRelease() : setConfirmingDelete(true)} disabled={working} aria-busy={workingAction === "delete"} style={{ justifyContent: "flex-start", color: "var(--red)" }}>
+                  {workingAction === "delete" ? <InlineSpinner /> : <Trash2 size={16} />} {workingAction === "delete" ? "Deleting…" : confirmingDelete ? "Confirm permanent deletion" : "Delete release"}
                 </button>
               )}
             </div>

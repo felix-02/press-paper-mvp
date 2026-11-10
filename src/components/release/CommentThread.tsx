@@ -1,31 +1,64 @@
 import { useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/brand/Avatar";
 import { useComments, type CommentNode } from "@/lib/useComments";
 import { useAuth } from "@/auth/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import { useAppStore } from "@/store/useAppStore";
+import { InlineSpinner } from "@/components/primitives/Bits";
+import { Skeleton } from "@/components/primitives/Skeleton";
 
-export function CommentThread({ releaseId, onCommentPosted }: { releaseId: string; onCommentPosted?: () => void }) {
-  const { profile } = useAuth();
+export function CommentThread({ releaseId, canModerate = false, onCommentPosted }: { releaseId: string; canModerate?: boolean; onCommentPosted?: () => void }) {
+  const { profile, user } = useAuth();
+  const pushToast = useAppStore((s) => s.pushToast);
   const { tree, post, posting, loading, loadError, postError, reload } = useComments(releaseId);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
+  const [postingTarget, setPostingTarget] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const submit = async () => {
     const t = draft.trim();
     if (!t) return;
-    if (await post(t)) {
-      setDraft("");
-      onCommentPosted?.();
+    setPostingTarget("root");
+    try {
+      if (await post(t)) {
+        setDraft("");
+        onCommentPosted?.();
+      }
+    } finally {
+      setPostingTarget(null);
     }
   };
 
   const submitReply = async (parentId: string) => {
     const t = replyDraft.trim();
     if (!t) return;
-    if (await post(t, parentId)) {
-      setReplyDraft("");
-      setReplyTo(null);
-      onCommentPosted?.();
+    setPostingTarget(parentId);
+    try {
+      if (await post(t, parentId)) {
+        setReplyDraft("");
+        setReplyTo(null);
+        onCommentPosted?.();
+      }
+    } finally {
+      setPostingTarget(null);
+    }
+  };
+
+  const removeComment = async (id: string) => {
+    if (!supabase) return;
+    setRemovingId(id);
+    try {
+      const { error } = await supabase.from("comments").delete().eq("id", id);
+      if (error) {
+        pushToast({ title: "Couldn't remove comment", variant: "error" });
+        return;
+      }
+      pushToast({ title: "Comment removed", variant: "info" });
+      reload();
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -40,6 +73,18 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
           </div>
           <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 5 }}>{c.body}</p>
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+            {(canModerate || (user && c.authorId === user.id)) && (
+              <button
+                type="button"
+                onClick={() => void removeComment(c.id)}
+                disabled={removingId !== null}
+                aria-busy={removingId === c.id}
+                title={canModerate ? "Remove this comment from your release" : "Delete your comment"}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}
+              >
+                {removingId === c.id ? <InlineSpinner size={12} /> : <Trash2 size={12} />} {removingId === c.id ? "Removing…" : "Remove"}
+              </button>
+            )}
             {depth === 0 && (
               <button
                 type="button"
@@ -76,10 +121,11 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
                     type="button"
                     onClick={() => submitReply(c.id)}
                     disabled={posting || loading || Boolean(loadError) || !replyDraft.trim()}
+                    aria-busy={postingTarget === c.id}
                     className="pp-btn pp-btn-blue"
                     style={{ padding: "6px 14px", fontSize: 12.5, opacity: posting || loading || loadError || !replyDraft.trim() ? 0.6 : 1 }}
                   >
-                    Reply
+                    {postingTarget === c.id ? <><InlineSpinner size={12} /> Posting…</> : "Reply"}
                   </button>
                 </div>
               </div>
@@ -119,10 +165,11 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
               type="button"
               onClick={submit}
               disabled={posting || loading || Boolean(loadError) || !draft.trim()}
+              aria-busy={postingTarget === "root"}
               className="pp-btn pp-btn-blue"
               style={{ padding: "7px 16px", fontSize: 13, opacity: posting || loading || loadError || !draft.trim() ? 0.6 : 1 }}
             >
-              {posting ? "Posting…" : "Comment"}
+              {postingTarget === "root" ? <><InlineSpinner /> Posting…</> : "Comment"}
             </button>
           </div>
         </div>
@@ -133,8 +180,16 @@ export function CommentThread({ releaseId, onCommentPosted }: { releaseId: strin
       )}
 
       {loading ? (
-        <div role="status" aria-live="polite" style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontSize: 13.5 }}>
-          <MessageSquare size={15} /> Loading comments…
+        <div role="status" aria-label="Loading comments" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {[0, 1].map((item) => (
+            <div key={item} style={{ display: "flex", gap: 12 }} aria-hidden="true">
+              <Skeleton w={36} h={36} r={999} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <Skeleton w={132} h={12} />
+                <Skeleton w="72%" h={11} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : loadError ? (
         <div role="alert" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, color: "var(--text-secondary)", fontSize: 13.5 }}>

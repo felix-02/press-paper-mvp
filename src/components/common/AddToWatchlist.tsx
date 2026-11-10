@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { ListPlus, Plus, Check } from "lucide-react";
 import { useWatchlists } from "@/lib/useWatchlists";
 import { useAppStore } from "@/store/useAppStore";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 export function AddToWatchlist({ releaseId }: { releaseId: string }) {
   const { lists, available, create, addItem, inList } = useWatchlists();
   const pushToast = useAppStore((s) => s.pushToast);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [name, setName] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
@@ -26,18 +28,32 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
       pushToast({ title: `Already in ${listName}`, variant: "info" });
       return;
     }
-    const added = await addItem(id, releaseId);
-    pushToast({ title: added ? `Added to ${listName}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
+    setBusyKey(id);
+    try {
+      const added = await addItem(id, releaseId);
+      pushToast({ title: added ? `Added to ${listName}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   const createAndAdd = async () => {
     const n = name.trim();
-    if (!n) return;
-    setName("");
-    setCreating(false);
-    const wl = await create(n);
-    if (wl) await add(wl.id, wl.name, false);
-    else pushToast({ title: "Couldn't create watchlist", variant: "info" });
+    if (!n || busyKey) return;
+    setBusyKey("new");
+    try {
+      const wl = await create(n);
+      if (wl) {
+        const added = await addItem(wl.id, releaseId);
+        pushToast({ title: added ? `Added to ${wl.name}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
+        setName("");
+        setCreating(false);
+      } else {
+        pushToast({ title: "Couldn't create watchlist", variant: "error" });
+      }
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   return (
@@ -75,12 +91,14 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
                   key={l.id}
                   type="button"
                   onClick={() => add(l.id, l.name, done)}
+                  disabled={busyKey !== null}
+                  aria-busy={busyKey === l.id}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "9px 10px", borderRadius: "var(--r-md)", fontSize: 13.5, background: "transparent", color: done ? "var(--text-muted)" : "var(--text)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.name}</span>
-                  {done ? <Check size={15} color="var(--green)" /> : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{l.count}</span>}
+                  {busyKey === l.id ? <InlineSpinner /> : done ? <Check size={15} color="var(--green)" /> : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{l.count}</span>}
                 </button>
               );
             })}
@@ -96,12 +114,12 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
                 autoFocus
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") createAndAdd();
+                  if (e.key === "Enter" && !busyKey) createAndAdd();
                 }}
                 style={{ padding: "7px 10px", fontSize: 13 }}
               />
-              <button type="button" onClick={createAndAdd} disabled={!name.trim()} className="pp-btn pp-btn-blue" style={{ padding: "7px 12px", fontSize: 12.5, opacity: name.trim() ? 1 : 0.6 }}>
-                Add
+              <button type="button" onClick={createAndAdd} disabled={!name.trim() || busyKey !== null} aria-busy={busyKey === "new"} className="pp-btn pp-btn-blue" style={{ padding: "7px 12px", fontSize: 12.5, opacity: name.trim() && !busyKey ? 1 : 0.6 }}>
+                {busyKey === "new" ? <InlineSpinner /> : "Add"}
               </button>
             </div>
           ) : (

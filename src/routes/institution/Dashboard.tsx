@@ -2,6 +2,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Eye, MessageSquare, Plus, ShieldAlert, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader, Panel, MetricCard, BarRow, type Metric } from "@/components/dashboard/Panels";
+import { MetricCardSkeleton, Skeleton } from "@/components/primitives/Skeleton";
 import { StatusPill, MediaThumb } from "@/components/dashboard/ReleaseBits";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
 import { LineChart } from "@/components/charts/LineChart";
@@ -9,6 +10,7 @@ import { rowToRelease, formatCount } from "@/lib/releaseMap";
 import { useInstitutionStats } from "@/lib/useInstitutionStats";
 import { useOrg } from "@/lib/useOrg";
 import { useAuth } from "@/auth/AuthProvider";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Release } from "@/types";
 
 /** The six analytics time ranges (label → number of days). */
@@ -72,6 +74,7 @@ function Legend({ items }: { items: [string, string][] }) {
 }
 
 export function Dashboard() {
+  usePageTitle("Dashboard");
   const { profile } = useAuth();
   const [params, setParams] = useSearchParams();
   const days = rangeFromSearchParam(params.get("range"), 30);
@@ -95,7 +98,25 @@ export function Dashboard() {
     return (
       <AppShell kind="institution">
         <PageHeader title="Dashboard" subtitle={profile?.institution_name ? `${profile.institution_name} publishing overview.` : "Your publishing overview."} />
-        <div className="pp-card" role="status" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)" }}>Loading organisation data…</div>
+        <div role="status" aria-label="Loading organisation data">
+          <div className="pp-metrics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 18 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <MetricCardSkeleton key={i} />
+            ))}
+          </div>
+          <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 18, alignItems: "start" }}>
+            <div className="pp-card" style={{ padding: 18 }}>
+              <Skeleton w={180} h={15} style={{ marginBottom: 18 }} />
+              <Skeleton w="100%" h={236} r={10} />
+            </div>
+            <div className="pp-card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+              <Skeleton w={140} h={15} />
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} w="100%" h={40} r={8} />
+              ))}
+            </div>
+          </div>
+        </div>
       </AppShell>
     );
   }
@@ -113,7 +134,7 @@ export function Dashboard() {
   const chartLegend: [string, string][] = [[`Views (${RANGE_LABEL[days] ?? "range"})`, "var(--series-1)"]];
 
   const metrics: Metric[] = [
-    { label: "Total Views", value: formatCount(stats.totalViews), delta: "all time", positive: true, color: "var(--series-1)" },
+    { label: "Total views", value: formatCount(stats.totalViews), delta: "all time", positive: true, color: "var(--series-1)" },
     { label: "Followers", value: formatCount(stats.followers), delta: "all time", positive: true, color: "var(--series-2)" },
     { label: "Releases", value: String(stats.releaseCount), delta: `${stats.publishedCount} published`, positive: true, color: "var(--series-3)" },
     { label: "Comments", value: formatCount(stats.totalComments), delta: "all time", positive: true, color: "var(--series-4)" },
@@ -169,12 +190,12 @@ export function Dashboard() {
         subtitle={`Welcome back — here's how ${profile?.institution_name || "your organisation"} is performing.`}
         actions={
           <>
-            <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center", textTransform: "capitalize" }}>
-              {RANGE_LABEL[days]}
+            <span style={{ fontSize: 13, color: "var(--text-muted)", alignSelf: "center" }}>
+              {(RANGE_LABEL[days] ?? "").replace(/^./, (c) => c.toUpperCase())}
             </span>
             {org.can.publish && (
               <Link to="/inst/publish" className="pp-btn pp-btn-primary">
-                <Plus size={16} /> New Release
+                <Plus size={16} /> New release
               </Link>
             )}
           </>
@@ -192,7 +213,7 @@ export function Dashboard() {
       <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.62fr 1fr", gap: 18, alignItems: "start" }}>
         {/* left */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Panel title="Performance Overview" action={<RangeTabs days={days} onChange={setDays} />}>
+          <Panel title="Performance overview" action={<RangeTabs days={days} onChange={setDays} />}>
             {!hasRealSeries ? (
               <div style={{ height: 236, display: "grid", placeItems: "center", textAlign: "center", color: "var(--text-muted)" }}>
                 <div>
@@ -215,7 +236,7 @@ export function Dashboard() {
             )}
           </Panel>
 
-          <Panel title="Recent Releases" action={<Link to="/inst/releases" className="pp-link-muted">View all <ChevronRight size={14} /></Link>}>
+          <Panel title="Recent releases" action={<Link to="/inst/releases" className="pp-link-muted">View all <ChevronRight size={14} /></Link>}>
             {recent.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>
                 No releases yet — head to Publish to create your first.
@@ -252,7 +273,7 @@ export function Dashboard() {
 
         {/* right */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Panel title="Top Performing">
+          <Panel title="Top performing">
             {topReleases.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>
                 Once you publish, your best releases appear here.
@@ -278,7 +299,7 @@ export function Dashboard() {
             )}
           </Panel>
 
-          <Panel title="Releases by Status">
+          <Panel title="Releases by status">
             <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               {statusData.map((s) => (
                 <BarRow key={s.name} label={s.name} value={String(s.count)} pct={Math.round((s.count / statusMax) * 100)} color="var(--series-3)" />
@@ -286,7 +307,7 @@ export function Dashboard() {
             </div>
           </Panel>
 
-          <Panel title="Content by Topic">
+          <Panel title="Content by topic">
             {topicData.length === 0 ? (
               <div style={{ fontSize: 13.5, color: "var(--text-muted)", padding: "8px 0" }}>No releases yet.</div>
             ) : (

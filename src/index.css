@@ -707,14 +707,10 @@ select:-webkit-autofill {
   filter: blur(0.2px);
 }
 
-.pp-admin-login-globe-left {
-  left: -255px;
-  bottom: -170px;
-}
-
-.pp-admin-login-globe-right {
-  top: -165px;
-  right: -225px;
+.pp-admin-login-globe-center {
+  top: 50%;
+  left: max(24px, 5vw);
+  transform: translateY(-50%);
 }
 
 .pp-admin-login-card {
@@ -1078,7 +1074,11 @@ select:-webkit-autofill {
 
   .pp-auth-split > div:last-child {
     min-width: 0;
-    padding: 72px 18px 32px !important;
+    padding: 84px 18px 32px !important;
+  }
+
+  .pp-auth-mobile-logo {
+    display: block !important;
   }
 
   .pp-release-card-body,
@@ -1434,6 +1434,7 @@ select:-webkit-autofill {
   outline: none;
   border-color: var(--blue);
   background: var(--surface-2);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .pp-password-input-wrap {
@@ -1483,6 +1484,11 @@ select:-webkit-autofill {
 }
 .pp-btn:active {
   transform: translateY(0.5px);
+}
+.pp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 .pp-btn-primary {
   background: #ffffff;
@@ -1555,6 +1561,68 @@ select:-webkit-autofill {
 .pp-verified {
   color: var(--blue);
   flex-shrink: 0;
+}
+
+/* Skeleton shimmer block (see components/primitives/Skeleton) */
+.pp-skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: pp-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Release headlines act as links — give them a quiet affordance */
+.pp-release-title {
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.pp-release-title:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--text-muted);
+}
+
+/* Mobile-only logo on auth screens (the brand panel is hidden there) */
+.pp-auth-mobile-logo {
+  display: none;
+}
+
+/* Landing page */
+.pp-hero-accent {
+  background: linear-gradient(100deg, #ffffff 0%, #bdbdbd 60%, #e5e5e5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.pp-landing-feature {
+  padding: 22px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-lg);
+  background: var(--surface-public);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.pp-landing-feature:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-public-2);
+  transform: translateY(-2px);
+}
+
+/* Keyboard hint chip (topbar search) */
+.pp-kbd {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--text-muted);
+  background: var(--surface-1);
 }
 
 /* Soft horizontal rule */
@@ -1684,6 +1752,7 @@ select:-webkit-autofill {
 .pp-rte li { margin: 4px 0; }
 .pp-rte blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid var(--border); color: var(--text-secondary); font-style: italic; }
 .pp-rte a { color: var(--blue); text-decoration: underline; }
+.pp-rte hr { border: 0; border-top: 1px solid var(--border-strong); margin: 18px 0; }
 
 /* Rendered release body (HTML from the editor) */
 .pp-prose h2 { font-size: 20px; font-weight: 700; margin: 22px 0 10px; letter-spacing: 0; }

@@ -12,6 +12,7 @@ export interface PublicInstitutionRow {
   verified: boolean;
   followers_count: number;
   releases_count: number;
+  avatar_url?: string | null;
 }
 
 export interface PublicInstitution extends Institution {
@@ -33,6 +34,7 @@ export function publicInstitutionFromRow(row: PublicInstitutionRow): PublicInsti
     description: row.description || undefined,
     followersCount: Number(row.followers_count) || 0,
     releasesCount: Number(row.releases_count) || 0,
+    avatarUrl: row.avatar_url || undefined,
   };
 }
 

@@ -31,6 +31,29 @@ export function InstitutionMark({
   shape?: "circle" | "square";
 }) {
   const id = useId().replace(/[:]/g, "");
+
+  // Institutions that uploaded a logo show it instead of the generated emblem.
+  if (institution.avatarUrl && /^https:\/\//.test(institution.avatarUrl)) {
+    return (
+      <img
+        src={institution.avatarUrl}
+        alt={institution.name}
+        width={size}
+        height={size}
+        loading="lazy"
+        style={{
+          flexShrink: 0,
+          display: "block",
+          width: size,
+          height: size,
+          borderRadius: shape === "circle" ? "50%" : Math.round(size * 0.26),
+          objectFit: "cover",
+          background: "var(--surface-3)",
+        }}
+      />
+    );
+  }
+
   const c1 = "#5a5a5a";
   const c2 = "#242424";
   const text = initials(institution);

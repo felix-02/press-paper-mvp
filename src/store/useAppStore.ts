@@ -14,7 +14,7 @@ interface Toast {
   id: number;
   title: string;
   description?: string;
-  variant: "success" | "info";
+  variant: "success" | "info" | "error";
 }
 
 interface AppState {
@@ -99,7 +99,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (nowSaved) restored.delete(id);
         else restored.add(id);
         set({ savedIds: restored });
-        get().pushToast({ title: "Couldn't update saved releases", description: "Your previous state has been restored.", variant: "info" });
+        get().pushToast({ title: "Couldn't update saved releases", description: "Your previous state has been restored.", variant: "error" });
       };
       enqueueWrite(savedWrites, `${uid}:${id}`, async () => {
         try {
@@ -140,7 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (nowFollowing) restored.delete(slug);
         else restored.add(slug);
         set({ followedSlugs: restored });
-        get().pushToast({ title: "Couldn't update followed institutions", description: "Your previous state has been restored.", variant: "info" });
+        get().pushToast({ title: "Couldn't update followed institutions", description: "Your previous state has been restored.", variant: "error" });
       };
       enqueueWrite(followWrites, `${uid}:${slug}`, async () => {
         try {
@@ -164,7 +164,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   pushToast: (t) => {
     const id = toastSeq++;
     set((s) => ({ toasts: [...s.toasts, { ...t, id }] }));
-    window.setTimeout(() => get().dismissToast(id), 3200);
+    // Errors linger a little longer so people can actually read them.
+    window.setTimeout(() => get().dismissToast(id), t.variant === "error" ? 5000 : 3200);
   },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) })),
 

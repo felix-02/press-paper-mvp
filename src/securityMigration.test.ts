@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(new URL("../supabase/migrations/0015_security_hardening.sql", import.meta.url), "utf8");
 const moderationSql = readFileSync(new URL("../supabase/migrations/0016_super_admin_moderation.sql", import.meta.url), "utf8");
+const inviteHardeningSql = readFileSync(new URL("../supabase/migrations/0017_invite_hardening.sql", import.meta.url), "utf8");
+const engagementSql = readFileSync(new URL("../supabase/migrations/0018_engagement_and_catalogue.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -33,7 +35,36 @@ describe("security migration", () => {
 
   it("keeps the all-in-one migration synchronized", () => {
     expect(aggregate).toContain(sql);
-    expect(aggregate.endsWith(moderationSql)).toBe(true);
+    expect(aggregate).toContain(moderationSql);
+    expect(aggregate).toContain(inviteHardeningSql);
+    expect(aggregate.endsWith(engagementSql)).toBe(true);
+  });
+});
+
+describe("engagement and catalogue migration", () => {
+  it("keeps rollback, history, reactions and moderation database-enforced", () => {
+    expect(engagementSql).toContain("'Archived'");
+    expect(engagementSql).toContain("release_revisions");
+    expect(engagementSql).toContain("snapshot_release_revision");
+    expect(engagementSql).toContain("block_self_follow");
+    expect(engagementSql).toContain("comments_delete_org");
+    expect(engagementSql).toContain("release_reactions");
+    expect(engagementSql).toContain("is_platform_admin");
+  });
+});
+
+describe("invite hardening migration", () => {
+  it("issues short-lived, single-use, email-locked platform invites", () => {
+    expect(inviteHardeningSql).toContain("interval '30 minutes'");
+    expect(inviteHardeningSql).toContain("digest(plain, 'sha256')");
+    expect(inviteHardeningSql).toContain("consumed_at is null");
+    expect(inviteHardeningSql).not.toMatch(/interval '7 days'/);
+  });
+
+  it("resolves pgcrypto in both public and extensions schemas", () => {
+    expect(inviteHardeningSql).toContain("set search_path = public, extensions");
+    expect(inviteHardeningSql).toContain("alter function public.accept_platform_invite(text) set search_path = public, extensions");
+    expect(inviteHardeningSql).toContain("alter function public.get_platform_invite(text) set search_path = public, extensions");
   });
 });
 
@@ -60,7 +91,7 @@ describe("super-admin moderation migration", () => {
     expect(moderationSql).toContain("create or replace function public.record_user_activity");
     expect(moderationSql).toContain("create or replace function public.record_core_mutation_activity");
     expect(moderationSql).toContain("activity_metadata_is_safe");
-    expect(moderationSql).toContain("create or replace view public.release_details");
+    expect(moderationSql).toContain("create view public.release_details");
     expect(moderationSql).toContain("r.moderation_status");
     expect(moderationSql).toContain("alter publication supabase_realtime add table public.releases");
   });

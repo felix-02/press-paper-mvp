@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { withNext } from "@/lib/redirect";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 interface InviteInfo {
   institution_slug: string;
@@ -130,8 +131,8 @@ export function JoinOrg() {
 
       {user ? (
         <>
-          <button type="button" onClick={accept} disabled={accepting} className="pp-btn pp-btn-primary" style={{ width: "100%", marginTop: 18, justifyContent: "center", opacity: accepting ? 0.7 : 1 }}>
-            {accepting ? "Accepting…" : "Accept invitation"}
+          <button type="button" onClick={accept} disabled={accepting} aria-busy={accepting} className="pp-btn pp-btn-primary" style={{ width: "100%", marginTop: 18, justifyContent: "center", opacity: accepting ? 0.7 : 1 }}>
+            {accepting ? <><InlineSpinner /> Accepting…</> : "Accept invitation"}
           </button>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Clock size={12} /> The owner will approve your access after you accept.

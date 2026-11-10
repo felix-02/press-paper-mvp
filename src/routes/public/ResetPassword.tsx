@@ -3,10 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, KeyRound } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { PasswordInput } from "@/components/common/PasswordInput";
+import { InlineSpinner } from "@/components/primitives/Bits";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export function ResetPassword() {
+  usePageTitle("Reset password");
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [password, setPassword] = useState("");
@@ -53,13 +56,15 @@ export function ResetPassword() {
           </div>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
-          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Confirm password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void submit()} /></label>
-        </div>
-        <button type="button" className="pp-btn pp-btn-primary" disabled={saving} onClick={() => void submit()} style={{ width: "100%", marginTop: 22, padding: 12, opacity: saving ? 0.7 : 1 }}>
-          {saving ? "Updating…" : "Update password"} <ArrowRight size={16} />
-        </button>
+        <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
+            <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>New password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={password} onChange={(e) => setPassword(e.target.value)} autoFocus /></label>
+            <label><span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Confirm password</span><PasswordInput className="pp-input" autoComplete="new-password" maxLength={128} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+          </div>
+          <button type="submit" className="pp-btn pp-btn-primary" disabled={saving} aria-busy={saving} style={{ width: "100%", marginTop: 22, padding: 12, opacity: saving ? 0.7 : 1 }}>
+            {saving ? <><InlineSpinner /> Updating…</> : <>Update password <ArrowRight size={16} /></>}
+          </button>
+        </form>
         <p style={{ textAlign: "center", marginTop: 18, fontSize: 13 }}><Link to="/login" style={{ color: "var(--blue)" }}>Back to log in</Link></p>
       </div>
     </div>

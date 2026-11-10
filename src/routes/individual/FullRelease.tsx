@@ -25,6 +25,7 @@ import { useAiSummary } from "@/lib/useAiSummary";
 import { track } from "@/lib/analytics";
 import { ShareMenu } from "@/components/common/ShareMenu";
 import { CommentThread } from "@/components/release/CommentThread";
+import { EditedBadge, ReactionBar } from "@/components/release/ReleaseExtras";
 import { TagList } from "@/components/common/TagList";
 import { LanguageMenu } from "@/components/common/LanguageMenu";
 import { AddToWatchlist } from "@/components/common/AddToWatchlist";
@@ -33,6 +34,8 @@ import { useReleaseEngagement } from "@/lib/useReleaseEngagement";
 import { isReleaseUuid, releaseShareUrl } from "@/lib/releaseUrls";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
+import { useAuth } from "@/auth/AuthProvider";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 function publisherFromRelease(release: Release): Institution {
   return {
@@ -54,9 +57,9 @@ function plainText(value: string | null | undefined): string {
     .trim();
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <section style={{ marginTop: 30 }}>
+    <section id={id} style={{ marginTop: 30, scrollMarginTop: 20 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0", marginBottom: 12 }}>{title}</h2>
       {children}
     </section>
@@ -204,6 +207,8 @@ export function FullRelease() {
 }
 
 function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "institution" | "individual" }) {
+  usePageTitle(release.heading);
+  const { profile: authProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const i = useMemo(() => publisherFromRelease(release), [release]);
@@ -221,6 +226,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
   const saved = useAppStore((s) => s.savedIds.has(release.id));
   const toggleSaved = useAppStore((s) => s.toggleSaved);
   const following = useAppStore((s) => s.followedSlugs.has(i.slug));
+  const isOwnInstitution = authProfile?.role === "institution" && authProfile.institution_slug === i.slug;
   const toggleFollow = useAppStore((s) => s.toggleFollow);
   const pushToast = useAppStore((s) => s.pushToast);
 
@@ -270,7 +276,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
     }
     if (!isTranslationAvailable()) {
       setTranslating(false);
-      pushToast({ title: "Translation unavailable", description: "Deploy the translate function to enable other languages.", variant: "info" });
+      pushToast({ title: "Translation unavailable", description: "Deploy the translate function to enable other languages.", variant: "error" });
       setLang("English");
       return;
     }
@@ -281,7 +287,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
       if (!active) return;
       setTranslating(false);
       if (out === fields || out.length !== fields.length) {
-        pushToast({ title: "Couldn't translate", description: "Please try again.", variant: "info" });
+        pushToast({ title: "Couldn't translate", description: "Please try again.", variant: "error" });
         setLang("English");
         return;
       }
@@ -348,13 +354,15 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             <div className="pp-release-publisher-line" style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 600 }}>{i.name}</span>
               {i.verified && <Verified size={14} />}
-              <button
-                type="button"
-                onClick={() => toggleFollow(i.slug)}
-                style={{ fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600, marginLeft: 4 }}
-              >
-                {following ? "· Following" : "· Follow"}
-              </button>
+              {!isOwnInstitution && (
+                <button
+                  type="button"
+                  onClick={() => toggleFollow(i.slug)}
+                  style={{ fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600, marginLeft: 4 }}
+                >
+                  {following ? "· Following" : "· Follow"}
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
           </div>
@@ -376,6 +384,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             <MessageSquare size={15} /> {commentsLabel} comments
           </span>
           {(release.tags.length > 0 || release.extraTags) && <TagList tags={release.tags} max={3} extra={release.extraTags} />}
+          <EditedBadge release={release} />
         </div>
       </div>
 
@@ -406,7 +415,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         </div>
 
         {attachmentsOpen && release.attachments && (
-          <div className="pp-card pp-fade" style={{ marginTop: 10, padding: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <div className="pp-card pp-fade pp-responsive-grid" style={{ marginTop: 10, padding: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
             {release.attachments.map((attachment) => (
               <div key={attachment.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: 10, borderRadius: "var(--r-md)", background: "var(--surface-2)" }}>
                 <span style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: "var(--surface-3)", color: "var(--text-secondary)", fontSize: 10.5, fontWeight: 700 }}>{attachment.format}</span>
@@ -462,9 +471,14 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
             </Section>
           )}
 
+          {/* reactions */}
+          <div style={{ marginTop: 26 }}>
+            <ReactionBar releaseId={release.id} />
+          </div>
+
           {/* comments */}
-          <Section title="Comments">
-            <CommentThread releaseId={release.id} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
+          <Section id="comments" title="Comments">
+            <CommentThread releaseId={release.id} canModerate={isOwnInstitution} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
           </Section>
         </div>
 

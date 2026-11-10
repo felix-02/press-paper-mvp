@@ -33,20 +33,20 @@ export function PublicHeader() {
             to="/sources"
             style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
           >
-            Explore Sources
+            Explore sources
           </Link>
           <a
             className="pp-public-secondary"
             href="mailto:hello@presspaper.ai?subject=Institution%20access%20request"
             style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
           >
-            For Institutions
+            For institutions
           </a>
           <Link to="/login" className="pp-btn pp-btn-ghost" style={{ marginLeft: 6 }}>
-            Log In
+            Log in
           </Link>
           <Link to="/signup" className="pp-btn pp-btn-primary">
-            Sign Up
+            Sign up
           </Link>
         </nav>
       </div>
@@ -58,7 +58,7 @@ const FOOTER_COLS: { title: string; links: { label: string; to?: string; href?: 
   {
     title: "Platform",
     links: [
-      { label: "Explore Sources", to: "/sources" },
+      { label: "Explore sources", to: "/sources" },
       { label: "Create account", to: "/signup" },
       { label: "Log in", to: "/login" },
     ],
@@ -139,7 +139,7 @@ export function PublicFooter() {
             color: "var(--text-faint)",
           }}
         >
-          <span>© 2026 Presspaper. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Presspaper. All rights reserved.</span>
           <span>Verified public information.</span>
         </div>
       </div>

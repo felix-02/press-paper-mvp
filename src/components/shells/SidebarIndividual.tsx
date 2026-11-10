@@ -8,9 +8,9 @@ import {
   ListChecks,
   LifeBuoy,
 } from "lucide-react";
-import { NavItem, SidebarCaption } from "./NavItem";
+import { NavItem, SidebarCaption, SidebarToggle } from "./NavItem";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
-import { Verified } from "@/components/primitives/Bits";
+import { InlineSpinner, Verified } from "@/components/primitives/Bits";
 import { useAppStore } from "@/store/useAppStore";
 import { useWatchlists } from "@/lib/useWatchlists";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
@@ -56,7 +56,7 @@ function FollowedRow({ institution: i }: { institution: Institution }) {
   );
 }
 
-export function SidebarIndividual() {
+export function SidebarIndividual({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const ic = 18;
   const followed = useAppStore((s) => s.followedSlugs);
   const { lists, available, create } = useWatchlists();
@@ -65,20 +65,10 @@ export function SidebarIndividual() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const slugs = [...followed];
-  const institutionForSlug = (slug: string): Institution => {
-    const live = directory.institutions.find((institution) => institution.slug === slug);
-    if (live) return live;
-    return {
-      slug,
-      name: slug.split("-").filter(Boolean).map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`).join(" ") || "Institution",
-      category: "Institution",
-      verified: false,
-      color: "#606060",
-      color2: "#454545",
-      mark: "generic",
-    };
-  };
+  // Only institutions that actually exist in the live directory are shown.
+  // Stale follow rows (an institution that was removed or unverified) are
+  // never fabricated into fake entries.
+  const followedInstitutions: Institution[] = directory.institutions.filter((institution) => followed.has(institution.slug));
 
   const submitCreate = async () => {
     const n = name.trim();
@@ -106,27 +96,31 @@ export function SidebarIndividual() {
       }}
     >
       <nav className="pp-sidebar-nav" aria-label="Personal navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <NavItem to="/home" end icon={<Home size={ic} />} label="Home" />
-        <NavItem to="/explore" icon={<Compass size={ic} />} label="Explore" />
-        <NavItem to="/saved" icon={<Bookmark size={ic} />} label="Saved" />
+        <NavItem collapsed={collapsed} to="/home" end icon={<Home size={ic} />} label="Home" />
+        <NavItem collapsed={collapsed} to="/explore" icon={<Compass size={ic} />} label="Explore" />
+        <NavItem collapsed={collapsed} to="/saved" icon={<Bookmark size={ic} />} label="Saved" />
       </nav>
 
+      {!collapsed && (
+        <>
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
-      <SidebarCaption>Followed Institutions</SidebarCaption>
+      <SidebarCaption>Followed institutions</SidebarCaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        {slugs.length === 0 ? (
+        {directory.loading && followed.size > 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px" }}>Loading…</div>
+        ) : followedInstitutions.length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px", lineHeight: 1.5 }}>
             You're not following anyone yet. Follow institutions to see them here.
           </div>
         ) : (
-          slugs.map((slug) => <FollowedRow key={slug} institution={institutionForSlug(slug)} />)
+          followedInstitutions.map((institution) => <FollowedRow key={institution.slug} institution={institution} />)
         )}
       </div>
 
       <div style={{ height: 1, background: "var(--border)", margin: "16px 4px" }} />
 
-      <SidebarCaption>My Watchlists</SidebarCaption>
+      <SidebarCaption>Watchlists</SidebarCaption>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
         {!available ? (
           <div style={{ fontSize: 12.5, color: "var(--text-faint)", padding: "4px 11px", lineHeight: 1.5 }}>
@@ -179,8 +173,8 @@ export function SidebarIndividual() {
               className="pp-input"
               style={{ padding: "6px 9px", fontSize: 13 }}
             />
-            <button type="button" onClick={submitCreate} disabled={!name.trim() || busy} className="pp-btn pp-btn-blue" style={{ padding: "6px 10px", fontSize: 12.5, flexShrink: 0, opacity: name.trim() && !busy ? 1 : 0.6 }}>
-              Add
+            <button type="button" onClick={submitCreate} disabled={!name.trim() || busy} aria-busy={busy} className="pp-btn pp-btn-blue" style={{ padding: "6px 10px", fontSize: 12.5, flexShrink: 0, opacity: name.trim() && !busy ? 1 : 0.6 }}>
+              {busy ? <InlineSpinner /> : "Add"}
             </button>
           </div>
         ) : (
@@ -191,14 +185,17 @@ export function SidebarIndividual() {
               onClick={() => setCreating(true)}
               style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "8px 11px", borderRadius: "var(--r-md)", fontSize: 13.5, color: "var(--text-secondary)", background: "transparent" }}
             >
-              <Plus size={ic} style={{ flexShrink: 0 }} /> Create Watchlist
+              <Plus size={ic} style={{ flexShrink: 0 }} /> Create watchlist
             </button>
           )
         )}
       </div>
+        </>
+      )}
 
       <div style={{ marginTop: "auto", paddingTop: 16 }}>
-        <NavItem to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        <NavItem collapsed={collapsed} to="/help" icon={<LifeBuoy size={18} />} label="Help Centre" />
+        {onToggle && <SidebarToggle collapsed={collapsed} onToggle={onToggle} />}
       </div>
     </aside>
   );

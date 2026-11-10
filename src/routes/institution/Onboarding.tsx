@@ -6,10 +6,13 @@ import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { safeExternalUrl } from "@/lib/externalUrl";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 const CATEGORIES = ["Government", "Regulator / Agency", "Central Bank", "University", "Local Authority", "International Organisation", "Other"];
 
 export function InstitutionOnboarding() {
+  usePageTitle("Set up your organisation");
   const { profile, user, refreshProfile, configured, signOut } = useAuth();
   const pushToast = useAppStore((s) => s.pushToast);
   const navigate = useNavigate();
@@ -37,7 +40,9 @@ export function InstitutionOnboarding() {
     }
     setSaving(true);
     if (configured && supabase && user) {
-      const { error } = await supabase
+      // Select the row back so a silently-skipped update (RLS, missing grant)
+      // fails loudly instead of letting onboarding repeat on the next login.
+      const { data, error } = await supabase
         .from("profiles")
         .update({
           org_category: category,
@@ -46,10 +51,16 @@ export function InstitutionOnboarding() {
           org_description: description.trim(),
           onboarding_complete: true,
         })
-        .eq("id", user.id);
-      if (error) {
+        .eq("id", user.id)
+        .select("onboarding_complete")
+        .maybeSingle();
+      if (error || (data as { onboarding_complete?: boolean } | null)?.onboarding_complete !== true) {
         setSaving(false);
-        pushToast({ title: "Couldn't save", description: "Check the details and try again.", variant: "info" });
+        pushToast({
+          title: "Couldn't save your organisation details",
+          description: error?.message?.trim() || "The changes didn't persist. Check your access and try again.",
+          variant: "error",
+        });
         return;
       }
       await refreshProfile();
@@ -194,8 +205,8 @@ export function InstitutionOnboarding() {
                   Continue <ArrowRight size={15} />
                 </button>
               ) : (
-                <button type="button" onClick={finish} disabled={saving} className="pp-btn pp-btn-primary" style={{ opacity: saving ? 0.7 : 1 }}>
-                  {saving ? "Finishing…" : "Complete setup"} <Check size={15} />
+                <button type="button" onClick={finish} disabled={saving} aria-busy={saving} className="pp-btn pp-btn-primary" style={{ opacity: saving ? 0.7 : 1 }}>
+                  {saving ? <><InlineSpinner /> Finishing…</> : <>Complete setup <Check size={15} /></>}
                 </button>
               )}
             </div>

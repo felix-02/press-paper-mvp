@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { TrendingUp, AlertCircle, ArrowUp } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { TrendingUp, AlertCircle, Compass, Inbox } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { ReleaseCard } from "@/components/release/ReleaseCard";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Verified } from "@/components/primitives/Bits";
+import { FeedSkeleton } from "@/components/primitives/Skeleton";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useInfiniteScroll } from "@/lib/useInfiniteScroll";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
@@ -13,6 +15,7 @@ import { rowToRelease } from "@/lib/releaseMap";
 import { useRealtimeReleases } from "@/lib/useRealtimeReleases";
 import { optionFromSearchParam, searchParamValue } from "@/lib/urlState";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution, Release } from "@/types";
 
 const FILTERS = ["Latest", "Following", "For You"] as const;
@@ -46,11 +49,22 @@ function SuggestRow({ institution: i }: { institution: Institution }) {
   );
 }
 
+/** Rough engagement score used to rank the "For You" tab (real counts only). */
+function engagementScore(release: Release): number {
+  const parse = (label: string): number => {
+    const amount = Number.parseFloat(label.replace(/[^0-9.]/g, "")) || 0;
+    if (/k/i.test(label)) return amount * 1_000;
+    if (/m/i.test(label)) return amount * 1_000_000;
+    return amount;
+  };
+  return parse(release.views) + parse(release.comments) * 4;
+}
+
 export function Home() {
+  usePageTitle("Home");
   const { configured } = useAuth();
   const followed = useAppStore((s) => s.followedSlugs);
   const navigate = useNavigate();
-  const feedTopRef = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState<Release[]>([]);
   const liveRef = useRef<Release[]>([]);
   const [liveLoading, setLiveLoading] = useState(configured);
@@ -153,21 +167,12 @@ export function Home() {
     ready: configured && !liveLoading && !liveError,
     visibleIds,
   });
-  const feed = tab === "Following"
-    ? base.filter((r) => followed.has(r.institutionSlug))
-    : base;
-  const feedScroll = useInfiniteScroll(feed.length, 8, tab);
 
-  const bufferedForTab = useMemo(
-    () => tab === "Following"
-      ? realtime.buffered.filter((release) => followed.has(release.institutionSlug))
-      : realtime.buffered,
-    [realtime.buffered, followed, tab]
-  );
-
-  const revealBuffered = () => {
-    const selectedIds = new Set(bufferedForTab.map((release) => release.id));
-    const additions = realtime.consume(selectedIds);
+  // Realtime and the one-minute safety poll both land here. Add new releases
+  // to the feed immediately without requiring a refresh or a reveal click.
+  useEffect(() => {
+    if (realtime.buffered.length === 0) return;
+    const additions = realtime.consume();
     if (additions.length === 0) return;
     setLive((current) => {
       const seen = new Set<string>();
@@ -177,10 +182,24 @@ export function Home() {
         return true;
       });
     });
-    window.requestAnimationFrame(() => {
-      feedTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  };
+  }, [realtime.buffered, realtime.consume]);
+
+  // "Latest" is strict recency. "Following" narrows to followed publishers.
+  // "For You" is a real ranking: releases from followed institutions first
+  // (newest first), then everything else ordered by measured engagement.
+  const feed = useMemo(() => {
+    if (tab === "Following") return base.filter((r) => followed.has(r.institutionSlug));
+    if (tab === "For You") {
+      const fromFollowed = base.filter((r) => followed.has(r.institutionSlug));
+      const rest = base
+        .filter((r) => !followed.has(r.institutionSlug))
+        .slice()
+        .sort((a, b) => engagementScore(b) - engagementScore(a));
+      return [...fromFollowed, ...rest];
+    }
+    return base;
+  }, [base, tab, followed]);
+  const feedScroll = useInfiniteScroll(feed.length, 8, tab);
 
   // Trending topics: most-used tags across the current feed (real, not random).
   const tagCounts = new Map<string, number>();
@@ -198,8 +217,8 @@ export function Home() {
       <div className="pp-reader-layout" style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
         {/* main feed */}
         <div className="pp-reader-main" style={{ flex: 1, minWidth: 0, maxWidth: 680 }}>
-          <div ref={feedTopRef} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>Your Feed</h1>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>Your feed</h1>
             <div style={{ display: "flex", gap: 6 }}>
               {FILTERS.map((f) => {
                 const active = tab === f;
@@ -224,57 +243,6 @@ export function Home() {
             </div>
           </div>
 
-          {bufferedForTab.length > 0 && (
-            <div
-              aria-live="polite"
-              style={{
-                position: "sticky",
-                top: 12,
-                zIndex: 24,
-                display: "flex",
-                justifyContent: "center",
-                height: 0,
-                overflow: "visible",
-              }}
-            >
-              <button
-                type="button"
-                onClick={revealBuffered}
-                className="pp-fade"
-                aria-label={`Show ${bufferedForTab.length} new ${bufferedForTab.length === 1 ? "release" : "releases"}`}
-                style={{
-                  transform: "translateY(-4px)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 9,
-                  minHeight: 38,
-                  padding: "8px 14px 8px 11px",
-                  borderRadius: 999,
-                  color: "#fafafa",
-                  background: "linear-gradient(135deg, rgba(96, 96, 96, 0.96), rgba(83, 83, 83, 0.96))",
-                  border: "1px solid rgba(255,255,255,0.24)",
-                  boxShadow: "0 12px 32px rgba(96, 96, 96, 0.34), 0 2px 8px rgba(0,0,0,0.4)",
-                  backdropFilter: "blur(12px)",
-                  fontSize: 13,
-                  fontWeight: 650,
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 999,
-                    background: "#d8d8d8",
-                    boxShadow: "0 0 0 4px rgba(216, 216, 216, 0.16)",
-                  }}
-                />
-                {bufferedForTab.length} new {bufferedForTab.length === 1 ? "release" : "releases"}
-                <ArrowUp size={14} strokeWidth={2.5} />
-              </button>
-            </div>
-          )}
-
           {liveError ? (
             <div className="pp-card" role="alert" style={{ padding: 30, textAlign: "center", color: "var(--text-secondary)", fontSize: 13.5 }}>
               <AlertCircle size={20} color="var(--red)" style={{ marginBottom: 10 }} />
@@ -282,13 +250,31 @@ export function Home() {
               <button type="button" className="pp-btn pp-btn-outline" onClick={() => setRetryKey((key) => key + 1)} style={{ marginTop: 14 }}>Retry</button>
             </div>
           ) : liveLoading ? (
-            <div style={{ padding: 36, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>Loading your feed…</div>
+            <FeedSkeleton count={3} />
           ) : feed.length === 0 ? (
-            <div className="pp-card" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>
-              {tab === "Following"
-                ? "You're not following any institutions yet. Follow some to see their releases here."
-                : "No releases to show yet."}
-            </div>
+            tab === "Following" ? (
+              <EmptyState
+                icon={<Compass size={24} />}
+                title="You're not following anyone yet"
+                body="Follow the institutions you care about and their releases will appear here the moment they publish."
+                action={
+                  <Link to="/explore" className="pp-btn pp-btn-primary">
+                    <Compass size={15} /> Explore institutions
+                  </Link>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={<Inbox size={24} />}
+                title="No releases yet"
+                body="Verified institutions publish here directly. Explore sources to find the ones worth following."
+                action={
+                  <Link to="/explore" className="pp-btn pp-btn-primary">
+                    <Compass size={15} /> Explore sources
+                  </Link>
+                }
+              />
+            )
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {feed.slice(0, feedScroll.visible).map((r) => (
@@ -303,7 +289,7 @@ export function Home() {
         <aside className="pp-reader-rail" style={{ width: 304, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18, position: "sticky", top: 0 }}>
           <section className="pp-card" style={{ padding: 18 }}>
             <h2 style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600, marginBottom: 14 }}>
-              <TrendingUp size={16} color="var(--green)" /> Trending Topics
+              <TrendingUp size={16} color="var(--green)" /> Trending topics
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
               {trending.length === 0 ? (

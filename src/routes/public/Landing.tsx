@@ -119,7 +119,6 @@ export function Landing() {
               ))}
             </div>
           </section>
-
         </div>
       </main>
       <PrelaunchFooter />

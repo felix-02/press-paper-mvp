@@ -217,7 +217,8 @@ create trigger trg_canonicalize_release_identity
   before insert on public.releases
   for each row execute function public.canonicalize_release_identity();
 
-create or replace view public.release_details
+drop view if exists public.release_details;
+create view public.release_details
 with (security_invoker = true)
 as
 select r.*, public.org_is_verified(r.institution_slug) as institution_verified
@@ -1474,7 +1475,8 @@ as $$
     );
 $$;
 
-create or replace function public.public_institution(p_slug text)
+drop function if exists public.public_institution(text);
+create function public.public_institution(p_slug text)
 returns table(
   slug text,
   name text,
@@ -1519,7 +1521,8 @@ $$;
 
 -- Public directory data comes only from verified active owners. This avoids
 -- treating a legacy compatibility catalogue as live identity proof.
-create or replace function public.public_institutions(p_limit integer default 100)
+drop function if exists public.public_institutions(integer);
+create function public.public_institutions(p_limit integer default 100)
 returns table(
   slug text,
   name text,

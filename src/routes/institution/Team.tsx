@@ -3,6 +3,8 @@ import { Users, UserPlus, ShieldCheck, Check, X, Copy, Clock, Crown, AlertCircle
 import { AppShell } from "@/components/shells/AppShell";
 import { useOrg, type OrgRole } from "@/lib/useOrg";
 import { useAppStore } from "@/store/useAppStore";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { InlineSpinner } from "@/components/primitives/Bits";
 
 // Database roles stay permission-oriented; the labels match the institution
 // profile language supplied in the product screens.
@@ -43,6 +45,7 @@ function initials(name: string | null, email: string) {
 }
 
 export function InstitutionTeam() {
+  usePageTitle("Team");
   const org = useOrg();
   const pushToast = useAppStore((s) => s.pushToast);
   const [email, setEmail] = useState("");
@@ -82,7 +85,7 @@ export function InstitutionTeam() {
         pushToast({ title: "Invite created", description: "Copy the link below to share.", variant: "success" });
       }
     } else {
-      pushToast({ title: "Couldn't create invite", variant: "info" });
+      pushToast({ title: "Couldn't create invite", variant: "error" });
     }
   };
 
@@ -141,18 +144,18 @@ export function InstitutionTeam() {
             Only you, as owner, can approve members. Approve someone you recognise; decline anyone you don't.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {org.pendingMembers.map((m) => (
-              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+            {org.pendingMembers.map((m, index) => (
+              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                 <Disc text={initials(m.full_name, m.email)} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{m.full_name || m.email}</div>
                   <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{m.email} · invited as {ROLE_LABEL[m.role]}</div>
                 </div>
-                <button type="button" onClick={() => void runAction(`approve:${m.user_id}`, () => org.approve(m.user_id), "Member approved")} disabled={actionKey !== null} className="pp-btn pp-btn-primary" style={{ padding: "6px 12px", fontSize: 13 }}>
-                  <Check size={14} /> Approve
+                <button type="button" onClick={() => void runAction(`approve:${m.user_id}`, () => org.approve(m.user_id), "Member approved")} disabled={actionKey !== null} aria-busy={actionKey === `approve:${m.user_id}`} className="pp-btn pp-btn-primary" style={{ padding: "6px 12px", fontSize: 13 }}>
+                  {actionKey === `approve:${m.user_id}` ? <InlineSpinner /> : <Check size={14} />} {actionKey === `approve:${m.user_id}` ? "Approving…" : "Approve"}
                 </button>
-                <button type="button" onClick={() => void runAction(`decline:${m.user_id}`, () => org.decline(m.user_id), "Member declined")} disabled={actionKey !== null} className="pp-btn pp-btn-outline" style={{ padding: "6px 12px", fontSize: 13 }}>
-                  <X size={14} /> Decline
+                <button type="button" onClick={() => void runAction(`decline:${m.user_id}`, () => org.decline(m.user_id), "Member declined")} disabled={actionKey !== null} aria-busy={actionKey === `decline:${m.user_id}`} className="pp-btn pp-btn-outline" style={{ padding: "6px 12px", fontSize: 13 }}>
+                  {actionKey === `decline:${m.user_id}` ? <InlineSpinner /> : <X size={14} />} {actionKey === `decline:${m.user_id}` ? "Declining…" : "Decline"}
                 </button>
               </div>
             ))}
@@ -177,14 +180,23 @@ export function InstitutionTeam() {
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <input className="pp-input" type="email" placeholder="name@organisation.gov" value={email} maxLength={320} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+              <input
+                className="pp-input"
+                type="email"
+                placeholder="name@organisation.gov"
+                value={email}
+                maxLength={320}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !sending && void sendInvite()}
+                style={{ flex: 1, minWidth: 220 }}
+              />
               <select className="pp-input" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as OrgRole)} style={{ width: 130 }}>
                 <option value="admin">Publisher</option>
                 <option value="editor">Editor</option>
                 <option value="viewer">Analyst</option>
               </select>
-              <button type="button" onClick={sendInvite} disabled={sending} className="pp-btn pp-btn-primary" style={{ opacity: sending ? 0.7 : 1 }}>
-                {sending ? "Creating…" : "Create invite"}
+              <button type="button" onClick={sendInvite} disabled={sending} aria-busy={sending} className="pp-btn pp-btn-primary" style={{ opacity: sending ? 0.7 : 1 }}>
+                {sending ? <><InlineSpinner /> Creating…</> : "Create invite"}
               </button>
             </div>
           )}
@@ -198,12 +210,12 @@ export function InstitutionTeam() {
                 type="button"
                 onClick={() => {
                   if (!navigator.clipboard) {
-                    pushToast({ title: "Couldn't copy link", variant: "info" });
+                    pushToast({ title: "Couldn't copy link", variant: "error" });
                     return;
                   }
                   void navigator.clipboard.writeText(lastLink).then(
                     () => pushToast({ title: "Link copied", variant: "success" }),
-                    () => pushToast({ title: "Couldn't copy link", variant: "info" })
+                    () => pushToast({ title: "Couldn't copy link", variant: "error" })
                   );
                 }}
                 className="pp-btn pp-btn-ghost"
@@ -217,13 +229,13 @@ export function InstitutionTeam() {
           {org.invites.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>Pending invites</div>
-              {org.invites.map((inv) => (
-                <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border)" }}>
+              {org.invites.map((inv, index) => (
+                <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <Clock size={15} color="var(--text-muted)" />
                   <span style={{ flex: 1, fontSize: 13.5 }}>{inv.email}</span>
                   <RoleBadge role={inv.role} />
-                  <button type="button" onClick={() => void runAction(`revoke:${inv.id}`, () => org.revokeInvite(inv.id), "Invite revoked")} disabled={actionKey !== null} aria-label="Revoke invite" style={{ color: "var(--text-muted)", padding: 5 }}>
-                    <X size={15} />
+                  <button type="button" onClick={() => void runAction(`revoke:${inv.id}`, () => org.revokeInvite(inv.id), "Invite revoked")} disabled={actionKey !== null} aria-busy={actionKey === `revoke:${inv.id}`} aria-label="Revoke invite" style={{ color: "var(--text-muted)", padding: 5 }}>
+                    {actionKey === `revoke:${inv.id}` ? <InlineSpinner /> : <X size={15} />}
                   </button>
                 </div>
               ))}
@@ -239,11 +251,11 @@ export function InstitutionTeam() {
           <span style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{org.seatsUsed} of {org.seatLimit} seats used</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {org.activeMembers.map((m) => {
+          {org.activeMembers.map((m, index) => {
             const isOwner = m.role === "owner";
             const canEditRole = org.can.approve && !isOwner; // owner-only role management
             return (
-              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: "1px solid var(--border)" }}>
+              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                 <Disc text={initials(m.full_name, m.email)} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{m.full_name || m.email}</div>
@@ -262,15 +274,17 @@ export function InstitutionTeam() {
                       <option value="editor">Editor</option>
                       <option value="viewer">Analyst</option>
                     </select>
+                    {actionKey === `role:${m.user_id}` && <InlineSpinner />}
                     <button
                       type="button"
                       onClick={() => void runAction(`remove:${m.user_id}`, () => org.decline(m.user_id), "Member removed")}
                       disabled={actionKey !== null}
+                      aria-busy={actionKey === `remove:${m.user_id}`}
                       aria-label={`Remove ${m.full_name || m.email}`}
                       title="Remove member"
                       style={{ color: "var(--text-muted)", padding: 6 }}
                     >
-                      <X size={16} />
+                      {actionKey === `remove:${m.user_id}` ? <InlineSpinner /> : <X size={16} />}
                     </button>
                   </div>
                 ) : (

@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Globe, MapPin, ShieldCheck, Pencil, UserPlus, Check } from "lucide-react";
+import { Globe, MapPin, ShieldCheck, Pencil, UserPlus, Check, Upload } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader, Panel } from "@/components/dashboard/Panels";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Avatar } from "@/components/brand/Avatar";
-import { Verified } from "@/components/primitives/Bits";
+import { InlineSpinner, Verified } from "@/components/primitives/Bits";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { useOrg } from "@/lib/useOrg";
 import { supabase } from "@/lib/supabase";
 import { safeExternalUrl } from "@/lib/externalUrl";
+import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution } from "@/types";
 
 function CheckRow({ label }: { label: string }) {
@@ -97,6 +98,7 @@ function initialsFrom(name: string | null, email: string): string {
 }
 
 export function Profile() {
+  usePageTitle("Organisation profile");
   const pushToast = useAppStore((s) => s.pushToast);
   const navigate = useNavigate();
   const { user, profile, profileReady, profileError, refreshProfile } = useAuth();
@@ -118,11 +120,40 @@ export function Profile() {
   const [orgLocation, setOrgLocation] = useState(profile?.org_location ?? "");
   const [orgCategory, setOrgCategory] = useState(profile?.org_category ?? "");
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const uploadLogo = async (file: File) => {
+    if (!supabase || !user || !profile?.institution_slug) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
+      pushToast({ title: "Use a square PNG, JPEG or WebP under 2 MB", variant: "info" });
+      return;
+    }
+    setUploadingLogo(true);
+    const path = `${profile.institution_slug}/logo-${Date.now()}.${file.type.split("/")[1]}`;
+    const { error: uploadError } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000" });
+    if (uploadError) {
+      setUploadingLogo(false);
+      pushToast({ title: "Couldn't upload the logo", description: uploadError.message, variant: "error" });
+      return;
+    }
+    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
+    const url = data?.publicUrl;
+    const { error: saveError } = url
+      ? await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id)
+      : { error: new Error("no url") } as { error: Error };
+    setUploadingLogo(false);
+    if (saveError) {
+      pushToast({ title: "Couldn't save the logo", variant: "error" });
+      return;
+    }
+    await refreshProfile();
+    pushToast({ title: "Logo updated", description: "Readers now see it across the platform.", variant: "success" });
+  };
   const displayName = orgName.trim() || profile?.institution_name?.trim() || "Your organisation";
   const location = orgLocation.trim() || "Location not provided";
   const website = orgWebsite.trim() || "Website not provided";
   const category = orgCategory.trim() || "Category not provided";
-  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified" };
+  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified", avatarUrl: profile?.avatar_url || undefined };
 
   // Initialise the editable fields from the loaded profile (registration data).
   useEffect(() => {
@@ -155,7 +186,7 @@ export function Profile() {
       return;
     }
     if (!supabase || !user) {
-      pushToast({ title: "Couldn't save", description: "Reconnect your account and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save", description: "Reconnect your account and try again.", variant: "error" });
       return;
     }
     setSaving(true);
@@ -168,7 +199,7 @@ export function Profile() {
     }).eq("id", user.id);
     setSaving(false);
     if (error) {
-      pushToast({ title: "Couldn't save", description: "Review the details and try again.", variant: "info" });
+      pushToast({ title: "Couldn't save", description: "Review the details and try again.", variant: "error" });
       return;
     }
     await refreshProfile();
@@ -231,9 +262,25 @@ export function Profile() {
               </div>
             </div>
             {canEditProfile && (
-              <button type="button" onClick={() => document.getElementById("organisation-description")?.focus()} className="pp-btn pp-btn-outline" style={{ marginBottom: 4 }}>
-                <Pencil size={14} /> Edit Profile
-              </button>
+              <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                <label className="pp-btn pp-btn-outline" style={{ cursor: "pointer" }}>
+                  {uploadingLogo ? <InlineSpinner /> : <Upload size={14} />} {uploadingLogo ? "Uploading…" : "Update logo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    style={{ display: "none" }}
+                    disabled={uploadingLogo}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void uploadLogo(file);
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={() => document.getElementById("organisation-description")?.focus()} className="pp-btn pp-btn-outline">
+                  <Pencil size={14} /> Edit profile
+                </button>
+              </div>
             )}
           </div>
           <div style={{ display: "flex", gap: 20, marginTop: 16, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
@@ -293,15 +340,16 @@ export function Profile() {
                 className="pp-btn pp-btn-primary"
                 onClick={saveProfile}
                 disabled={saving}
+                aria-busy={saving}
                 style={{ opacity: saving ? 0.7 : 1 }}
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? <><InlineSpinner /> Saving…</> : "Save changes"}
               </button>
             </div>}
           </Panel>
 
           <Panel
-            title="Authorised People"
+            title="Authorised people"
             action={
               org.can.invite ? (
                 <button type="button" onClick={() => navigate("/inst/team")} className="pp-btn pp-btn-outline" style={{ padding: "6px 13px", fontSize: 13 }}>

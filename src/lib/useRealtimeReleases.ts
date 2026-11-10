@@ -3,8 +3,8 @@ import { isSupabaseConfigured, supabase, type ReleaseRow } from "@/lib/supabase"
 import { rowToRelease } from "@/lib/releaseMap";
 import type { Release } from "@/types";
 
-const POLL_WHILE_CONNECTED_MS = 30_000;
-const POLL_FALLBACK_MS = 10_000;
+const INITIAL_POLL_DELAY_MS = 1_000;
+const POLL_INTERVAL_MS = 60_000;
 let channelSequence = 0;
 
 function releaseTimestamp(release: Release): number {
@@ -60,9 +60,8 @@ interface RealtimeReleasesResult {
 }
 
 /**
- * Buffers newly published live releases until the reader explicitly reveals
- * them. Realtime is primary; polling also closes subscription gaps and becomes
- * more frequent whenever the channel reports a connection failure.
+ * Buffers newly published live releases for the feed to consume. Realtime is
+ * primary; a one-second initial check and one-minute polling close any gaps.
  */
 export function useRealtimeReleases({
   enabled,
@@ -95,6 +94,7 @@ export function useRealtimeReleases({
     const client = supabase;
     let active = true;
     let pollTimer: number | null = null;
+    let initialPollTimer: number | null = null;
     let pollBusy = false;
     const monitoringStartedAt = Date.now();
     const pendingDetailIds = new Set<string>();
@@ -130,9 +130,9 @@ export function useRealtimeReleases({
       }
     };
 
-    const schedulePolling = (interval: number) => {
+    const schedulePolling = () => {
       if (pollTimer !== null) window.clearInterval(pollTimer);
-      pollTimer = window.setInterval(() => void pollLatest(), interval);
+      pollTimer = window.setInterval(() => void pollLatest(), POLL_INTERVAL_MS);
     };
 
     const fetchPublishedRelease = async (id: string, publishedSince?: number) => {
@@ -168,7 +168,8 @@ export function useRealtimeReleases({
       }
     };
 
-    schedulePolling(POLL_FALLBACK_MS);
+    initialPollTimer = window.setTimeout(() => void pollLatest(), INITIAL_POLL_DELAY_MS);
+    schedulePolling();
 
     const channel = client
       .channel(`home-releases-${++channelSequence}`)
@@ -192,19 +193,17 @@ export function useRealtimeReleases({
       .subscribe((status) => {
         if (!active) return;
         if (status === "SUBSCRIBED") {
-          schedulePolling(POLL_WHILE_CONNECTED_MS);
+          schedulePolling();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           void pollLatest();
-          schedulePolling(POLL_FALLBACK_MS);
+          schedulePolling();
         }
       });
-
-    // Covers the small gap between the initial feed query and channel join.
-    void pollLatest();
 
     return () => {
       active = false;
       if (pollTimer !== null) window.clearInterval(pollTimer);
+      if (initialPollTimer !== null) window.clearTimeout(initialPollTimer);
       pendingDetailIds.clear();
       void client.removeChannel(channel);
     };

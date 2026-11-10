@@ -2,7 +2,9 @@
 
 ## 1. Apply the schema
 
-For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0016` in order.
+For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0018` in order.
+
+For an existing project, apply [0017_invite_hardening.sql](./supabase/migrations/0017_invite_hardening.sql) and [0018_engagement_and_catalogue.sql](./supabase/migrations/0018_engagement_and_catalogue.sql). 0017: institution invite links now expire after 30 minutes, remain single-use and email-locked, and the token functions resolve pgcrypto whether it is installed in the `public` or `extensions` schema (the latter is what the dashboard's "enable extension" uses, and previously broke invite creation with "function digest does not exist").
 
 For an existing project, apply every migration after its current version. In particular:
 
@@ -23,7 +25,11 @@ The migration intentionally stops if this query returns rows.
 
 ## 2. Bootstrap the global super admin
 
-Create and confirm a dedicated individual account first. Do not reuse an institution owner or member account: the global administrator is an independent platform identity. In the SQL Editor, using a privileged database connection, grant admin authority to that exact UUID:
+The fastest path is [scripts/bootstrap_accounts.sql](./scripts/bootstrap_accounts.sql): edit the emails/password at the top if needed and run it in the SQL Editor. It idempotently creates (or repairs) a confirmed super-admin account, a normal reader account, and a verified institution owner — ready to sign in immediately. Change the bootstrap password after first login.
+
+If old test data (follows or saves pointing at content that no longer exists) shows phantom institutions in reader sidebars, run [scripts/cleanup_orphaned_data.sql](./scripts/cleanup_orphaned_data.sql) once to purge it.
+
+To grant admin manually instead: create and confirm a dedicated individual account first. Do not reuse an institution owner or member account: the global administrator is an independent platform identity. In the SQL Editor, using a privileged database connection, grant admin authority to that exact UUID:
 
 ```sql
 update public.profiles
@@ -69,14 +75,26 @@ VITE_POSTHOG_HOST=https://us.i.posthog.com
 
 Autocapture and session recording are disabled. Application activity is also written to the bounded Supabase activity stream for admin supervision; sensitive-looking metadata keys are rejected.
 
-## 5. Deploy Edge Functions
+## 5. Deploy Edge Functions (AI summaries + translation)
+
+AI summaries and translation stay hidden-but-graceful until these two
+functions are deployed — readers see the source summary and English only.
+To turn them on:
 
 ```bash
-supabase secrets set GEMINI_API_KEY=your_key
+# once: npm install -g supabase && supabase login
+supabase link --project-ref <your-project-ref>
+supabase secrets set GEMINI_API_KEY=your_key      # aistudio.google.com/apikey
 supabase secrets set GEMINI_MODEL=gemini-3.5-flash
 supabase functions deploy summarize
 supabase functions deploy translate
 ```
+
+Verify from the dashboard (Edge Functions → summarize / translate → Logs)
+or by opening any release while signed in: the Summary panel switches from
+"Source summary" to "AI-generated", and every language in the Translate menu
+(all 68 are validated against the function's allowlist) returns translated
+text.
 
 JWT verification remains enabled. Both functions revalidate the caller, enforce request/output bounds and timeouts, and use the shared Postgres quota function.
 

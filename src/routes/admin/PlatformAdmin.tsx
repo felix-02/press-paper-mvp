@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Activity,
   AlertCircle,
@@ -22,6 +23,9 @@ import {
 import { AdminShell } from "@/components/shells/AdminShell";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAppStore } from "@/store/useAppStore";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { supabase } from "@/lib/supabase";
+import { InlineSpinner } from "@/components/primitives/Bits";
 import {
   useAdminConsole,
   type AccountStatus,
@@ -92,7 +96,7 @@ function LoadMore({ busy, onClick }: { busy: boolean; onClick: () => void }) {
   return (
     <div style={{ textAlign: "center", marginTop: 16 }}>
       <button type="button" className="pp-btn pp-btn-outline" onClick={onClick} disabled={busy}>
-        {busy ? "Loading…" : "Load more"}
+        {busy ? <><InlineSpinner /> Loading…</> : "Load more"}
       </button>
     </div>
   );
@@ -111,13 +115,64 @@ function moderationVerb(request: ModerationRequest): string {
 }
 
 export function PlatformAdmin() {
+  usePageTitle("Administration");
   const { profile } = useAuth();
   const admin = useAdminConsole();
   const pushToast = useAppStore((state) => state.pushToast);
-  const [tab, setTab] = useState<Tab>("overview");
-  const [query, setQuery] = useState("");
+  // Tab and search live in the URL so console views survive refresh.
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get("tab") ?? "overview";
+  const tab: Tab = TABS.some(({ id }) => id === tabParam) ? (tabParam as Tab) : "overview";
+  const query = (params.get("q") ?? "").slice(0, 100);
+  // Functional updates so consecutive calls in one tick (switch tab + clear
+  // search) can't clobber each other with stale params.
+  const setTab = (nextTab: Tab) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (nextTab === "overview") p.delete("tab");
+      else p.set("tab", nextTab);
+      p.delete("q");
+      return p;
+    }, { replace: true });
+  };
+  const setQuery = (value: string) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (value) p.set("q", value);
+      else p.delete("q");
+      return p;
+    }, { replace: true });
+  };
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [orgName, setOrgName] = useState("");
+  const [newType, setNewType] = useState("");
+  const [coverLabel, setCoverLabel] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
+
+  const addReleaseType = async () => {
+    const name = newType.trim();
+    if (name.length < 2 || !supabase || actionBusy) return;
+    setActionBusy("catalog:type");
+    const { data, error } = await supabase.rpc("admin_add_release_type", { p_name: name });
+    setActionBusy(null);
+    const ok = !error && String(data) === "ok";
+    pushToast(ok ? { title: `Release type "${name}" added`, description: "Publishers can use it immediately.", variant: "success" } : { title: "Couldn't add release type", variant: "error" });
+    if (ok) setNewType("");
+  };
+  const addCover = async () => {
+    const label = coverLabel.trim();
+    const url = coverUrl.trim();
+    if (label.length < 2 || !/^https:\/\//.test(url) || !supabase || actionBusy) {
+      pushToast({ title: "Add a label and an https image URL", variant: "info" });
+      return;
+    }
+    setActionBusy("catalog:cover");
+    const { data, error } = await supabase.rpc("admin_add_platform_cover", { p_label: label, p_url: url });
+    setActionBusy(null);
+    const ok = !error && String(data) === "ok";
+    pushToast(ok ? { title: `Cover "${label}" added for all publishers`, variant: "success" } : { title: "Couldn't add cover", variant: "error" });
+    if (ok) { setCoverLabel(""); setCoverUrl(""); }
+  };
   const [inviteEmail, setInviteEmail] = useState("");
   const [lastLink, setLastLink] = useState<string | null>(null);
   const [moderationRequest, setModerationRequest] = useState<ModerationRequest | null>(null);
@@ -207,7 +262,7 @@ export function PlatformAdmin() {
     const result = await admin.createInstitutionInvite(email, name);
     setActionBusy(null);
     if (!result.token) {
-      pushToast({ title: result.error ?? "The invitation couldn't be created", variant: "info" });
+      pushToast({ title: "Couldn't create the invitation", description: result.error ?? undefined, variant: "error" });
       return;
     }
     const link = `${window.location.origin}/institution-invite/${result.token}`;
@@ -258,12 +313,12 @@ export function PlatformAdmin() {
             </div>
           </div>
         </div>
-        <button type="button" onClick={() => void admin.refresh()} disabled={admin.loading} className="pp-btn pp-btn-outline"><RefreshCw size={15} /> {admin.loading ? "Refreshing…" : "Refresh"}</button>
+        <button type="button" onClick={() => void admin.refresh()} disabled={admin.loading} aria-busy={admin.loading} className="pp-btn pp-btn-outline">{admin.loading ? <InlineSpinner /> : <RefreshCw size={15} />} {admin.loading ? "Refreshing…" : "Refresh"}</button>
       </div>
 
       <nav aria-label="Administration sections" style={{ display: "flex", gap: 6, overflowX: "auto", borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" onClick={() => { setTab(id); setQuery(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
+          <button key={id} type="button" onClick={() => setTab(id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
             <Icon size={15} /> {label}
           </button>
         ))}
@@ -292,8 +347,8 @@ export function PlatformAdmin() {
               <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 18 }}>
                 <section className="pp-card" style={{ padding: 18 }}>
                   <h2 style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 12 }}>Recent user activity</h2>
-                  {topActivity.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No activity recorded yet.</span> : topActivity.map((event) => (
-                    <div key={event.event_id} style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
+                  {topActivity.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No activity recorded yet.</span> : topActivity.map((event, index) => (
+                    <div key={event.event_id} style={{ padding: "9px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                       <div style={{ fontSize: 13.5 }}><strong>{event.actor_email ?? event.actor_name ?? "Unknown user"}</strong> · {event.event_type}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{formatDate(event.created_at)}</div>
                     </div>
@@ -301,8 +356,8 @@ export function PlatformAdmin() {
                 </section>
                 <section className="pp-card" style={{ padding: 18 }}>
                   <h2 style={{ fontSize: 15.5, fontWeight: 700, marginBottom: 12 }}>Recent admin actions</h2>
-                  {topAudit.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No privileged actions recorded yet.</span> : topAudit.map((event) => (
-                    <div key={event.audit_id} style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
+                  {topAudit.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No privileged actions recorded yet.</span> : topAudit.map((event, index) => (
+                    <div key={event.audit_id} style={{ padding: "9px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                       <div style={{ fontSize: 13.5 }}><strong>{event.actor_email ?? "Admin"}</strong> · {event.action}</div>
                       <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{event.target_type} · {event.target_id} · {formatDate(event.created_at)}</div>
                     </div>
@@ -322,8 +377,8 @@ export function PlatformAdmin() {
           {tab === "users" && (
             <section className="pp-card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>All users ({admin.users.length})</h2>
-              {filteredUsers.length === 0 ? <Empty>No users match this search.</Empty> : filteredUsers.map((row) => (
-                <div key={row.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: "1px solid var(--border)" }}>
+              {filteredUsers.length === 0 ? <Empty>No users match this search.</Empty> : filteredUsers.map((row, index) => (
+                <div key={row.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650, overflowWrap: "anywhere" }}>{row.full_name || row.email} {row.is_admin && <ShieldCheck size={13} color="var(--blue)" style={{ display: "inline", verticalAlign: -2 }} />}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.email} · {row.role}{row.institution_name ? ` · ${row.institution_name}` : ""}</div>
@@ -340,8 +395,8 @@ export function PlatformAdmin() {
           {tab === "institutions" && (
             <section className="pp-card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>All institutions ({admin.institutions.length})</h2>
-              {filteredInstitutions.length === 0 ? <Empty>No institutions match this search.</Empty> : filteredInstitutions.map((row) => (
-                <div key={row.owner_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border)" }}>
+              {filteredInstitutions.length === 0 ? <Empty>No institutions match this search.</Empty> : filteredInstitutions.map((row, index) => (
+                <div key={row.owner_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <Building2 size={18} color="var(--text-muted)" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650 }}>{row.institution_name || row.institution_slug}</div>
@@ -350,8 +405,8 @@ export function PlatformAdmin() {
                   <StatusPill value={row.account_status} />
                   <StatusPill value={row.verification_status} />
                   <div style={{ display: "flex", gap: 5 }}>
-                    {row.verification_status !== "verified" && <button type="button" disabled={actionBusy !== null} onClick={() => void verifyInstitution(row.owner_id, true)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12 }}><Check size={13} /> Approve</button>}
-                    {row.verification_status !== "rejected" && <button type="button" disabled={actionBusy !== null} onClick={() => void verifyInstitution(row.owner_id, false)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12 }}><X size={13} /> Reject</button>}
+                    {row.verification_status !== "verified" && <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `verify:${row.owner_id}`} onClick={() => void verifyInstitution(row.owner_id, true)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12 }}>{actionBusy === `verify:${row.owner_id}` ? <InlineSpinner /> : <Check size={13} />} Approve</button>}
+                    {row.verification_status !== "rejected" && <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `verify:${row.owner_id}`} onClick={() => void verifyInstitution(row.owner_id, false)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12 }}>{actionBusy === `verify:${row.owner_id}` ? <InlineSpinner /> : <X size={13} />} Reject</button>}
                   </div>
                   <AccountActions row={{ user_id: row.owner_id, email: row.owner_email, account_status: row.account_status, is_admin: false }} />
                 </div>
@@ -363,10 +418,10 @@ export function PlatformAdmin() {
           {tab === "posts" && (
             <section className="pp-card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>All posts ({admin.releases.length})</h2>
-              {filteredReleases.length === 0 ? <Empty>No posts match this search.</Empty> : filteredReleases.map((row) => {
+              {filteredReleases.length === 0 ? <Empty>No posts match this search.</Empty> : filteredReleases.map((row, index) => {
                 const busy = actionBusy === `release:${row.release_id}`;
                 return (
-                  <div key={row.release_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: "1px solid var(--border)" }}>
+                  <div key={row.release_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                     <FileText size={18} color="var(--text-muted)" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 650 }}>{row.heading}</div>
@@ -390,8 +445,8 @@ export function PlatformAdmin() {
           {tab === "activity" && (
             <section className="pp-card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>User activity ({admin.activity.length})</h2>
-              {admin.activity.length === 0 ? <Empty>No user activity has been recorded yet.</Empty> : admin.activity.map((event) => (
-                <div key={event.event_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--border)", fontSize: 13 }}>
+              {admin.activity.length === 0 ? <Empty>No user activity has been recorded yet.</Empty> : admin.activity.map((event, index) => (
+                <div key={event.event_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
                   <span><strong>{event.actor_email ?? event.actor_name ?? "Unknown user"}</strong><small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.actor_role ?? "unknown role"}</small></span>
                   <span>{event.event_type}<small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.target_type ?? "event"}{event.target_id ? ` · ${event.target_id}` : ""}</small></span>
                   <code style={{ fontSize: 11.5, color: "var(--text-muted)", overflowWrap: "anywhere" }}>{safeMetadata(event.metadata)}</code>
@@ -406,8 +461,8 @@ export function PlatformAdmin() {
             <section className="pp-card" style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 3 }}>Immutable admin audit log ({admin.audit.length})</h2>
               <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}>Recorded in the same database transaction as each privileged mutation.</p>
-              {admin.audit.length === 0 ? <Empty>No privileged actions have been recorded yet.</Empty> : admin.audit.map((event: AdminAuditEvent) => (
-                <div key={event.audit_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px,.8fr) minmax(180px,1fr) minmax(220px,1.3fr) auto", gap: 12, alignItems: "center", padding: "11px 0", borderTop: "1px solid var(--border)", fontSize: 13 }}>
+              {admin.audit.length === 0 ? <Empty>No privileged actions have been recorded yet.</Empty> : admin.audit.map((event: AdminAuditEvent, index) => (
+                <div key={event.audit_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px,.8fr) minmax(180px,1fr) minmax(220px,1.3fr) auto", gap: 12, alignItems: "center", padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
                   <span><strong>{event.actor_email ?? event.actor_id}</strong></span>
                   <span>{event.action}<small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.target_type} · {event.target_id}</small></span>
                   <span style={{ color: "var(--text-secondary)" }}>{event.reason ?? "No reason supplied"}</span>
@@ -422,16 +477,19 @@ export function PlatformAdmin() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <section className="pp-card" style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700 }}>Invite an institution</h2>
-                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 13 }}>The generated token is shown once and is never written to the audit log.</p>
+                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 13 }}>
+                  The link is shown once, works exactly one time, is locked to the invited email, and expires 30 minutes after you create it.
+                  If it expires, issue a fresh invite for the same email.
+                </p>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <input className="pp-input" value={orgName} onChange={(event) => setOrgName(event.target.value)} maxLength={160} placeholder="Organisation name" style={{ flex: 1, minWidth: 200 }} />
                   <input className="pp-input" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} maxLength={320} placeholder="official@example.org" style={{ flex: 1, minWidth: 220 }} />
-                  <button type="button" onClick={() => void issueInvite()} disabled={actionBusy === "invite:create"} className="pp-btn pp-btn-primary"><Send size={14} /> {actionBusy === "invite:create" ? "Creating…" : "Create invite"}</button>
+                  <button type="button" onClick={() => void issueInvite()} disabled={actionBusy === "invite:create"} aria-busy={actionBusy === "invite:create"} className="pp-btn pp-btn-primary">{actionBusy === "invite:create" ? <InlineSpinner /> : <Send size={14} />} {actionBusy === "invite:create" ? "Creating…" : "Create invite"}</button>
                 </div>
                 {lastLink && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, padding: "9px 11px", background: "var(--surface-2)", borderRadius: "var(--r-md)" }}>
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12.5 }}>{lastLink}</span>
-                    <button type="button" onClick={() => void navigator.clipboard.writeText(lastLink).then(() => pushToast({ title: "Copied", variant: "success" }), () => pushToast({ title: "Copy failed", variant: "info" }))} className="pp-btn pp-btn-ghost"><Copy size={13} /> Copy</button>
+                    <button type="button" onClick={() => void navigator.clipboard.writeText(lastLink).then(() => pushToast({ title: "Copied", variant: "success" }), () => pushToast({ title: "Copy failed", variant: "error" }))} className="pp-btn pp-btn-ghost"><Copy size={13} /> Copy</button>
                   </div>
                 )}
               </section>
@@ -439,26 +497,40 @@ export function PlatformAdmin() {
               {admin.pendingInstitutions.filter((row) => row.status === "pending").length > 0 && (
                 <section className="pp-card" style={{ padding: 18 }}>
                   <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 9 }}>Awaiting verification</h2>
-                  {admin.pendingInstitutions.filter((row) => row.status === "pending").map((row) => (
-                    <div key={row.user_id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+                  {admin.pendingInstitutions.filter((row) => row.status === "pending").map((row, index) => (
+                    <div key={row.user_id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                       <div style={{ flex: 1 }}><strong style={{ fontSize: 13.5 }}>{row.institution_name || row.institution_slug || "Unnamed institution"}</strong><span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.email}{row.domain ? ` · ${row.domain}` : ""}</span></div>
-                      <button type="button" disabled={actionBusy !== null} onClick={() => void verifyInstitution(row.user_id, true)} className="pp-btn pp-btn-primary" style={{ padding: "6px 10px", fontSize: 12 }}><Check size={13} /> Approve</button>
-                      <button type="button" disabled={actionBusy !== null} onClick={() => void verifyInstitution(row.user_id, false)} className="pp-btn pp-btn-outline" style={{ padding: "6px 10px", fontSize: 12 }}><X size={13} /> Reject</button>
+                      <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `verify:${row.user_id}`} onClick={() => void verifyInstitution(row.user_id, true)} className="pp-btn pp-btn-primary" style={{ padding: "6px 10px", fontSize: 12 }}>{actionBusy === `verify:${row.user_id}` ? <InlineSpinner /> : <Check size={13} />} Approve</button>
+                      <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `verify:${row.user_id}`} onClick={() => void verifyInstitution(row.user_id, false)} className="pp-btn pp-btn-outline" style={{ padding: "6px 10px", fontSize: 12 }}>{actionBusy === `verify:${row.user_id}` ? <InlineSpinner /> : <X size={13} />} Reject</button>
                     </div>
                   ))}
                 </section>
               )}
 
               <section className="pp-card" style={{ padding: 18 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700 }}>Publishing catalogue</h2>
+                <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4, marginBottom: 12 }}>Release types and cover images added here become available to every institution immediately.</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                  <input className="pp-input" value={newType} onChange={(e) => setNewType(e.target.value)} maxLength={60} placeholder="New release type (e.g. Speech)" style={{ flex: 1, minWidth: 200 }} onKeyDown={(e) => e.key === "Enter" && void addReleaseType()} />
+                  <button type="button" className="pp-btn pp-btn-outline" onClick={() => void addReleaseType()} disabled={Boolean(actionBusy)} aria-busy={actionBusy === "catalog:type"}>{actionBusy === "catalog:type" && <InlineSpinner />} Add type</button>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input className="pp-input" value={coverLabel} onChange={(e) => setCoverLabel(e.target.value)} maxLength={60} placeholder="Cover label" style={{ width: 160 }} />
+                  <input className="pp-input" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} maxLength={500} placeholder="https:// image URL" style={{ flex: 1, minWidth: 220 }} onKeyDown={(e) => e.key === "Enter" && void addCover()} />
+                  <button type="button" className="pp-btn pp-btn-outline" onClick={() => void addCover()} disabled={Boolean(actionBusy)} aria-busy={actionBusy === "catalog:cover"}>{actionBusy === "catalog:cover" && <InlineSpinner />} Add cover</button>
+                </div>
+              </section>
+
+              <section className="pp-card" style={{ padding: 18 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 9 }}>Issued invitations ({admin.invites.length})</h2>
-                {admin.invites.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No invitations issued yet.</span> : admin.invites.map((invite) => {
+                {admin.invites.length === 0 ? <span style={{ fontSize: 13, color: "var(--text-muted)" }}>No invitations issued yet.</span> : admin.invites.map((invite, index) => {
                   const consumed = !!invite.consumed_at;
                   const expired = !consumed && new Date(invite.expires_at).getTime() <= Date.now();
                   return (
-                    <div key={invite.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+                    <div key={invite.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                       <div style={{ flex: 1 }}><strong style={{ fontSize: 13.5 }}>{invite.org_name}</strong><span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{invite.email} · expires {formatDate(invite.expires_at)}</span></div>
                       <StatusPill value={consumed ? "accepted" : expired ? "expired" : "pending"} />
-                      {!consumed && <button type="button" disabled={actionBusy !== null} onClick={() => void revokeInvite(invite.id)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12, color: "var(--red)" }}><X size={13} /> Revoke</button>}
+                      {!consumed && <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `invite:${invite.id}`} onClick={() => void revokeInvite(invite.id)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12, color: "var(--red)" }}>{actionBusy === `invite:${invite.id}` ? <InlineSpinner /> : <X size={13} />} Revoke</button>}
                     </div>
                   );
                 })}
@@ -510,7 +582,7 @@ export function PlatformAdmin() {
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, marginTop: 20 }}>
                   <button type="button" className="pp-btn pp-btn-ghost" disabled={Boolean(actionBusy)} onClick={() => setModerationRequest(null)}>Cancel</button>
                   <button type="button" className="pp-btn pp-btn-primary" disabled={Boolean(actionBusy) || moderationReason.trim().length < 3} onClick={() => void confirmModeration()} style={{ opacity: actionBusy || moderationReason.trim().length < 3 ? 0.6 : 1 }}>
-                    {actionBusy ? "Applying…" : `${moderationVerb(moderationRequest)} now`}
+                    {actionBusy ? <><InlineSpinner /> Applying…</> : `${moderationVerb(moderationRequest)} now`}
                   </button>
                 </div>
               </section>
