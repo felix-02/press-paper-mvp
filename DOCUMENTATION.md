@@ -20,7 +20,9 @@ The frontend is organised as follows:
 
 `AuthProvider` restores the Supabase session and loads the caller's profile, including account moderation state. Missing/error profiles expose retry and sign-out actions instead of an indefinite spinner.
 
-`ProtectedRoute` independently checks session, account state, role, and the `is_admin` grant. `/admin` is wrapped with `admin=true`; unauthenticated requests go to the separate `/admin/login`, while normal users and institution accounts are redirected to their own home. No organisation or reader sidebar contains an admin entry. An authenticated platform admin is likewise redirected out of role-specific workspaces and back to `/admin`.
+All accounts sign in through `/login`. The shared form routes readers to `/home`, institutions to `/inst`, and platform super admins to `/admin`. The legacy `/admin/login` URL redirects to `/login`.
+
+`ProtectedRoute` independently checks session, account state, role, and the `is_admin` grant. `/admin` is wrapped with `admin=true`; unauthenticated requests go to `/login` with a return path, while normal users and institution accounts are redirected to their own home. No organisation or reader sidebar contains an admin entry. An authenticated platform admin is likewise redirected out of role-specific workspaces and back to `/admin`.
 
 This client gate is not the security boundary. Every admin RPC calls `require_platform_admin()`, and RLS/column grants block direct normal-account access.
 

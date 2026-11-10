@@ -19,7 +19,7 @@ export function AdminShell({ children, maxWidth = 1320 }: { children: ReactNode;
     setSigningOut(true);
     try {
       await signOut();
-      navigate("/admin/login", { replace: true });
+      navigate("/login", { replace: true });
     } finally {
       setSigningOut(false);
     }

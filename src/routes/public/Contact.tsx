@@ -1,7 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowRight, Check, Clock, Lock, Mail, Send, ShieldCheck } from "lucide-react";
 import { PrelaunchFooter, PrelaunchHeader } from "@/components/landing/PrelaunchChrome";
-import { PrelaunchGlobe } from "@/components/landing/PrelaunchGlobe";
 import { useTheme } from "@/lib/useTheme";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -131,7 +130,6 @@ export function Contact() {
                 </div>
               ))}
             </div>
-            <div className="pp-contact-globe"><PrelaunchGlobe dark={resolvedTheme === "dark"} /></div>
           </section>
           <section><ContactForm /></section>
         </div>

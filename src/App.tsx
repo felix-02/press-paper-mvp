@@ -13,7 +13,6 @@ import { SignUp } from "@/routes/public/SignUp";
 import { Login } from "@/routes/public/Login";
 import { ExploreSources } from "@/routes/public/ExploreSources";
 import { ResetPassword } from "@/routes/public/ResetPassword";
-import { AdminLogin } from "@/routes/public/AdminLogin";
 import { Contact } from "@/routes/public/Contact";
 
 // Individual
@@ -124,7 +123,7 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<Navigate to="/login" replace />} />
           <Route path="/sources" element={<ExploreSources />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/r/:id" element={<SharedReleaseFallback />} />

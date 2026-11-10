@@ -5,7 +5,7 @@ import { AuthLayout, AuthField, PasswordField } from "@/components/shells/AuthLa
 import { InlineSpinner } from "@/components/primitives/Bits";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
-import { safeRedirectTarget } from "@/lib/redirect";
+import { loginRedirectTarget, safeRedirectTarget } from "@/lib/redirect";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 export function Login() {
@@ -24,7 +24,7 @@ export function Login() {
 
   useEffect(() => {
     if (!ready || !profileReady || !user || !profile) return;
-    navigate(next ?? (profile.is_admin ? "/admin" : profile.role === "institution" ? "/inst" : "/home"), { replace: true });
+    navigate(loginRedirectTarget(profile.role, profile.is_admin === true, next), { replace: true });
   }, [ready, profileReady, user, profile, next, navigate]);
 
   const submit = async () => {
@@ -41,7 +41,7 @@ export function Login() {
       setError(err);
       return;
     }
-    navigate(next ?? (isAdmin ? "/admin" : role === "institution" ? "/inst" : "/home"), { replace: true });
+    navigate(loginRedirectTarget(role, isAdmin, next), { replace: true });
   };
 
   const requestReset = async () => {

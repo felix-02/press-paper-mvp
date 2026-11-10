@@ -256,10 +256,14 @@ select:-webkit-autofill {
   color: var(--text-faint);
 }
 
-/* Keep overflowing pages and widgets visibly scrollable in every browser. */
-* {
-  scrollbar-width: auto;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+/* Chromium/WebKit keep the persistent custom bars below. Firefox uses the
+   standard properties; setting scrollbar-color in Chromium hides those bars
+   behind the operating system's auto-hiding overlay scrollbars. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
 }
 
 *::-webkit-scrollbar {
@@ -1987,14 +1991,20 @@ select:-webkit-autofill {
 
 .pp-prelaunch-hero-copy {
   order: 2;
+  min-width: 0;
+  container-type: inline-size;
 }
 
 .pp-prelaunch-hero-copy h1 {
   margin-bottom: 20px;
-  font-size: 2.6rem;
+  font-size: clamp(1.5rem, 10cqi, 3.9rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.02em;
+}
+
+.pp-prelaunch-hero-copy h1 > span {
+  white-space: nowrap;
 }
 
 .pp-prelaunch-hero-copy > p {
@@ -2049,13 +2059,13 @@ select:-webkit-autofill {
 .pp-prelaunch-hero-globe {
   order: 1;
   width: 100%;
-  max-width: 300px;
+  min-width: 0;
   aspect-ratio: 1;
-  margin-inline: auto;
+  margin: 0;
 }
 
-.pp-prelaunch-hero-globe canvas,
-.pp-contact-globe canvas {
+.pp-prelaunch-hero-globe canvas {
+  display: block;
   width: 100%;
   height: 100%;
   aspect-ratio: 1;
@@ -2555,7 +2565,6 @@ select:-webkit-autofill {
 }
 
 @media (min-width: 600px) {
-  .pp-prelaunch-hero-copy h1 { font-size: 3.4rem; }
   .pp-prelaunch-hero-copy > p { font-size: 1.05rem; }
   .pp-prelaunch-section-heading h2 { font-size: 2rem; }
   .pp-prelaunch-feature-card { padding: 28px; }
@@ -2569,7 +2578,6 @@ select:-webkit-autofill {
   .pp-prelaunch-container { padding-inline: 32px; }
   .pp-prelaunch-nav { gap: 16px; }
   .pp-prelaunch-hero { padding-top: 64px; padding-bottom: 96px; }
-  .pp-prelaunch-hero-globe { max-width: 400px; }
   .pp-prelaunch-section { padding-top: 80px; padding-bottom: 80px; }
   .pp-prelaunch-section-heading { margin-bottom: 48px; }
   .pp-prelaunch-feature-grid-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2582,27 +2590,13 @@ select:-webkit-autofill {
   .pp-prelaunch-footer-brand { grid-column: span 1; }
 }
 
-@media (min-width: 900px) {
-  .pp-prelaunch-hero-copy h1 { font-size: 3.9rem; }
-}
-
 @media (min-width: 1024px) {
   .pp-prelaunch-hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
   .pp-prelaunch-hero-copy { order: 1; }
-  .pp-prelaunch-hero-globe { order: 2; max-width: 460px; }
+  .pp-prelaunch-hero-globe { order: 2; width: calc(100% + 32px); margin-right: -32px; }
   .pp-prelaunch-feature-grid-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .pp-prelaunch-audiences { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .pp-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; }
-  .pp-contact-globe {
-    position: absolute;
-    bottom: -160px;
-    left: -96px;
-    width: 360px;
-    height: 360px;
-    display: block;
-    opacity: 0.5;
-    pointer-events: none;
-  }
 }
 
 @media (max-width: 520px) {

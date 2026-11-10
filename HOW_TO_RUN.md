@@ -41,7 +41,7 @@ Vite normally serves the app at `http://localhost:5173`. Browser routing require
 ### Global super admin
 
 1. Bootstrap one dedicated, confirmed platform account as described in [SUPABASE_SETUP.md](./SUPABASE_SETUP.md). Do not use an institution owner/member account.
-2. Sign in at `/admin/login`; successful authorization opens the standalone `/admin` console.
+2. Sign in at `/login`, the same form used by readers and institutions; super-admin authorization opens the standalone `/admin` console automatically.
 3. Review all users, institution owners, posts, activity, audit records, and invitations.
 4. Archive, ban, or recover a non-admin account with a required reason.
 5. Archive, delete, or recover a post with a required reason.

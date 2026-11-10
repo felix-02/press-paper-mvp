@@ -28,7 +28,7 @@ export function ProtectedRoute({ children, role, admin = false }: { children: Re
   if (!ready) return <FullScreenLoader />;
   if (!user) {
     const next = `${location.pathname}${location.search}${location.hash}`;
-    return <Navigate to={admin ? "/admin/login" : withNext("/login", next)} replace />;
+    return <Navigate to={withNext("/login", next)} replace />;
   }
 
   if (!profileReady) return <FullScreenLoader />;

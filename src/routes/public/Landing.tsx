@@ -81,7 +81,7 @@ export function Landing() {
         <section className="pp-prelaunch-container pp-prelaunch-hero">
           <div className="pp-prelaunch-hero-grid">
             <div className="pp-prelaunch-hero-copy pp-prelaunch-fade-up">
-              <h1>The Source of Truth<br />in a Digital World</h1>
+              <h1><span>The Source of Truth</span><br /><span>in a Digital World</span></h1>
               <p>
                 Presspaper is a global public information platform that centralises
                 and delivers verified updates from official institutional sources.
