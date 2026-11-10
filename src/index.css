@@ -22,8 +22,8 @@
   --shell-glow-2: rgba(255, 255, 255, 0.035);
   --accent-soft: rgba(255, 255, 255, 0.12);
   --danger-soft: rgba(255, 255, 255, 0.1);
-  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.32);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.5);
 
   /* Public marketing pages are pure black */
   --bg-public: #000000;
@@ -159,8 +159,8 @@
   --shadow-sm: 0 1px 2px rgba(15, 15, 15, 0.06), 0 6px 18px rgba(15, 15, 15, 0.035);
   --shadow-md: 0 12px 32px rgba(15, 15, 15, 0.1);
   --shadow-lg: 0 24px 64px rgba(15, 15, 15, 0.16);
-  --scrollbar-thumb: rgba(15, 15, 15, 0.12);
-  --scrollbar-thumb-hover: rgba(15, 15, 15, 0.22);
+  --scrollbar-thumb: rgba(15, 15, 15, 0.32);
+  --scrollbar-thumb-hover: rgba(15, 15, 15, 0.5);
   --overlay-surface: #ffffff;
   --overlay-backdrop: #f5f5f5;
 }
@@ -256,7 +256,12 @@ select:-webkit-autofill {
   color: var(--text-faint);
 }
 
-/* Custom scrollbars — dark, slim, unobtrusive */
+/* Keep overflowing pages and widgets visibly scrollable in every browser. */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -299,6 +304,10 @@ select:-webkit-autofill {
 
 /* -------------------------------- product shell ----------------------------- */
 .pp-app-shell {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
   color: var(--text);
   background:
     radial-gradient(circle at 88% -12%, var(--shell-glow-1), transparent 34%),
@@ -306,10 +315,29 @@ select:-webkit-autofill {
     var(--bg) !important;
 }
 
+.pp-app-body,
+.pp-app-main,
+.pp-admin-main {
+  min-width: 0;
+  min-height: 0;
+}
+
 .pp-app-main {
+  overflow: auto;
+  scrollbar-gutter: stable;
   background:
     radial-gradient(circle at 92% 0%, var(--shell-glow-1), transparent 30%),
     linear-gradient(145deg, color-mix(in srgb, var(--bg-elevated) 86%, transparent), var(--bg));
+}
+
+.pp-app-content {
+  min-width: 0;
+}
+
+.pp-responsive-grid > *,
+.pp-reader-main,
+.pp-reader-rail {
+  min-width: 0;
 }
 
 .pp-topbar {
@@ -339,10 +367,15 @@ select:-webkit-autofill {
 }
 
 .pp-sidebar-shell {
+  min-height: 0;
   background: var(--sidebar-bg) !important;
   backdrop-filter: blur(16px) saturate(125%);
   -webkit-backdrop-filter: blur(16px) saturate(125%);
   box-shadow: 12px 0 32px rgba(0, 0, 0, 0.035);
+}
+
+.pp-sidebar-shell > * {
+  flex-shrink: 0;
 }
 
 .pp-sidebar-status {
@@ -415,7 +448,9 @@ select:-webkit-autofill {
   right: 0;
   z-index: var(--z-popover);
   width: 290px;
-  overflow: hidden;
+  max-height: calc(100vh - var(--topbar-h) - 24px);
+  max-height: calc(100dvh - var(--topbar-h) - 24px);
+  overflow: auto;
   padding: 7px;
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
@@ -517,8 +552,6 @@ select:-webkit-autofill {
 
 /* -------------------------- platform admin shell -------------------------- */
 .pp-admin-shell {
-  height: 100dvh;
-  min-height: 100vh;
   overflow: hidden;
 }
 
@@ -654,6 +687,7 @@ select:-webkit-autofill {
   min-height: 0;
   flex: 1;
   overflow: auto;
+  scrollbar-gutter: stable;
   background:
     radial-gradient(circle at 82% -8%, var(--shell-glow-1), transparent 31%),
     linear-gradient(150deg, color-mix(in srgb, var(--bg-elevated) 80%, transparent), var(--bg));
@@ -1021,7 +1055,8 @@ select:-webkit-autofill {
   }
 
   .pp-app-shell {
-    height: 100dvh !important;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .pp-sidebar {
@@ -1031,7 +1066,6 @@ select:-webkit-autofill {
   .pp-app-content {
     padding: 18px 14px 92px !important;
     width: 100%;
-    overflow-x: hidden;
   }
 
   .pp-reader-layout {
@@ -1058,14 +1092,6 @@ select:-webkit-autofill {
   .pp-feature-grid,
   .pp-source-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .pp-release-table {
-    overflow-x: auto !important;
-  }
-
-  .pp-release-table > div {
-    min-width: 850px;
   }
 
   .pp-auth-brand-panel {
@@ -1358,6 +1384,37 @@ select:-webkit-autofill {
   padding: 20px;
 }
 
+/* Data rows keep their columns while the widget scrolls within its page. */
+.pp-scroll-region,
+.pp-release-table {
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.pp-release-table > div {
+  min-width: 850px;
+}
+
+.pp-admin-data-row {
+  min-width: 800px;
+}
+
+.pp-admin-institution-row {
+  min-width: 1000px;
+}
+
+.pp-tabs {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.pp-tabs > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* Floating UI. Cards intentionally do not use backdrop-filter: that property
    creates a stacking context which can trap a child menu below later cards. */
 .pp-popover {
@@ -1375,6 +1432,11 @@ select:-webkit-autofill {
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--overlay-backdrop) !important;
+}
+
+.pp-modal-layer > .pp-modal-dialog {
+  /* Center short dialogs, but keep the top of tall dialogs reachable. */
+  margin-block: auto;
 }
 
 .pp-modal-dialog {

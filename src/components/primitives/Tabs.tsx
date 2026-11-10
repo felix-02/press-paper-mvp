@@ -14,7 +14,7 @@ export function Tabs<T extends string>({
   style?: React.CSSProperties;
 }) {
   return (
-    <div role="tablist" style={{ display: "flex", gap: 26, borderBottom: "1px solid var(--border)", ...style }}>
+    <div className="pp-tabs" role="tablist" style={{ display: "flex", gap: 26, borderBottom: "1px solid var(--border)", ...style }}>
       {tabs.map((tab) => {
         const selected = active === tab;
         return (

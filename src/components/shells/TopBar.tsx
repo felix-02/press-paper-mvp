@@ -253,7 +253,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                 borderRadius: "var(--r-lg)",
                 boxShadow: "var(--shadow-lg)",
                 padding: 8,
-                maxHeight: 440,
+                maxHeight: "min(440px, calc(100dvh - var(--topbar-h) - 24px))",
                 overflowY: "auto",
               }}
             >
@@ -411,7 +411,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
               }}
             >
               <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--border)", fontSize: 14, fontWeight: 700 }}>Notifications</div>
-              <div className="pp-divided-list" style={{ maxHeight: 420, overflowY: "auto" }}>
+              <div className="pp-divided-list" style={{ maxHeight: "min(420px, calc(100dvh - var(--topbar-h) - 80px))", overflowY: "auto" }}>
                 {notifications.length === 0 ? (
                   <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
                     You're all caught up. Follow institutions to get notified of new releases.

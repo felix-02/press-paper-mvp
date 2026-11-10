@@ -327,7 +327,7 @@ export function Releases() {
         </div>
       ) : !loadError ? (
         <>
-          <div className="pp-card pp-release-table" style={{ overflow: "hidden" }}>
+          <div className="pp-card pp-release-table" role="region" aria-label="Releases table" tabIndex={0}>
             <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 14, padding: "13px 18px", background: "var(--surface-2)" }}>
               <HeaderCell>Release</HeaderCell>
               <HeaderCell>Type</HeaderCell>

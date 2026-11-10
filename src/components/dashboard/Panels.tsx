@@ -21,7 +21,7 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 22, gap: 16 }}>
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", marginBottom: 22, gap: 16 }}>
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0" }}>{title}</h1>
         {subtitle && (
@@ -48,7 +48,7 @@ export function Panel({
   bodyStyle?: React.CSSProperties;
 }) {
   return (
-    <section className="pp-card" style={{ display: "flex", flexDirection: "column", ...style }}>
+    <section className="pp-card" style={{ display: "flex", flexDirection: "column", minWidth: 0, ...style }}>
       {(title || action) && (
         <div
           style={{
@@ -63,7 +63,7 @@ export function Panel({
           {action}
         </div>
       )}
-      <div style={{ padding: 18, ...bodyStyle }}>{children}</div>
+      <div style={{ minWidth: 0, padding: 18, ...bodyStyle }}>{children}</div>
     </section>
   );
 }

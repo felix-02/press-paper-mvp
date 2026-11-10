@@ -233,8 +233,8 @@ export function Profile() {
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.18)" }} />
         </div>
         <div style={{ padding: "0 24px 22px" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -34 }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
+          <div className="pp-profile-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -34 }}>
+            <div className="pp-profile-identity" style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
               <div style={{ borderRadius: 18, border: "4px solid var(--surface-1)", lineHeight: 0 }}>
                 <InstitutionMark institution={markedInstitution} size={80} shape="square" />
               </div>
@@ -262,7 +262,7 @@ export function Profile() {
               </div>
             </div>
             {canEditProfile && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              <div className="pp-profile-actions" style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                 <label className="pp-btn pp-btn-outline" style={{ cursor: "pointer" }}>
                   {uploadingLogo ? <InlineSpinner /> : <Upload size={14} />} {uploadingLogo ? "Uploading…" : "Update logo"}
                   <input
