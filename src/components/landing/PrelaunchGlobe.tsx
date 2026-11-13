@@ -5,11 +5,13 @@ type PrelaunchGlobeProps = {
   dark?: boolean;
   className?: string;
   size?: number;
+  scale?: number;
+  mobileScale?: number;
   decorative?: boolean;
 };
 
 /** Shared rotating WebGL globe used across all public-facing pages. */
-export function PrelaunchGlobe({ dark = true, className = "", size, decorative = false }: PrelaunchGlobeProps) {
+export function PrelaunchGlobe({ dark = true, className = "", size, scale = 1, mobileScale = scale, decorative = false }: PrelaunchGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -18,9 +20,11 @@ export function PrelaunchGlobe({ dark = true, className = "", size, decorative =
 
     let phi = 0;
     let width = 0;
+    let renderScale = scale;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const resize = () => {
       width = Math.max(1, canvas.offsetWidth);
+      renderScale = window.matchMedia("(min-width: 1024px)").matches ? scale : mobileScale;
     };
 
     window.addEventListener("resize", resize);
@@ -32,6 +36,7 @@ export function PrelaunchGlobe({ dark = true, className = "", size, decorative =
       height: width * 2,
       phi: 0,
       theta: 0.18,
+      scale: renderScale,
       dark: dark ? 1 : 0,
       diffuse: dark ? 1.2 : 1.6,
       mapSamples: 17000,
@@ -52,6 +57,7 @@ export function PrelaunchGlobe({ dark = true, className = "", size, decorative =
         if (!reduceMotion) phi += 0.0035;
         state.width = width * 2;
         state.height = width * 2;
+        state.scale = renderScale;
       },
     });
 
@@ -64,7 +70,7 @@ export function PrelaunchGlobe({ dark = true, className = "", size, decorative =
       globe.destroy();
       window.removeEventListener("resize", resize);
     };
-  }, [dark]);
+  }, [dark, scale, mobileScale]);
 
   return (
     <canvas

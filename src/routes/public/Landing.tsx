@@ -60,7 +60,7 @@ function SectionHeading({ eyebrow, children }: { eyebrow: string; children: Reac
 function FeatureCard({ icon: Icon, title, description }: Feature) {
   return (
     <article className="pp-prelaunch-feature-card">
-      <Icon size={26} strokeWidth={1.6} />
+      <span className="pp-prelaunch-feature-icon"><Icon size={26} strokeWidth={1.6} /></span>
       <h3>{title}</h3>
       <p>{description}</p>
     </article>
@@ -92,7 +92,7 @@ export function Landing() {
               </div>
             </div>
             <div className="pp-prelaunch-hero-globe">
-              <PrelaunchGlobe dark={resolvedTheme === "dark"} />
+              <PrelaunchGlobe dark={resolvedTheme === "dark"} scale={1.25} mobileScale={1} />
             </div>
           </div>
         </section>
