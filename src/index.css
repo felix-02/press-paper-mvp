@@ -1847,6 +1847,7 @@ select:-webkit-autofill {
   --text: var(--pl-text);
   --blue: var(--pl-text);
   min-height: 100vh;
+  overflow-x: clip;
   color: var(--pl-text);
   color-scheme: dark;
   background: var(--pl-bg);
@@ -1914,7 +1915,7 @@ select:-webkit-autofill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 8px;
+  padding: 6px 8px;
   border-bottom: 2px solid transparent;
   color: var(--pl-secondary);
   font-size: 14px;
@@ -2158,7 +2159,6 @@ select:-webkit-autofill {
 .pp-prelaunch-hero-copy {
   order: 2;
   min-width: 0;
-  container-type: inline-size;
   text-align: center;
 }
 
@@ -2184,6 +2184,8 @@ select:-webkit-autofill {
 }
 
 .pp-prelaunch-auth-actions {
+  max-width: 480px;
+  margin-inline: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2793,13 +2795,14 @@ select:-webkit-autofill {
 @media (min-width: 1024px) {
   .pp-prelaunch-hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
   .pp-prelaunch-hero-copy { order: 1; text-align: left; }
-  .pp-prelaunch-hero-copy h1 { font-size: clamp(1.5rem, 10cqi, 3.9rem); }
-  .pp-prelaunch-hero-copy h1 > span { white-space: nowrap; }
-  .pp-prelaunch-hero-copy > p { margin-inline: 0; }
   .pp-prelaunch-auth-actions { justify-content: flex-start; }
-  .pp-prelaunch-hero-globe { order: 2; width: calc(100% + 32px); max-width: none; margin-inline: 0 -32px; }
-  .pp-prelaunch-hero-globe canvas { display: block; transform: none; }
+  .pp-prelaunch-hero-globe { order: 2; max-width: 460px; margin-inline: auto 0; }
   .pp-prelaunch-feature-grid-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .pp-prelaunch-audiences { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .pp-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; }
+}
+
+@media (min-width: 1200px) {
+  .pp-prelaunch-hero-copy > p,
+  .pp-prelaunch-auth-actions { margin-inline: 0; }
 }

@@ -92,7 +92,7 @@ export function Landing() {
               </div>
             </div>
             <div className="pp-prelaunch-hero-globe">
-              <PrelaunchGlobe dark={resolvedTheme === "dark"} scale={1.25} mobileScale={1} />
+              <PrelaunchGlobe dark={resolvedTheme === "dark"} />
             </div>
           </div>
         </section>
