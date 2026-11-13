@@ -27,7 +27,7 @@ export function PrelaunchHeader({ theme, onToggleTheme }: { theme: MarketingThem
     if (!menuOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const desktop = window.matchMedia("(min-width: 768px)");
+    const desktop = window.matchMedia("(min-width: 900px)");
     const closeOnDesktop = () => {
       if (desktop.matches) setMenuOpen(false);
     };
@@ -42,6 +42,7 @@ export function PrelaunchHeader({ theme, onToggleTheme }: { theme: MarketingThem
   const closeMenu = () => setMenuOpen(false);
 
   return (
+    <>
     <header className="pp-prelaunch-header">
       <div className="pp-prelaunch-container pp-prelaunch-header-inner">
         <Link to="/" className="pp-prelaunch-wordmark">Presspaper</Link>
@@ -67,9 +68,11 @@ export function PrelaunchHeader({ theme, onToggleTheme }: { theme: MarketingThem
           aria-controls={drawerId}
           onClick={() => setMenuOpen(true)}
         >
-          <Menu size={24} />
+          <Menu size={22} />
         </button>
       </div>
+    </header>
+      {/* Keep the modal outside the header's backdrop-filter paint context. */}
       <dialog
         ref={drawerRef}
         id={drawerId}
@@ -99,23 +102,26 @@ export function PrelaunchHeader({ theme, onToggleTheme }: { theme: MarketingThem
         <div className="pp-prelaunch-drawer-header">
           <Link to="/" className="pp-prelaunch-wordmark" onClick={closeMenu}>Presspaper</Link>
           <button type="button" className="pp-prelaunch-drawer-close" aria-label="Close navigation menu" onClick={closeMenu} autoFocus>
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
         <nav className="pp-prelaunch-drawer-nav" aria-label="Mobile navigation">
-          <Link to="/" aria-current={pathname === "/" ? "page" : undefined} onClick={closeMenu}>Home</Link>
           <Link to="/contact" aria-current={onContact ? "page" : undefined} onClick={closeMenu}>Contact</Link>
-          <Link to="/login" onClick={closeMenu}>Log in</Link>
-          <Link to="/signup" className="pp-prelaunch-drawer-primary" onClick={closeMenu}>Sign up</Link>
+          <div className="pp-prelaunch-drawer-auth">
+            <Link to="/login" onClick={closeMenu}>Log in</Link>
+            <Link to="/signup" className="pp-prelaunch-drawer-primary" onClick={closeMenu}>Sign up</Link>
+          </div>
+          <hr className="pp-prelaunch-drawer-divider" />
+          <div className="pp-prelaunch-drawer-appearance">
+            <span>Appearance</span>
+            <button type="button" onClick={onToggleTheme} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+          </div>
         </nav>
-        <div className="pp-prelaunch-drawer-appearance">
-          <button type="button" onClick={onToggleTheme} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-          </button>
-        </div>
       </dialog>
-    </header>
+    </>
   );
 }
 
@@ -133,20 +139,20 @@ export function PrelaunchFooter() {
       <div className="pp-prelaunch-container pp-prelaunch-footer-main">
         <div className="pp-prelaunch-footer-grid">
           <div className="pp-prelaunch-footer-brand">
-            <strong>Presspaper</strong>
+            <div className="pp-prelaunch-footer-heading"><strong>Presspaper</strong></div>
             <p>Building the world&apos;s most trusted public information infrastructure.</p>
           </div>
           <div>
-            <h3>Company</h3>
+            <div className="pp-prelaunch-footer-heading"><h3>Company</h3></div>
             <Link to="/contact">Contact</Link>
           </div>
-          <div>
-            <h3>Legal</h3>
+          <div className="pp-prelaunch-footer-legal">
+            <div className="pp-prelaunch-footer-heading"><h3>Legal</h3></div>
             <a href="#">Privacy Policy</a>
             <a href="#">Cookie Policy</a>
           </div>
           <div>
-            <h3>Follow Us</h3>
+            <div className="pp-prelaunch-footer-heading"><h3>Follow Us</h3></div>
             <div className="pp-prelaunch-socials">
               {SOCIALS.map(({ icon: Icon, label, href }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
