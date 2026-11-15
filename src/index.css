@@ -1098,19 +1098,6 @@ select:-webkit-autofill {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .pp-auth-brand-panel {
-    display: none !important;
-  }
-
-  .pp-auth-split > div:last-child {
-    min-width: 0;
-    padding: 84px 18px 32px !important;
-  }
-
-  .pp-auth-mobile-logo {
-    display: block !important;
-  }
-
   .pp-release-card-body,
   .pp-saved-card {
     flex-direction: column !important;
@@ -1648,9 +1635,32 @@ select:-webkit-autofill {
   text-decoration-color: var(--text-muted);
 }
 
-/* Mobile-only logo on auth screens (the brand panel is hidden there) */
-.pp-auth-mobile-logo {
-  display: none;
+/* Centered auth pages grow naturally when the form exceeds the viewport. */
+.pp-auth-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 96px 28px;
+  background: #000;
+}
+
+.pp-auth-logo {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+}
+
+.pp-auth-content {
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .pp-auth-page { padding-inline: 20px; }
+  .pp-auth-logo { left: 20px; }
 }
 
 /* Landing page */

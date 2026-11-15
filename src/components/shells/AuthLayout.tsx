@@ -1,36 +1,15 @@
 import { useId, useState, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
-import { PrelaunchGlobe } from "@/components/landing/PrelaunchGlobe";
 
-/**
- * Shared frame for the auth screens: brand panel on the left, form on the
- * right. Login and sign-up use the same layout so switching between them
- * feels like flipping a card, not landing on a different site.
- */
-export function AuthLayout({ headline, sub, children }: { headline: ReactNode; sub: string; children: ReactNode }) {
+/** Shared, centered frame for login and sign-up. */
+export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="pp-auth-split" style={{ background: "#000", minHeight: "100vh", display: "flex" }}>
-      <div
-        className="pp-auth-brand-panel"
-        style={{ width: "44%", borderRight: "1px solid var(--border-faint)", padding: "40px 48px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}
-      >
+    <div className="pp-auth-page">
+      <div className="pp-auth-logo">
         <Logo size={20} to="/" />
-        <div style={{ display: "grid", placeItems: "center", flex: 1 }}>
-          <PrelaunchGlobe size={400} decorative />
-        </div>
-        <div>
-          <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0", lineHeight: 1.25 }}>{headline}</h2>
-          <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 360, lineHeight: 1.6 }}>{sub}</p>
-        </div>
       </div>
-
-      <div style={{ flex: 1, display: "grid", placeItems: "center", padding: "40px 28px", overflowY: "auto", position: "relative" }}>
-        <span className="pp-auth-mobile-logo" style={{ position: "absolute", top: 24, left: 22 }}>
-          <Logo size={19} to="/" />
-        </span>
-        <div style={{ width: "100%", maxWidth: 420 }}>{children}</div>
-      </div>
+      <main className="pp-auth-content">{children}</main>
     </div>
   );
 }
