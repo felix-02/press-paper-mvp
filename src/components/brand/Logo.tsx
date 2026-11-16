@@ -23,33 +23,10 @@ export function Logo({
         userSelect: "none",
       }}
     >
-      <svg
-        width={size * 1.05}
-        height={size * 1.05}
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden
-      >
-        <rect
-          x="3"
-          y="3"
-          width="18"
-          height="18"
-          rx="5"
-          fill={onLight ? "#0a0a0a" : "var(--text)"}
-        />
-        <path
-          d="M8 7.5h4.6a3.2 3.2 0 0 1 0 6.4H10.4V17"
-          stroke={onLight ? "#fff" : "#0a0a0a"}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
       <span
         style={{
           fontSize: size,
-          fontWeight: 600,
+          fontWeight: 800,
           letterSpacing: "0",
           color,
         }}

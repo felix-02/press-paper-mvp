@@ -2056,6 +2056,7 @@ select:-webkit-autofill {
 
 .pp-prelaunch-drawer-header .pp-prelaunch-wordmark {
   font-size: 1.15rem;
+  outline: none;
 }
 
 .pp-prelaunch-drawer-nav {
