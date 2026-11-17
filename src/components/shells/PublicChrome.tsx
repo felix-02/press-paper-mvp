@@ -27,22 +27,37 @@ export function PublicHeader() {
         }}
       >
         <Logo size={20} to="/" />
-        <nav className="pp-public-nav" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <nav
+          className="pp-public-nav"
+          style={{ display: "flex", alignItems: "center", gap: 8 }}
+        >
           <Link
             className="pp-public-secondary"
             to="/sources"
-            style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
+            style={{
+              fontSize: 14,
+              color: "var(--text-secondary)",
+              padding: "8px 12px",
+            }}
           >
             Explore sources
           </Link>
           <a
             className="pp-public-secondary"
-            href="mailto:hello@presspaper.ai?subject=Institution%20access%20request"
-            style={{ fontSize: 14, color: "var(--text-secondary)", padding: "8px 12px" }}
+            href="mailto:info@presspaper.ai?subject=Institution%20access%20request"
+            style={{
+              fontSize: 14,
+              color: "var(--text-secondary)",
+              padding: "8px 12px",
+            }}
           >
             For institutions
           </a>
-          <Link to="/login" className="pp-btn pp-btn-ghost" style={{ marginLeft: 6 }}>
+          <Link
+            to="/login"
+            className="pp-btn pp-btn-ghost"
+            style={{ marginLeft: 6 }}
+          >
             Log in
           </Link>
           <Link to="/signup" className="pp-btn pp-btn-primary">
@@ -54,7 +69,10 @@ export function PublicHeader() {
   );
 }
 
-const FOOTER_COLS: { title: string; links: { label: string; to?: string; href?: string }[] }[] = [
+const FOOTER_COLS: {
+  title: string;
+  links: { label: string; to?: string; href?: string }[];
+}[] = [
   {
     title: "Platform",
     links: [
@@ -67,8 +85,11 @@ const FOOTER_COLS: { title: string; links: { label: string; to?: string; href?: 
     title: "Support",
     links: [
       { label: "Help Centre", to: "/help" },
-      { label: "Institution access", href: "mailto:hello@presspaper.ai?subject=Institution%20access%20request" },
-      { label: "Contact", href: "mailto:hello@presspaper.ai" },
+      {
+        label: "Institution access",
+        href: "mailto:info@presspaper.ai?subject=Institution%20access%20request",
+      },
+      { label: "Contact", href: "mailto:info@presspaper.ai" },
     ],
   },
 ];
@@ -76,8 +97,12 @@ const FOOTER_COLS: { title: string; links: { label: string; to?: string; href?: 
 /** Footer for the public pages with only routes and contact actions that work. */
 export function PublicFooter() {
   return (
-    <footer style={{ borderTop: "1px solid var(--border-faint)", background: "#000" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 28px 28px" }}>
+    <footer
+      style={{ borderTop: "1px solid var(--border-faint)", background: "#000" }}
+    >
+      <div
+        style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 28px 28px" }}
+      >
         <div
           className="pp-footer-grid"
           style={{
@@ -116,12 +141,36 @@ export function PublicFooter() {
               >
                 {col.title}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {col.links.map((link) => link.to ? (
-                  <Link key={link.label} to={link.to} style={{ textAlign: "left", fontSize: 13.5, color: "var(--text-secondary)" }}>{link.label}</Link>
-                ) : (
-                  <a key={link.label} href={link.href} style={{ textAlign: "left", fontSize: 13.5, color: "var(--text-secondary)" }}>{link.label}</a>
-                ))}
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              >
+                {col.links.map((link) =>
+                  link.to ? (
+                    <Link
+                      key={link.label}
+                      to={link.to}
+                      style={{
+                        textAlign: "left",
+                        fontSize: 13.5,
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      style={{
+                        textAlign: "left",
+                        fontSize: 13.5,
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {link.label}
+                    </a>
+                  )
+                )}
               </div>
             </div>
           ))}
@@ -139,7 +188,9 @@ export function PublicFooter() {
             color: "var(--text-faint)",
           }}
         >
-          <span>© {new Date().getFullYear()} Presspaper. All rights reserved.</span>
+          <span>
+            © {new Date().getFullYear()} Presspaper. All rights reserved.
+          </span>
           <span>Verified public information.</span>
         </div>
       </div>

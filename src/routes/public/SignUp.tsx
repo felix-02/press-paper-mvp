@@ -182,7 +182,7 @@ export function SignUp() {
                 Are you an organisation? Institution accounts are invite-only to
                 protect against impersonation.{" "}
                 <a
-                  href="mailto:hello@presspaper.ai?subject=Institution%20access%20request"
+                  href="mailto:info@presspaper.ai?subject=Institution%20access%20request"
                   style={{ color: "var(--blue)" }}
                 >
                   Request access

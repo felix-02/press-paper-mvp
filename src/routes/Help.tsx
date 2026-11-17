@@ -41,12 +41,40 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", textAlign: "left", padding: "16px 18px", fontSize: 15, fontWeight: 600 }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          textAlign: "left",
+          padding: "16px 18px",
+          fontSize: 15,
+          fontWeight: 600,
+        }}
       >
         {q}
-        <ChevronDown size={18} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .18s", color: "var(--text-muted)", flexShrink: 0 }} />
+        <ChevronDown
+          size={18}
+          style={{
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform .18s",
+            color: "var(--text-muted)",
+            flexShrink: 0,
+          }}
+        />
       </button>
-      {open && <p style={{ padding: "0 18px 18px", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.65 }}>{a}</p>}
+      {open && (
+        <p
+          style={{
+            padding: "0 18px 18px",
+            fontSize: 14,
+            color: "var(--text-secondary)",
+            lineHeight: 1.65,
+          }}
+        >
+          {a}
+        </p>
+      )}
     </div>
   );
 }
@@ -59,17 +87,46 @@ export function Help() {
 
   const content = (
     <>
-      <button type="button" onClick={() => navigate(-1)} className="pp-link-muted" style={{ marginBottom: 16, fontSize: 13.5 }}>
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="pp-link-muted"
+        style={{ marginBottom: 16, fontSize: 13.5 }}
+      >
         <ArrowLeft size={15} /> Back
       </button>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-        <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 6,
+        }}
+      >
+        <span
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: "rgba(123, 123, 123, 0.12)",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
           <LifeBuoy size={22} color="var(--blue)" />
         </span>
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>Help Centre</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>
+          Help Centre
+        </h1>
       </div>
-      <p style={{ fontSize: 14.5, color: "var(--text-secondary)", marginBottom: 24 }}>
+      <p
+        style={{
+          fontSize: 14.5,
+          color: "var(--text-secondary)",
+          marginBottom: 24,
+        }}
+      >
         Answers to common questions about using Presspaper.
       </p>
 
@@ -79,12 +136,36 @@ export function Help() {
         ))}
       </div>
 
-      <div className="pp-card" style={{ padding: 22, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div
+        className="pp-card"
+        style={{
+          padding: 22,
+          marginTop: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <div style={{ fontSize: 15.5, fontWeight: 700 }}>Still need help?</div>
-          <div style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 3 }}>Our team usually replies within one business day.</div>
+          <div style={{ fontSize: 15.5, fontWeight: 700 }}>
+            Still need help?
+          </div>
+          <div
+            style={{
+              fontSize: 13.5,
+              color: "var(--text-secondary)",
+              marginTop: 3,
+            }}
+          >
+            Our team usually replies within one business day.
+          </div>
         </div>
-        <a href="mailto:hello@presspaper.ai?subject=Presspaper%20support" className="pp-btn pp-btn-primary">
+        <a
+          href="mailto:info@presspaper.ai?subject=Presspaper%20support"
+          className="pp-btn pp-btn-primary"
+        >
           <Mail size={15} /> Contact support
         </a>
       </div>
@@ -95,11 +176,24 @@ export function Help() {
     return (
       <div style={{ minHeight: "100vh", background: "#000" }}>
         <PublicHeader />
-        <main style={{ width: "100%", maxWidth: 816, margin: "0 auto", padding: "42px 28px 64px" }}>{content}</main>
+        <main
+          style={{
+            width: "100%",
+            maxWidth: 816,
+            margin: "0 auto",
+            padding: "42px 28px 64px",
+          }}
+        >
+          {content}
+        </main>
         <PublicFooter />
       </div>
     );
   }
 
-  return <AppShell kind={kind} maxWidth={760}>{content}</AppShell>;
+  return (
+    <AppShell kind={kind} maxWidth={760}>
+      {content}
+    </AppShell>
+  );
 }
