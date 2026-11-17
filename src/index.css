@@ -104,13 +104,15 @@
     Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Theme variables are scoped to authenticated shells. Public pages deliberately
-   keep their pure-black identity regardless of the saved workspace preference. */
-.pp-app-shell[data-theme="dark"] {
+/* Workspaces and auth pages share theme tokens. Marketing pages define their
+   own light and dark palette below. */
+.pp-app-shell[data-theme="dark"],
+.pp-auth-page[data-theme="dark"] {
   color-scheme: dark;
 }
 
-.pp-app-shell[data-theme="light"] {
+.pp-app-shell[data-theme="light"],
+.pp-auth-page[data-theme="light"] {
   color-scheme: light;
   --bg: #f5f5f5;
   --bg-elevated: #eeeeee;
@@ -535,12 +537,14 @@ select:-webkit-autofill {
   background: var(--danger-soft);
 }
 
-.pp-app-shell[data-theme="light"] .pp-btn-primary {
+.pp-app-shell[data-theme="light"] .pp-btn-primary,
+.pp-auth-page[data-theme="light"] .pp-btn-primary {
   color: #fff;
   background: #181818;
 }
 
-.pp-app-shell[data-theme="light"] .pp-btn-primary:hover {
+.pp-app-shell[data-theme="light"] .pp-btn-primary:hover,
+.pp-auth-page[data-theme="light"] .pp-btn-primary:hover {
   background: #282828;
 }
 
@@ -1643,8 +1647,12 @@ select:-webkit-autofill {
   display: grid;
   place-items: center;
   padding: 96px 28px;
-  background: #000;
+  color: var(--text);
+  background: var(--bg);
 }
+
+.pp-auth-page[data-theme="dark"] { --bg: #000000; }
+.pp-auth-page[data-theme="light"] { --bg: #ffffff; }
 
 .pp-auth-logo {
   position: absolute;

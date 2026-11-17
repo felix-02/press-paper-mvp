@@ -1,11 +1,18 @@
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { useTheme } from "@/lib/useTheme";
 
 /** Shared, centered frame for login and sign-up. */
 export function AuthLayout({ children }: { children: ReactNode }) {
+  const { resolvedTheme } = useTheme();
+
+  useEffect(() => {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "light" ? "#ffffff" : "#000000");
+  }, [resolvedTheme]);
+
   return (
-    <div className="pp-auth-page">
+    <div className="pp-auth-page" data-theme={resolvedTheme}>
       <div className="pp-auth-logo">
         <Logo size={22} to="/" />
       </div>
