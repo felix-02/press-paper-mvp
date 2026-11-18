@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { identifyUser, resetAnalytics, track } from "@/lib/analytics";
@@ -35,6 +35,12 @@ interface SignUpArgs {
   role: Role;
   fullName: string;
   emailRedirectTo?: string;
+}
+
+interface ProfileResult {
+  userId: string;
+  profile: Profile | null;
+  error: string | null;
 }
 
 interface AuthValue {
@@ -77,37 +83,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Tests run without a client; every runtime environment waits for Supabase.
   const [ready, setReady] = useState(!isSupabaseConfigured);
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileReady, setProfileReady] = useState(!isSupabaseConfigured);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileResult, setProfileResult] = useState<ProfileResult | null>(null);
   const profileRequest = useRef(0);
+  const userId = user?.id ?? null;
+  const currentProfile = profileResult?.userId === userId ? profileResult : null;
+  const profile = currentProfile?.profile ?? null;
+  const profileReady = ready && (!userId || currentProfile !== null);
+  const profileError = currentProfile?.error ?? null;
 
-  // Initial session + auth state subscription.
   useEffect(() => {
     if (!supabase) return;
-    let active = true;
-
-    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-      if (!active) return;
-      setUser(data.session?.user ?? null);
-      setReady(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUser = session?.user ?? null;
+      setUser((currentUser) => {
+        // Returning to the tab or rotating tokens can deliver a new copy of the same user.
+        if (
+          (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
+          && currentUser && nextUser
+          && currentUser.id === nextUser.id
+          && currentUser.email === nextUser.email
+          && currentUser.updated_at === nextUser.updated_at
+        ) {
+          return currentUser;
+        }
+        return nextUser;
+      });
+      if (event === "INITIAL_SESSION") setReady(true);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => {
-      active = false;
-      sub.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const loadProfile = useCallback(async (uid: string) => {
     if (!supabase) return;
     const request = ++profileRequest.current;
-    setProfileReady(false);
-    setProfileError(null);
+    setProfileResult(null);
     const { data, error } = await supabase
       .from("profiles")
       .select(
@@ -117,73 +127,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (request !== profileRequest.current) return;
     if (error) {
-      setProfile(null);
-      setProfileError("We couldn't load your account profile. Check your connection and try again.");
-      setProfileReady(true);
+      setProfileResult({
+        userId: uid,
+        profile: null,
+        error: "We couldn't load your account profile. Check your connection and try again.",
+      });
       return;
     }
     const p = (data as Profile) ?? null;
-    setProfile(p);
-    setProfileError(p ? null : "Your account profile is missing. Contact support before continuing.");
-    setProfileReady(true);
+    setProfileResult({
+      userId: uid,
+      profile: p,
+      error: p ? null : "Your account profile is missing. Contact support before continuing.",
+    });
     if (p) identifyUser(p.id, { role: p.role });
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user) await loadProfile(user.id);
-  }, [user, loadProfile]);
+    if (userId) await loadProfile(userId);
+  }, [userId, loadProfile]);
 
-  // Load the profile (role + institution) whenever the user changes.
   useEffect(() => {
-    if (!supabase || !user) {
+    if (!userId) {
       profileRequest.current += 1;
-      setProfile(null);
-      setProfileError(null);
-      setProfileReady(true);
+      setProfileResult(null);
       return;
     }
-    setProfile(null);
-    void loadProfile(user.id);
-  }, [user, loadProfile]);
+    void loadProfile(userId);
+  }, [userId, loadProfile]);
 
   // Reflect administrator moderation while the affected account is online.
   // Database policies enforce the block immediately; realtime updates the UI.
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!supabase || !userId) return;
     const client = supabase;
     const channel = client
-      .channel(`profile-status:${user.id}`)
+      .channel(`profile-status:${userId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
-        () => void loadProfile(user.id)
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
+        () => void loadProfile(userId)
       )
       .subscribe();
     return () => {
       void client.removeChannel(channel);
     };
-  }, [user, loadProfile]);
+  }, [userId, loadProfile]);
 
   // Hydrate the in-memory store (saved + followed) from the database so the rest
   // of the app — which reads the store — reflects this user's real data.
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
     const store = useAppStore.getState();
-    if (!user) {
+    if (!userId) {
       store.setUserId(null);
       store.hydrate({ saved: [], followed: [] });
       store.setWatchlistData([], {});
       return;
     }
     let active = true;
-    store.setUserId(user.id);
+    store.setUserId(userId);
     store.hydrate({ saved: [], followed: [] });
     store.setWatchlistData([], {});
     Promise.all([
-      supabase.from("saved_releases").select("release_id").eq("user_id", user.id),
-      supabase.from("follows").select("institution_slug").eq("follower", user.id),
+      supabase.from("saved_releases").select("release_id").eq("user_id", userId),
+      supabase.from("follows").select("institution_slug").eq("follower", userId),
     ]).then(([s, f]) => {
-      if (!active || useAppStore.getState().userId !== user.id) return;
+      if (!active || useAppStore.getState().userId !== userId) return;
       if (s.error || f.error) {
         useAppStore.getState().pushToast({ title: "Couldn't load your saved items", description: "Refresh the page to try again.", variant: "error" });
         return;
@@ -195,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [userId]);
 
   const signUp: AuthValue["signUp"] = async ({ email, password, role, fullName, emailRedirectTo }) => {
     if (!supabase) return { error: "Supabase is not configured.", needsConfirmation: false, role: null };
@@ -246,9 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     useAppStore.getState().reset();
     setUser(null);
-    setProfile(null);
-    setProfileError(null);
-    setProfileReady(true);
+    setProfileResult(null);
     resetAnalytics();
   };
 
