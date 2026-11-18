@@ -12,7 +12,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-Apply migrations through `0016_super_admin_moderation.sql`, then run:
+After applying migrations through `0019_release_files.sql`, run the app.
 
 ```bash
 npm install

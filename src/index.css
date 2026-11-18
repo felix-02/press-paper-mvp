@@ -1379,6 +1379,272 @@ select:-webkit-autofill {
   padding: 20px;
 }
 
+.pp-publish-form {
+  padding: clamp(16px, 2vw, 24px);
+  min-width: 0;
+}
+
+@media (min-width: 801px) {
+  .pp-publish-preview {
+    max-height: calc(100dvh - var(--topbar-h) - 16px);
+    overflow-y: auto;
+  }
+}
+
+.pp-publish-fields {
+  display: grid;
+  gap: 18px;
+}
+
+.pp-publish-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.pp-publish-label small {
+  text-align: end;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+.pp-publish-types,
+.pp-publish-file-actions,
+.pp-publish-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pp-publish-types button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.pp-publish-types button[aria-pressed="true"] {
+  border-color: var(--text-secondary);
+  color: var(--text);
+  background: var(--surface-1);
+}
+
+.pp-publish-types + .pp-input {
+  margin-top: 10px;
+}
+
+.pp-publish-category {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.pp-publish-category:focus-within {
+  border-color: var(--text-secondary);
+}
+
+.pp-publish-category input {
+  flex: 1 1 110px;
+  min-width: 0;
+  padding: 4px 2px;
+  outline: none;
+}
+
+.pp-publish-category-chip,
+.pp-release-categories li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.pp-release-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pp-publish-category-chip button {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+
+.pp-publish-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(125px, 100%), 1fr));
+  gap: 10px;
+}
+
+.pp-publish-media-item,
+.pp-release-file-info {
+  min-width: 0;
+}
+
+.pp-publish-thumbnail,
+.pp-release-gallery-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.pp-publish-thumbnail { cursor: grab; }
+
+.pp-publish-thumbnail :is(img, video),
+.pp-release-gallery-frame :is(img, video) {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  filter: none;
+}
+
+.pp-release-gallery-frame video {
+  background: #000;
+  object-fit: contain;
+}
+
+.pp-publish-thumbnail > button,
+.pp-publish-cover-badge,
+.pp-gallery-count,
+.pp-gallery-prev,
+.pp-gallery-next {
+  position: absolute;
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  color: var(--text);
+}
+
+.pp-publish-cover-badge,
+.pp-gallery-count {
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 650;
+  left: 6px;
+}
+
+.pp-publish-cover-badge { top: 6px; }
+.pp-publish-thumbnail > button { right: 4px; top: 4px; }
+.pp-publish-video-icon { position: absolute; inset: 0; margin: auto; color: white; filter: drop-shadow(0 1px 4px black); }
+.pp-gallery-count { bottom: 7px; }
+
+.pp-file-icon-button,
+.pp-gallery-prev,
+.pp-gallery-next {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+}
+
+.pp-file-icon-button:hover { background: var(--surface-3); border-radius: var(--r-pill); }
+.pp-file-icon-button:disabled { opacity: .35; cursor: default; }
+.pp-gallery-prev, .pp-gallery-next { top: 50%; transform: translateY(-50%); }
+.pp-gallery-prev { left: 8px; }
+.pp-gallery-next { right: 8px; }
+
+.pp-gallery-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.pp-gallery-dots button { display: grid; place-items: center; width: 20px; height: 20px; }
+.pp-gallery-dots button::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.pp-gallery-dots button[aria-pressed="true"]::after { background: var(--text); }
+
+.pp-release-gallery-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.pp-publish-media-tools { display: flex; align-items: center; gap: 2px; }
+.pp-publish-media-tools > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.pp-input.pp-publish-alt { padding: 5px 8px; font-size: 11.5px; }
+
+.pp-publish-file-actions,
+.pp-publish-hint,
+.pp-publish-transcript {
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.pp-publish-file-actions .pp-btn,
+.pp-publish-category .pp-btn { padding: 5px 9px; font-size: 12px; }
+.pp-publish-hint { display: flex; align-items: center; gap: 4px; }
+.pp-publish-transcript summary { cursor: pointer; }
+.pp-publish-transcript .pp-input { margin-top: 6px; }
+.pp-publish-actions { margin-top: 24px; }
+
+.pp-release-files {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.pp-release-file {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 9px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pp-release-file + .pp-release-file { border-top: 1px solid var(--border); }
+.pp-release-file > svg { flex-shrink: 0; margin-top: 3px; }
+.pp-release-file-info { flex: 1; }
+.pp-release-file-info strong { display: block; overflow-wrap: anywhere; color: var(--text); }
+.pp-release-file-info > span { display: block; color: var(--text-muted); font-size: 11px; }
+.pp-release-file-info audio { display: block; width: 100%; height: 36px; margin-top: 5px; }
+.pp-release-file-info details { margin-top: 6px; }
+.pp-release-file-info summary { cursor: pointer; }
+.pp-release-file-info details p { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pp-file-release-title { margin-top: 10px; font-size: 17px; font-weight: 600; }
+.pp-file-release-title button { padding: 0; text-align: left; }
+.pp-file-release-summary { margin-top: 7px; color: var(--text-secondary); font-size: 13.5px; line-height: 1.55; }
+
 /* Data rows keep their columns while the widget scrolls within its page. */
 .pp-scroll-region,
 .pp-release-table {

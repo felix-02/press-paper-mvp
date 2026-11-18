@@ -1,6 +1,6 @@
 // Domain types shared by the data-backed Presspaper application.
 
-export type ReleaseType =
+export type StandardReleaseType =
   | "Announcement"
   | "Consultation"
   | "Publication"
@@ -52,7 +52,7 @@ export interface Release {
   institutionName?: string;
   /** Verification state supplied by the database release view. */
   institutionVerified?: boolean;
-  type: ReleaseType;
+  type: string;
   status: ReleaseStatus;
   heading: string;
   subheading: string;
@@ -77,14 +77,21 @@ export interface Release {
   /** Timestamp used for ordering and realtime buffering. */
   createdAt?: number;
   /** Supporting documents displayed with the release. */
-  attachments?: ReleaseAttachment[];
+  extras?: ReleaseExtras;
 }
 
-export interface ReleaseAttachment {
-  id: string;
+export interface ReleaseAsset {
+  path: string;
   name: string;
-  size: string;
-  format: "PDF" | "DOCX" | "XLSX";
+  kind: "image" | "video" | "audio" | "document";
+  bytes: number;
+  alt?: string;
+  transcript?: string;
+}
+
+export interface ReleaseExtras {
+  categories: string[];
+  files: ReleaseAsset[];
 }
 
 export interface Comment {

@@ -1,5 +1,6 @@
 import type { ReleaseRow } from "@/lib/supabase";
-import type { Release, MediaScene, ReleaseType, ReleaseStatus, Institution } from "@/types";
+import type { Release, MediaScene, ReleaseStatus, Institution } from "@/types";
+import { readReleaseExtras } from "@/lib/releaseAssets";
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -68,12 +69,13 @@ export function rowToRelease(row: ReleaseRow): Release {
   const attribution = row as ReleaseRow & { institution_verified?: boolean | null };
   const stamp = row.published_at ?? row.created_at;
   const fresh = Date.now() - new Date(row.created_at).getTime() < 5 * 60 * 1000;
+  const extras = readReleaseExtras(row.extras, row.institution_slug, row.id);
   return {
     id: row.id,
     institutionSlug: row.institution_slug,
     institutionName: row.institution_name?.trim() || undefined,
     institutionVerified: attribution.institution_verified === true,
-    type: row.type as ReleaseType,
+    type: row.type,
     status: row.status as ReleaseStatus,
     heading: row.heading,
     subheading: row.subheading ?? "",
@@ -81,7 +83,8 @@ export function rowToRelease(row: ReleaseRow): Release {
     publishedDate: row.status === "Published" ? dateLabel(stamp) : row.status,
     publishedTime: timeLabel(row.published_at),
     scene: row.scene as MediaScene,
-    tags: inferredTags(row),
+    tags: extras?.categories ?? inferredTags(row),
+    extras: extras ?? undefined,
     views: formatCount(row.views ?? 0),
     comments: formatCount(row.comments_count ?? 0),
     engagement: formatCount((row.views ?? 0) + (row.comments_count ?? 0)),

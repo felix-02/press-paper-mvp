@@ -5,6 +5,7 @@ const sql = readFileSync(new URL("../supabase/migrations/0015_security_hardening
 const moderationSql = readFileSync(new URL("../supabase/migrations/0016_super_admin_moderation.sql", import.meta.url), "utf8");
 const inviteHardeningSql = readFileSync(new URL("../supabase/migrations/0017_invite_hardening.sql", import.meta.url), "utf8");
 const engagementSql = readFileSync(new URL("../supabase/migrations/0018_engagement_and_catalogue.sql", import.meta.url), "utf8");
+const releaseFilesSql = readFileSync(new URL("../supabase/migrations/0019_release_files.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -37,7 +38,8 @@ describe("security migration", () => {
     expect(aggregate).toContain(sql);
     expect(aggregate).toContain(moderationSql);
     expect(aggregate).toContain(inviteHardeningSql);
-    expect(aggregate.endsWith(engagementSql)).toBe(true);
+    expect(aggregate).toContain(engagementSql);
+    expect(aggregate.endsWith(releaseFilesSql)).toBe(true);
   });
 });
 

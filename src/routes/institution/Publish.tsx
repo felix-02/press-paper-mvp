@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, FileText, Image as ImageIcon, Check, Lock, ShieldCheck, Upload } from "lucide-react";
+import { Send, FileText, Image as ImageIcon, Lock, Plus, ShieldCheck } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { PageHeader } from "@/components/dashboard/Panels";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
-import { MediaTile } from "@/components/media/MediaTile";
+import { ReleaseCategories, ReleaseFileList, ReleaseGallery, useReleaseFileUrls } from "@/components/release/ReleaseFiles";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { InlineSpinner, Verified } from "@/components/primitives/Bits";
-import type { Institution, MediaScene, ReleaseStatus, ReleaseType } from "@/types";
+import type { Institution, ReleaseAsset, ReleaseStatus } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, type ReleaseRow } from "@/lib/supabase";
 import { useAuth } from "@/auth/AuthProvider";
@@ -16,9 +16,11 @@ import { RichTextEditor } from "@/components/common/RichTextEditor";
 import { track } from "@/lib/analytics";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { assetFromFile, fileExtension, fileGroups, readReleaseExtras, releaseFileTypes, RELEASE_FILES_BUCKET, type EditableAsset, type FileGroup } from "@/lib/releaseAssets";
+import { CategoryField, FieldLabel, PublishFiles } from "./PublishFields";
 
-const TYPES: ReleaseType[] = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
-const SCENES: { scene: MediaScene; label: string }[] = [
+const TYPES = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
+const SCENES = [
   { scene: "wind-farm", label: "Renewables" },
   { scene: "parliament", label: "Government" },
   { scene: "cardiff-bay", label: "Cardiff Bay" },
@@ -26,23 +28,6 @@ const SCENES: { scene: MediaScene; label: string }[] = [
   { scene: "town", label: "Community" },
   { scene: "skyline", label: "City" },
 ];
-
-function isReleaseType(value: string): value is ReleaseType {
-  return value.trim().length > 0;
-}
-
-function isMediaScene(value: string): value is MediaScene {
-  return SCENES.some(({ scene }) => scene === value) || /^https:\/\//.test(value);
-}
-
-function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 7 }}>
-      <span style={{ fontSize: 13.5, fontWeight: 500 }}>{children}</span>
-      {hint && <span style={{ fontSize: 12, color: "var(--text-faint)" }}>{hint}</span>}
-    </div>
-  );
-}
 
 export function Publish() {
   const navigate = useNavigate();
@@ -64,8 +49,16 @@ export function Publish() {
   const [heading, setHeading] = useState("");
   const [subheading, setSubheading] = useState("");
   const [body, setBody] = useState("");
-  const [type, setType] = useState<ReleaseType>("Announcement");
-  const [scene, setScene] = useState<MediaScene>("wind-farm");
+  const [type, setType] = useState("Announcement");
+  const [customType, setCustomType] = useState(false);
+  const [scene, setScene] = useState("none");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [files, setFiles] = useState<EditableAsset[]>([]);
+  const [recording, setRecording] = useState(false);
+  const localUrls = useRef(new Set<string>());
+  const draftId = useRef<string | null>(null);
+  const uploaded = useRef(new Map<string, string>());
+  const urls = useReleaseFileUrls(files);
   const [originalPublishedAt, setOriginalPublishedAt] = useState<string | null>(null);
   const [loadingRelease, setLoadingRelease] = useState(Boolean(editingId));
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -77,7 +70,6 @@ export function Publish() {
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [dbTypes, setDbTypes] = useState<string[]>([]);
   const [platformCovers, setPlatformCovers] = useState<{ label: string; url: string }[]>([]);
-  const [uploading, setUploading] = useState(false);
 
   // Platform catalogue: release types + extra covers managed by the super admin.
   useEffect(() => {
@@ -92,36 +84,51 @@ export function Publish() {
     return () => { active = false; };
   }, []);
   const availableTypes = dbTypes.length > 0 ? dbTypes : TYPES;
+  const otherType = customType || !availableTypes.includes(type);
 
-  const uploadCover = async (file: File) => {
-    if (!supabase || !org.slug) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 3 * 1024 * 1024) {
-      pushToast({ title: "Use a PNG, JPEG or WebP under 3 MB", variant: "info" });
-      return;
+  const fileError = (description: string) => pushToast({ title: "Couldn't add file", description, variant: "error" });
+  const addFiles = (group: FileGroup, items: File[]) => {
+    const config = fileGroups[group];
+    let available = config.limit - files.filter(file => config.kinds.includes(file.kind)).length;
+    const added: EditableAsset[] = [];
+    for (const file of items) {
+      if (available <= 0) { fileError(`You can add up to ${config.limit} files in this section.`); break; }
+      try {
+        const asset = assetFromFile(file, group);
+        if (asset.localUrl) localUrls.current.add(asset.localUrl);
+        added.push(asset);
+        available--;
+      } catch (error) {
+        if (error instanceof Error) fileError(error.message);
+      }
     }
-    setUploading(true);
-    const path = `${org.slug}/cover-${Date.now()}.${file.type.split("/")[1]}`;
-    const { error } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000", upsert: false });
-    if (error) {
-      setUploading(false);
-      pushToast({ title: "Couldn't upload the cover", description: error.message, variant: "error" });
-      return;
-    }
-    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
-    setUploading(false);
-    if (data?.publicUrl) {
-      setScene(data.publicUrl as MediaScene);
-      pushToast({ title: "Cover uploaded", variant: "success" });
-    }
+    setFiles(current => [...current, ...added]);
   };
+  const removeFile = (path: string) => {
+    const url = files.find(file => file.path === path)?.localUrl;
+    if (url) { URL.revokeObjectURL(url); localUrls.current.delete(url); }
+    setFiles(current => current.filter(file => file.path !== path));
+  };
+  const moveMedia = (from: string, to: string) => setFiles(current => {
+    const media = current.filter(file => file.kind === "image" || file.kind === "video");
+    const fromIndex = media.findIndex(file => file.path === from);
+    const toIndex = media.findIndex(file => file.path === to);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return current;
+    media.splice(toIndex, 0, media.splice(fromIndex, 1)[0]);
+    return [...media, ...current.filter(file => file.kind !== "image" && file.kind !== "video")];
+  });
+  useEffect(() => {
+    const pending = localUrls.current;
+    return () => { pending.forEach(url => URL.revokeObjectURL(url)); pending.clear(); };
+  }, [editingId]);
 
   const headingRef = useRef<HTMLInputElement>(null);
   const subheadingRef = useRef<HTMLInputElement>(null);
 
   // Guard against losing unsaved work on refresh/close. In-app navigation is
   // still free — drafts save in one click and nothing here is destructive.
-  const snapshot = JSON.stringify([heading, subheading, body, type, scene]);
-  const dirty = !busy && !loadingRelease && snapshot !== savedSnapshot && Boolean(heading.trim() || subheading.trim() || body.replace(/<[^>]*>/g, "").trim());
+  const snapshot = JSON.stringify([heading, subheading, body, type, scene, categories, files]);
+  const dirty = !busy && !loadingRelease && snapshot !== savedSnapshot;
   useEffect(() => {
     if (!dirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -138,14 +145,19 @@ export function Publish() {
       setSubheading("");
       setBody("");
       setType("Announcement");
-      setScene("wind-farm");
+      setCustomType(false);
+      setScene("none");
+      setCategories([]);
+      setFiles([]);
+      draftId.current = null;
+      uploaded.current.clear();
       setOriginalPublishedAt(null);
       setHeadingError(false);
       setSubheadingError(false);
       setReviewing(false);
       setLoadingRelease(false);
       setLoadError(null);
-      setSavedSnapshot(JSON.stringify(["", "", "", "Announcement", "wind-farm"]));
+      setSavedSnapshot(JSON.stringify(["", "", "", "Announcement", "none", [], []]));
       return;
     }
     if (!profileReady || org.loading) {
@@ -178,15 +190,23 @@ export function Publish() {
         setHeading(row.heading);
         setSubheading(row.subheading ?? "");
         setBody(row.body ?? "");
-        setType(isReleaseType(row.type) ? row.type : "Announcement");
-        setScene(isMediaScene(row.scene) ? row.scene : "wind-farm");
+        const extras = readReleaseExtras(row.extras, row.institution_slug, row.id);
+        const savedType = row.type.trim() || "Announcement";
+        setType(savedType);
+        setCustomType(false);
+        setScene(row.scene || "none");
+        setCategories(extras?.categories ?? []);
+        setFiles(extras?.files ?? []);
+        uploaded.current.clear();
         setOriginalPublishedAt(row.published_at);
         setSavedSnapshot(JSON.stringify([
           row.heading,
           row.subheading ?? "",
           row.body ?? "",
-          isReleaseType(row.type) ? row.type : "Announcement",
-          isMediaScene(row.scene) ? row.scene : "wind-farm",
+          savedType,
+          row.scene || "none",
+          extras?.categories ?? [],
+          extras?.files ?? [],
         ]));
         setLoadingRelease(false);
       });
@@ -205,6 +225,11 @@ export function Publish() {
     }
     if (heading.trim().length > 200 || subheading.length > 250 || body.length > 200000) {
       pushToast({ title: "Release is too long", description: "Shorten the headline, summary, or body before saving.", variant: "info" });
+      return false;
+    }
+    if (!type.trim()) {
+      document.getElementById("publish-custom-type")?.focus();
+      pushToast({ title: "Choose or enter a release type", variant: "info" });
       return false;
     }
     return true;
@@ -238,13 +263,36 @@ export function Publish() {
       return null;
     }
 
+    const id = editingId ?? (draftId.current ??= crypto.randomUUID());
+    const storedFiles: ReleaseAsset[] = [];
+    const storage = supabase.storage.from(RELEASE_FILES_BUCKET);
+    for (const { file, path, kind, name, bytes, alt, transcript } of files) {
+      let storedPath = path;
+      if (file) {
+        const previous = uploaded.current.get(path);
+        if (previous) storedPath = previous;
+        else {
+          const extension = fileExtension(path)!;
+          storedPath = `${org.slug}/${id}/${crypto.randomUUID()}.${extension}`;
+          const { error } = await storage.upload(storedPath, file, { contentType: releaseFileTypes[extension][1], upsert: false });
+          if (error) {
+            pushToast({ title: "Couldn't upload file", description: `${name}: ${error.message}`, variant: "error" });
+            return null;
+          }
+          uploaded.current.set(path, storedPath);
+        }
+      }
+      storedFiles.push({ path: storedPath, kind, name, bytes, alt: alt?.trim() || undefined, transcript: transcript?.trim() || undefined });
+    }
+
     const content = {
-      type,
+      type: type.trim(),
       status,
       heading: heading.trim(),
       subheading: subheading.trim() || null,
       body: body.trim() || null,
       scene,
+      extras: { categories, files: storedFiles },
       published_at: status === "Published" ? (originalPublishedAt ?? new Date().toISOString()) : null,
     };
 
@@ -257,6 +305,7 @@ export function Publish() {
           .select("id")
           .maybeSingle()
       : await supabase.from("releases").insert({
+        id,
         owner: user.id,
         institution_slug: org.slug,
         institution_name: profile?.institution_name ?? null,
@@ -272,13 +321,19 @@ export function Publish() {
   };
 
   const submit = async (status: ReleaseStatus) => {
-    if (busy) return;
+    if (busy || recording) return;
     if (!requireHeading()) return;
     setBusyStatus(status);
-    const releaseId = await persist(status);
-    setBusyStatus(null);
+    let releaseId: string | null = null;
+    try {
+      releaseId = await persist(status);
+    } catch {
+      pushToast({ title: "Couldn't save release", description: "Check your connection and try again.", variant: "error" });
+    } finally {
+      setBusyStatus(null);
+    }
     if (!releaseId) return;
-    setSavedSnapshot(JSON.stringify([heading, subheading, body, type, scene]));
+    setSavedSnapshot(snapshot);
     track(status === "Published" ? "release_published" : "release_draft_saved", { releaseId, status, type });
     if (status === "Published") {
       pushToast({ title: "Release published", description: "It's now live in your organisation's releases.", variant: "success" });
@@ -371,10 +426,11 @@ export function Publish() {
 
       <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 24, alignItems: "start" }}>
         {/* form */}
-        <div className="pp-card" style={{ padding: 24 }}>
+        <fieldset className="pp-card pp-publish-form" disabled={busy}>
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint={heading.length > 150 ? `${heading.length}/200` : "Required"}>Heading</FieldLabel>
+            <FieldLabel hint={heading.length > 150 ? `${heading.length}/200` : "Required"}><label htmlFor="publish-heading">Heading</label></FieldLabel>
             <input
+              id="publish-heading"
               ref={headingRef}
               className="pp-input"
               placeholder="Write a clear, specific headline"
@@ -398,8 +454,9 @@ export function Publish() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <FieldLabel hint={subheading.length > 190 ? `${subheading.length}/250` : "Required to publish"}>Subheading</FieldLabel>
+            <FieldLabel hint={subheading.length > 190 ? `${subheading.length}/250` : "Required to publish"}><label htmlFor="publish-subheading">Subheading</label></FieldLabel>
             <input
+              id="publish-subheading"
               ref={subheadingRef}
               className="pp-input"
               placeholder="One or two sentences summarising the release"
@@ -426,103 +483,50 @@ export function Publish() {
             <RichTextEditor value={body} onChange={setBody} placeholder="Write the full release here…" />
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <FieldLabel>Release type</FieldLabel>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {availableTypes.map((t) => {
-                const active = type === t;
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setType(t as ReleaseType)}
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      padding: "8px 14px",
-                      borderRadius: "var(--r-pill)",
-                      border: `1px solid ${active ? "var(--blue)" : "var(--border)"}`,
-                      background: active ? "rgba(123, 123, 123, 0.1)" : "var(--surface-2)",
-                      color: active ? "var(--blue)" : "var(--text-secondary)",
-                    }}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="pp-publish-fields">
+            <section>
+              <FieldLabel hint="Required">Release type</FieldLabel>
+              <div className="pp-publish-types" role="group" aria-label="Release type">
+                {availableTypes.map(item => (
+                  <button key={item} type="button" aria-pressed={!otherType && type === item} onClick={() => { setCustomType(false); setType(item); }}>{item}</button>
+                ))}
+                <button type="button" aria-pressed={otherType} onClick={() => {
+                  if (!otherType) setType("");
+                  setCustomType(true);
+                }}><Plus size={13} /> Other</button>
+              </div>
+              {otherType && <>
+                <input id="publish-custom-type" className="pp-input" aria-label="Custom release type" placeholder="Enter a release type" maxLength={80}
+                  value={type} onChange={event => setType(event.target.value)} />
+                <p className="pp-publish-hint">Used for this release only. Readers see it as the release type.</p>
+              </>}
+            </section>
+            <CategoryField key={editingId ?? "new"} categories={categories} onChange={setCategories} />
+            <PublishFiles files={files} urls={urls} recording={recording} onRecording={setRecording} onAdd={addFiles}
+              onRemove={removeFile} onMove={moveMedia} onError={fileError}
+              onChange={(path, changes) => setFiles(current => current.map(file => file.path === path ? { ...file, ...changes } : file))}
+              covers={<details className="pp-publish-transcript">
+                <summary>Choose a cover from the catalogue</summary>
+                <select className="pp-input" aria-label="Catalogue cover" value={scene} onChange={event => setScene(event.target.value)}>
+                  <option value="none">No cover</option>
+                  {SCENES.map(cover => <option value={cover.scene} key={cover.scene}>{cover.label}</option>)}
+                  {platformCovers.map(cover => <option value={cover.url} key={cover.url}>{cover.label}</option>)}
+                  {scene !== "none" && !SCENES.some(cover => cover.scene === scene) && !platformCovers.some(cover => cover.url === scene) &&
+                    <option value={scene}>Existing cover</option>}
+                </select>
+              </details>}
+            />
           </div>
 
-          <div>
-            <FieldLabel hint="Choose a cover">Cover media</FieldLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-              {[...SCENES.map(({ scene, label }) => ({ scene: scene as string, label })), ...platformCovers.map((c) => ({ scene: c.url, label: c.label }))].map(({ scene: s, label }) => {
-                const active = scene === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setScene(s as MediaScene)}
-                    style={{
-                      position: "relative",
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      border: `2px solid ${active ? "var(--blue)" : "transparent"}`,
-                      padding: 0,
-                      height: 74,
-                    }}
-                  >
-                    <MediaTile scene={s} radius={8} />
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: 7,
-                        bottom: 6,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: "#fff",
-                        textShadow: "0 1px 3px rgba(0,0,0,0.6)",
-                      }}
-                    >
-                      {label}
-                    </span>
-                    {active && (
-                      <span style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 999, background: "var(--blue)", display: "grid", placeItems: "center" }}>
-                        <Check size={11} color="var(--accent-contrast)" strokeWidth={3} />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 12.5, color: "var(--text-secondary)", cursor: "pointer" }}>
-              <span className="pp-btn pp-btn-outline" style={{ padding: "6px 12px", fontSize: 12.5 }}>
-                {uploading ? <InlineSpinner /> : <Upload size={14} />} {uploading ? "Uploading…" : "Upload your own cover"}
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                style={{ display: "none" }}
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) void uploadCover(file);
-                }}
-              />
-              PNG, JPEG or WebP · up to 3 MB
-            </label>
-          </div>
-
-          <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-            <button type="button" onClick={publish} disabled={busy || !org.verified} className="pp-btn pp-btn-primary" style={{ padding: "11px 20px" }}>
+          <div className="pp-publish-actions">
+            <button type="button" onClick={publish} disabled={busy || recording || !org.verified} className="pp-btn pp-btn-primary">
               <Send size={16} /> {!org.verified ? "Approval required" : originalPublishedAt ? "Review & republish" : "Review & publish"}
             </button>
-            <button type="button" onClick={saveDraft} disabled={busy} aria-busy={busyStatus === "Draft"} className="pp-btn pp-btn-outline" style={{ padding: "11px 20px" }} title={originalPublishedAt ? "Removes the release from public view and keeps it as a draft" : undefined}>
+            <button type="button" onClick={saveDraft} disabled={busy || recording} aria-busy={busyStatus === "Draft"} className="pp-btn pp-btn-outline" title={originalPublishedAt ? "Removes the release from public view and keeps it as a draft" : undefined}>
               {busyStatus === "Draft" ? <InlineSpinner /> : <FileText size={16} />} {busyStatus === "Draft" ? "Saving…" : originalPublishedAt ? "Unpublish to draft" : "Save as draft"}
             </button>
           </div>
-        </div>
+        </fieldset>
 
         {/* live preview */}
         <div className="pp-publish-preview" style={{ position: "sticky", top: 0 }}>
@@ -540,16 +544,17 @@ export function Publish() {
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Just now</div>
               </div>
             </div>
-            <div style={{ height: 168, marginBottom: 14 }}>
-              <MediaTile scene={scene} radius={12} />
-            </div>
-            <TypeBadge type={type} />
+            <ReleaseGallery key={files.filter(file => file.kind === "image" || file.kind === "video").map(file => file.path).join(",")}
+              files={files} urls={urls} scene={scene} style={{ marginBottom: 12 }} />
+            <TypeBadge type={type.trim() || "Release type"} />
             <h3 style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, marginTop: 10, color: heading.trim() ? "var(--text)" : "var(--text-faint)" }}>
               {heading.trim() || "Your headline will appear here"}
             </h3>
             <p style={{ fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 7 }}>
               {subheading.trim() || "Your summary will appear here as readers see it in their feed."}
             </p>
+            <ReleaseCategories categories={categories} />
+            <ReleaseFileList files={files} urls={urls} />
           </article>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9, marginTop: 16, color: "var(--text-muted)", fontSize: 12.5, lineHeight: 1.5 }}>
             <ImageIcon size={15} style={{ marginTop: 1, flexShrink: 0 }} />
@@ -581,9 +586,7 @@ export function Publish() {
               <TypeBadge type={type} />
             </div>
 
-            <div style={{ height: 240, marginTop: 22 }}>
-              <MediaTile scene={scene} radius={13} />
-            </div>
+            <ReleaseGallery files={files} urls={urls} scene={scene} style={{ marginTop: 22 }} />
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
               <InstitutionMark institution={previewInstitution} size={36} />
               <div>
@@ -595,6 +598,8 @@ export function Publish() {
             </div>
             <h3 style={{ fontSize: 25, lineHeight: 1.2, marginTop: 18 }}>{heading.trim()}</h3>
             <p style={{ marginTop: 10, color: "var(--text-secondary)", lineHeight: 1.6 }}>{subheading.trim()}</p>
+            <ReleaseCategories categories={categories} />
+            <ReleaseFileList files={files} urls={urls} />
             <div className="pp-prose" style={{ marginTop: 22 }} dangerouslySetInnerHTML={{ __html: sanitizeRichText(body) }} />
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)" }}>

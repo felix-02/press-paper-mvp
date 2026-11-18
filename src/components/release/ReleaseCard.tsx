@@ -17,6 +17,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { MediaTile } from "@/components/media/MediaTile";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
+import { ReleaseCategories, ReleaseFileList, ReleaseGallery, useReleaseFileUrls } from "@/components/release/ReleaseFiles";
 import { Verified } from "@/components/primitives/Bits";
 import { TagList } from "@/components/common/TagList";
 import { useEngagement } from "@/lib/engagement";
@@ -214,6 +215,7 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
   const navigate = useNavigate();
   const following = useAppStore((s) => s.followedSlugs.has(i.slug));
   const toggleFollow = useAppStore((s) => s.toggleFollow);
+  const urls = useReleaseFileUrls(release.extras?.files);
 
   return (
     <article className="pp-card" style={{ padding: 18 }}>
@@ -248,7 +250,18 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
         )}
       </div>
 
-      {/* body */}
+      {release.extras ? (
+        <div style={{ marginTop: 14 }}>
+          <ReleaseGallery files={release.extras.files} urls={urls} scene={release.scene} style={{ marginBottom: 12 }} />
+          <TypeBadge type={release.type} />
+          <h3 className="pp-release-title pp-file-release-title">
+            <button type="button" onClick={open}>{release.heading}</button>
+          </h3>
+          <p className="pp-file-release-summary">{release.subheading}</p>
+          <ReleaseCategories categories={release.extras.categories} />
+          <ReleaseFileList files={release.extras.files} urls={urls} />
+        </div>
+      ) : (
       <div className="pp-release-card-body" style={{ display: "flex", gap: 18, marginTop: 14 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <TypeBadge type={release.type} />
@@ -281,6 +294,7 @@ function FeedCard({ release, showFollow }: { release: Release; showFollow?: bool
           <MediaTile scene={release.scene} radius={12} />
         </div>
       </div>
+      )}
 
       <CardFooter release={release} />
     </article>

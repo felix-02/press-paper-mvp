@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
-import { MediaTile } from "@/components/media/MediaTile";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
+import { ReleaseFileList, ReleaseGallery, useReleaseFileUrls } from "@/components/release/ReleaseFiles";
 import { Verified } from "@/components/primitives/Bits";
 import type { Institution, Release } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -215,6 +215,9 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
 
   const [lang, setLang] = useState<string>("English");
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const releaseFiles = release?.extras?.files ?? [];
+  const fileUrls = useReleaseFileUrls(releaseFiles);
+  const attachments = releaseFiles.filter(file => file.kind === "document");
   const [commentDelta, setCommentDelta] = useState(0);
 
   useEffect(() => {
@@ -390,9 +393,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
 
       {/* media gallery */}
       <div style={{ marginTop: 22 }}>
-        <div style={{ height: 360, width: "100%" }}>
-          <MediaTile scene={release.scene} radius={16} />
-        </div>
+        <ReleaseGallery files={releaseFiles} urls={fileUrls} scene={release.scene} />
 
         <div id="release-actions" className="pp-card pp-release-action-bar" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 14, padding: 10, scrollMarginTop: 20 }}>
           <button type="button" onClick={onSave} className={saved ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-outline"}>
@@ -401,9 +402,9 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
           </button>
           <AddToWatchlist releaseId={release.id} />
           <ShareMenu url={shareUrl} title={release.heading} />
-          {release.attachments && release.attachments.length > 0 && (
+          {attachments.length > 0 && (
             <button type="button" onClick={() => setAttachmentsOpen((open) => !open)} className="pp-btn pp-btn-outline" aria-expanded={attachmentsOpen}>
-              <Paperclip size={15} /> Attachments ({release.attachments.length})
+              <Paperclip size={15} /> Attachments ({attachments.length})
             </button>
           )}
           <button type="button" onClick={downloadRelease} className="pp-btn pp-btn-outline">
@@ -414,19 +415,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
           </button>
         </div>
 
-        {attachmentsOpen && release.attachments && (
-          <div className="pp-card pp-fade pp-responsive-grid" style={{ marginTop: 10, padding: 14, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-            {release.attachments.map((attachment) => (
-              <div key={attachment.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: 10, borderRadius: "var(--r-md)", background: "var(--surface-2)" }}>
-                <span style={{ width: 34, height: 34, borderRadius: 8, display: "grid", placeItems: "center", background: "var(--surface-3)", color: "var(--text-secondary)", fontSize: 10.5, fontWeight: 700 }}>{attachment.format}</span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{attachment.name}</span>
-                  <span style={{ display: "block", marginTop: 2, color: "var(--text-muted)", fontSize: 11.5 }}>{attachment.size}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <ReleaseFileList files={releaseFiles.filter(file => file.kind === "audio" || (attachmentsOpen && file.kind === "document"))} urls={fileUrls} />
       </div>
 
           {/* release body */}

@@ -43,6 +43,7 @@ export interface ReleaseRow {
   subheading: string | null;
   body: string | null;
   scene: string;
+  extras?: unknown;
   published_at: string | null;
   created_at: string;
   views?: number;
