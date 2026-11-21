@@ -20,14 +20,6 @@ import { assetFromFile, fileExtension, fileGroups, readReleaseExtras, releaseFil
 import { CategoryField, FieldLabel, PublishFiles } from "./PublishFields";
 
 const TYPES = ["Announcement", "Publication", "Consultation", "Statistics & Research"];
-const SCENES = [
-  { scene: "wind-farm", label: "Renewables" },
-  { scene: "parliament", label: "Government" },
-  { scene: "cardiff-bay", label: "Cardiff Bay" },
-  { scene: "coast", label: "Coast" },
-  { scene: "town", label: "Community" },
-  { scene: "skyline", label: "City" },
-];
 
 export function Publish() {
   const navigate = useNavigate();
@@ -69,17 +61,12 @@ export function Publish() {
   const [reviewing, setReviewing] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [dbTypes, setDbTypes] = useState<string[]>([]);
-  const [platformCovers, setPlatformCovers] = useState<{ label: string; url: string }[]>([]);
 
-  // Platform catalogue: release types + extra covers managed by the super admin.
   useEffect(() => {
     if (!supabase) return;
     let active = true;
     void supabase.from("platform_release_types").select("name").order("created_at").then(({ data }) => {
       if (active) setDbTypes(((data as { name: string }[] | null) ?? []).map((r) => r.name));
-    });
-    void supabase.from("platform_covers").select("label, url").order("created_at").then(({ data }) => {
-      if (active) setPlatformCovers(((data as { label: string; url: string }[] | null) ?? []));
     });
     return () => { active = false; };
   }, []);
@@ -505,7 +492,6 @@ export function Publish() {
             <PublishFiles files={files} urls={urls} recording={recording} onRecording={setRecording} onAdd={addFiles}
               onRemove={removeFile} onMove={moveMedia} onError={fileError}
               onChange={(path, changes) => setFiles(current => current.map(file => file.path === path ? { ...file, ...changes } : file))}
-              // covers={}
             />
           </div>
 

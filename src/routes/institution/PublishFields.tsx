@@ -278,7 +278,6 @@ export function PublishFiles({
   onMove,
   onChange,
   onError,
-  covers,
 }: {
   files: EditableAsset[];
   urls: Record<string, string>;
@@ -292,7 +291,6 @@ export function PublishFiles({
     changes: Pick<EditableAsset, "alt" | "transcript">
   ) => void;
   onError: (message: string) => void;
-  covers: ReactNode;
 }) {
   const media = files.filter(
     (file) => file.kind === "image" || file.kind === "video"
@@ -413,7 +411,6 @@ export function PublishFiles({
           />
           <span>JPEG, PNG, WebP, MP4 or MOV</span>
         </div>
-        {media.length === 0 && covers}
       </section>
       <section>
         <FieldLabel hint="Optional">Audio</FieldLabel>
