@@ -8,6 +8,7 @@ const engagementSql = readFileSync(new URL("../supabase/migrations/0018_engageme
 const releaseFilesSql = readFileSync(new URL("../supabase/migrations/0019_release_files.sql", import.meta.url), "utf8");
 const profileImagesSql = readFileSync(new URL("../supabase/migrations/0020_profile_images.sql", import.meta.url), "utf8");
 const readerProfilesSql = readFileSync(new URL("../supabase/migrations/0021_reader_profiles.sql", import.meta.url), "utf8");
+const readerActivitySql = readFileSync(new URL("../supabase/migrations/0022_reader_activity.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -43,7 +44,8 @@ describe("security migration", () => {
     expect(aggregate).toContain(engagementSql);
     expect(aggregate).toContain(releaseFilesSql);
     expect(aggregate).toContain(profileImagesSql);
-    expect(aggregate.endsWith(readerProfilesSql)).toBe(true);
+    expect(aggregate).toContain(readerProfilesSql);
+    expect(aggregate.endsWith(readerActivitySql)).toBe(true);
   });
 });
 

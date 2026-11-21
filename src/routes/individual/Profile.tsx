@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, LogOut, Pencil, Bookmark, UserPlus, X, Compass } from "lucide-react";
+import { CalendarDays, LogOut, Pencil, Bookmark, X, Compass } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
 import { Avatar } from "@/components/brand/Avatar";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/primitives/EmptyState";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/auth/AuthProvider";
 import { useResolvedSaved } from "@/lib/useResolvedSaved";
-import { useActivity, relativeTime } from "@/lib/useActivity";
+import { ProfileActivity } from "./ProfileActivity";
 import { supabase } from "@/lib/supabase";
 import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -39,7 +39,6 @@ export function Profile() {
   const navigate = useNavigate();
   const { signOut, profile, refreshProfile, user } = useAuth();
   const { releases: saved } = useResolvedSaved();
-  const activity = useActivity();
   const directory = usePublicInstitutions();
   // Only institutions that still exist in the live directory are listed —
   // stale follow rows are never fabricated into placeholder entries.
@@ -60,11 +59,6 @@ export function Profile() {
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
     : null;
-  // For historical activity rows, show the live name when the institution
-  // still exists, otherwise the raw slug — never an invented display name.
-  const institutionNameForSlug = (slug: string): string =>
-    directory.institutions.find((institution) => institution.slug === slug)?.name ?? slug;
-
   useEffect(() => {
     if (!supabase || !userId) return;
     let active = true;
@@ -190,48 +184,7 @@ export function Profile() {
       )}
 
       {tab === "Activity" && (
-        <>
-          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>Recent activity</h2>
-          {activity.available ? (
-            activity.loading ? (
-              <div className="pp-card" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>Loading…</div>
-            ) : activity.items.length === 0 ? (
-              <div className="pp-card" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-                No activity yet. Follow institutions and save releases to see them here.
-              </div>
-            ) : (
-              <div className="pp-card pp-divided-list" style={{ padding: 6 }}>
-                {activity.items.map((a) =>
-                  a.kind === "save" ? (
-                    <Link key={a.key} to={`/release/${a.releaseId}`} style={activityRow}>
-                      <span style={activityIcon("rgba(123, 123, 123, 0.12)")}>
-                        <Bookmark size={15} color="var(--blue)" />
-                      </span>
-                      <span style={{ fontSize: 13.5, flex: 1 }}>
-                        You saved <strong>{a.heading}</strong>
-                      </span>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>{relativeTime(a.ts)}</span>
-                    </Link>
-                  ) : (
-                    <Link key={a.key} to={`/institution/${a.slug}`} style={activityRow}>
-                      <span style={activityIcon("rgba(173, 173, 173, 0.14)")}>
-                        <UserPlus size={15} color="var(--green)" />
-                      </span>
-                      <span style={{ fontSize: 13.5, flex: 1 }}>
-                        You followed <strong>{institutionNameForSlug(a.slug!)}</strong>
-                      </span>
-                      <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>{relativeTime(a.ts)}</span>
-                    </Link>
-                  )
-                )}
-              </div>
-            )
-          ) : (
-            <div className="pp-card" style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13.5 }}>
-              Activity is temporarily unavailable.
-            </div>
-          )}
-        </>
+        <ProfileActivity key={userId} institutions={directory.institutions} watchlists={watchlists} />
       )}
 
       {editing && userId && (
@@ -253,22 +206,6 @@ export function Profile() {
     </AppShell>
   );
 }
-
-const activityRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 11,
-  padding: "11px 12px",
-};
-const activityIcon = (bg: string): React.CSSProperties => ({
-  width: 30,
-  height: 30,
-  borderRadius: 999,
-  background: bg,
-  display: "grid",
-  placeItems: "center",
-  flexShrink: 0,
-});
 
 function EditProfileModal({
   userId,
