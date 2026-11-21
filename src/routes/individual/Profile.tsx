@@ -75,7 +75,7 @@ export function Profile() {
           <div className="pp-profile-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -34 }}>
             <div className="pp-profile-identity" style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
               <div style={{ borderRadius: 999, border: "4px solid var(--surface-1)", lineHeight: 0 }}>
-                <Avatar size={88} name={displayName} />
+                <Avatar size={88} name={displayName} src={profile?.avatar_url} />
               </div>
               <div style={{ paddingBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>

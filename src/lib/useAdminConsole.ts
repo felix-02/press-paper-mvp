@@ -19,6 +19,7 @@ export interface AdminUser {
   status_changed_at: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  avatar_url?: string | null;
 }
 
 export interface AdminInstitution {
@@ -33,6 +34,7 @@ export interface AdminInstitution {
   release_count: number;
   published_count: number;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 export interface AdminRelease {
@@ -51,6 +53,8 @@ export interface AdminRelease {
   comments_count: number;
   published_at: string | null;
   created_at: string;
+  scene?: string;
+  extras?: unknown;
 }
 
 export interface AdminActivityEvent {

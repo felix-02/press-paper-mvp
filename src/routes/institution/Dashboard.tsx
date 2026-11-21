@@ -145,7 +145,7 @@ export function Dashboard() {
   const topReleases = [...stats.releases]
     .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
     .slice(0, 5)
-    .map((r, idx) => ({ rank: idx + 1, heading: r.heading, type: r.type, views: formatCount(r.views ?? 0), scene: r.scene as Release["scene"] }));
+    .map((r, idx) => ({ ...rowToRelease(r), rank: idx + 1 }));
 
   const topicData = (() => {
     const byType = new Map<string, number>();
@@ -245,7 +245,7 @@ export function Dashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {recent.map((r) => (
                   <div key={r.id} style={{ display: "flex", gap: 13, alignItems: "center" }}>
-                    <MediaThumb scene={r.scene} w={68} h={48} />
+                    <MediaThumb release={r} w={68} h={48} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
                         <TypeBadge type={r.type} />
@@ -285,7 +285,7 @@ export function Dashboard() {
                     <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-faint)", width: 16, flexShrink: 0 }}>
                       {r.rank}
                     </span>
-                    <MediaThumb scene={r.scene} w={52} h={40} radius={7} />
+                    <MediaThumb release={r} w={52} h={40} radius={7} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                         {r.heading}

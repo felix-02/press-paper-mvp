@@ -50,7 +50,7 @@ export function AdminShell({ children, maxWidth = 1320 }: { children: ReactNode;
             {resolvedTheme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <div className="pp-admin-identity">
-            <Avatar name={adminName} size={30} />
+            <Avatar name={adminName} src={profile?.avatar_url} size={30} />
             <span><strong>{adminName}</strong><small>Global super admin</small></span>
           </div>
           <button type="button" className="pp-btn pp-btn-outline pp-admin-signout" onClick={() => void logout()} disabled={signingOut}>

@@ -1514,6 +1514,10 @@ select:-webkit-autofill {
 
 .pp-publish-thumbnail { cursor: grab; }
 
+.pp-release-thumbnail :is(img, video) {
+  filter: none;
+}
+
 .pp-publish-thumbnail :is(img, video),
 .pp-release-gallery-frame :is(img, video) {
   width: 100%;

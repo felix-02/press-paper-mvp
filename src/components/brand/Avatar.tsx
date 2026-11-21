@@ -1,27 +1,29 @@
 import { useId } from "react";
 import { initialsOf } from "@/lib/initials";
+import { AvatarPhoto } from "./AvatarPhoto";
 
-/** Individual user avatar — a premium gradient disc with initials. */
 export function Avatar({
   initials,
   name,
+  src,
   size = 32,
   ring = false,
 }: {
   initials?: string;
   name?: string;
+  src?: string | null;
   size?: number;
   ring?: boolean;
 }) {
   const id = useId().replace(/[:]/g, "");
   const label = initials ?? (name ? initialsOf(name) : "PB");
-  return (
+  const fallback = (
     <svg
       width={size}
       height={size}
       viewBox="0 0 100 100"
       role="img"
-      aria-label="Your profile"
+      aria-label={name || "Your profile"}
       style={{ flexShrink: 0, display: "block" }}
     >
       <defs>
@@ -54,4 +56,5 @@ export function Avatar({
       </text>
     </svg>
   );
+  return <AvatarPhoto src={src} alt={name || "Your profile"} size={size} radius="50%" ring={ring}>{fallback}</AvatarPhoto>;
 }

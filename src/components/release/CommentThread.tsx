@@ -65,7 +65,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
   const renderNode = (c: CommentNode, depth: number) => {
     return (
       <div key={c.id} style={{ display: "flex", gap: 12, marginLeft: depth ? 44 : 0 }}>
-        <Avatar name={c.author} size={depth ? 30 : 36} />
+        <Avatar name={c.author} src={c.authorId === user?.id ? profile?.avatar_url : c.avatarUrl} size={depth ? 30 : 36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.author}</span>
@@ -101,7 +101,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
 
           {replyTo === c.id && (
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-              <Avatar name={profile?.full_name ?? undefined} size={28} />
+              <Avatar name={profile?.full_name ?? undefined} src={profile?.avatar_url} size={28} />
               <div style={{ flex: 1 }}>
                 <textarea
                   className="pp-input"
@@ -145,7 +145,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
   return (
     <div>
       <div style={{ display: "flex", gap: 12, marginBottom: 22 }}>
-        <Avatar name={profile?.full_name ?? undefined} size={36} />
+        <Avatar name={profile?.full_name ?? undefined} src={profile?.avatar_url} size={36} />
         <div style={{ flex: 1 }}>
           <textarea
             className="pp-input"

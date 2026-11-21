@@ -1,15 +1,6 @@
 import { useId } from "react";
 import type { Institution } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Institution emblems.
-//
-// DESIGN DECISION (documented in DOCUMENTATION.md): real institutions own
-// trademarked logos we cannot reproduce. Instead every institution is rendered
-// as an *original* monochrome emblem with a clean monogram derived from the
-// database name. Institution-supplied colours are deliberately ignored so the
-// application remains strictly black, white, and grey.
-// ---------------------------------------------------------------------------
+import { AvatarPhoto } from "./AvatarPhoto";
 
 function initials(institution: Institution): string {
   const stop = new Set(["the", "of", "for", "and", "a"]);
@@ -32,28 +23,6 @@ export function InstitutionMark({
 }) {
   const id = useId().replace(/[:]/g, "");
 
-  // Institutions that uploaded a logo show it instead of the generated emblem.
-  if (institution.avatarUrl && /^https:\/\//.test(institution.avatarUrl)) {
-    return (
-      <img
-        src={institution.avatarUrl}
-        alt={institution.name}
-        width={size}
-        height={size}
-        loading="lazy"
-        style={{
-          flexShrink: 0,
-          display: "block",
-          width: size,
-          height: size,
-          borderRadius: shape === "circle" ? "50%" : Math.round(size * 0.26),
-          objectFit: "cover",
-          background: "var(--surface-3)",
-        }}
-      />
-    );
-  }
-
   const c1 = "#5a5a5a";
   const c2 = "#242424";
   const text = initials(institution);
@@ -62,7 +31,7 @@ export function InstitutionMark({
   // Monogram sizing tuned to letter count so 1–3 letters all sit nicely.
   const fontSize = text.length >= 3 ? 30 : text.length === 2 ? 38 : 46;
 
-  return (
+  const fallback = (
     <svg
       width={size}
       height={size}
@@ -123,5 +92,11 @@ export function InstitutionMark({
         {text}
       </text>
     </svg>
+  );
+  return (
+    <AvatarPhoto src={institution.avatarUrl} alt={institution.name} size={size}
+      radius={shape === "circle" ? "50%" : Math.round(size * 0.26)}>
+      {fallback}
+    </AvatarPhoto>
   );
 }

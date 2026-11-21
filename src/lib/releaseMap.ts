@@ -61,12 +61,12 @@ export function releaseInstitution(release: Release): Institution {
     color: "#606060",
     color2: "#454545",
     mark: "generic",
+    avatarUrl: release.institutionAvatarUrl,
   };
 }
 
 /** Convert a `public.releases` row into the in-app Release shape used by cards/tables. */
 export function rowToRelease(row: ReleaseRow): Release {
-  const attribution = row as ReleaseRow & { institution_verified?: boolean | null };
   const stamp = row.published_at ?? row.created_at;
   const fresh = Date.now() - new Date(row.created_at).getTime() < 5 * 60 * 1000;
   const extras = readReleaseExtras(row.extras, row.institution_slug, row.id);
@@ -74,7 +74,8 @@ export function rowToRelease(row: ReleaseRow): Release {
     id: row.id,
     institutionSlug: row.institution_slug,
     institutionName: row.institution_name?.trim() || undefined,
-    institutionVerified: attribution.institution_verified === true,
+    institutionVerified: row.institution_verified === true,
+    institutionAvatarUrl: row.institution_avatar_url || undefined,
     type: row.type,
     status: row.status as ReleaseStatus,
     heading: row.heading,

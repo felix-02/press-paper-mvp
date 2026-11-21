@@ -8,7 +8,7 @@ const DEFAULT_PUBLIC_ORIGIN = "https://presspaper.ai";
 const FETCH_TIMEOUT_MS = 5_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function contentSecurityPolicy(nonce = "") {
+function contentSecurityPolicy(nonce = "", imageOrigin = "") {
   return [
     "default-src 'none'",
     "base-uri 'none'",
@@ -16,7 +16,7 @@ function contentSecurityPolicy(nonce = "") {
     "font-src 'self'",
     "form-action 'none'",
     "frame-ancestors 'none'",
-    "img-src 'self' data:",
+    ["img-src 'self' data:", imageOrigin].filter(Boolean).join(" "),
     "object-src 'none'",
     nonce ? `script-src 'nonce-${nonce}'` : "script-src 'none'",
     "style-src 'unsafe-inline'",
@@ -98,8 +98,8 @@ function isTimeout(error) {
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
-function setDocumentHeaders(res, nonce = "") {
-  res.setHeader("Content-Security-Policy", contentSecurityPolicy(nonce));
+function setDocumentHeaders(res, nonce = "", imageOrigin = "") {
+  res.setHeader("Content-Security-Policy", contentSecurityPolicy(nonce, imageOrigin));
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Strict-Transport-Security", "max-age=31536000");
@@ -108,8 +108,8 @@ function setDocumentHeaders(res, nonce = "") {
   res.setHeader("X-XSS-Protection", "0");
 }
 
-function sendHtml(req, res, status, html, cacheControl = "no-store", nonce = "") {
-  setDocumentHeaders(res, nonce);
+function sendHtml(req, res, status, html, cacheControl = "no-store", nonce = "", imageOrigin = "") {
+  setDocumentHeaders(res, nonce, imageOrigin);
   res.setHeader("Cache-Control", cacheControl);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   if (req.method === "HEAD") return res.status(status).end();
@@ -150,6 +150,41 @@ async function fetchVerification(supabaseUrl, institutionSlug) {
   }
 }
 
+async function fetchReleaseImage(supabaseUrl, id, release) {
+  const slug = release.institution_slug;
+  const files = release.extras?.files;
+  if (typeof slug !== "string" || !/^[a-z0-9-]+$/.test(slug) || !Array.isArray(files)) return null;
+
+  const prefix = `${slug}/${id}/`;
+  const image = files.find((file) => file?.kind === "image" && typeof file.path === "string"
+    && file.path.startsWith(prefix)
+    && /^[a-f0-9-]{36}\.(jpe?g|png|webp)$/.test(file.path.slice(prefix.length)));
+  if (!image) return null;
+
+  const objectPath = `/object/sign/release-files/${image.path}`;
+  const storagePath = `/storage/v1${objectPath}`;
+  try {
+    const response = await fetchWithTimeout(new URL(storagePath, supabaseUrl), {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${SUPABASE_ANON}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expiresIn: 1800 }),
+    }, 3_000);
+    if (!response.ok) return null;
+
+    const { signedURL } = await response.json();
+    if (typeof signedURL !== "string" || !signedURL.startsWith(`${objectPath}?`)) return null;
+    const url = new URL(`/storage/v1${signedURL}`, supabaseUrl);
+    if (!url.searchParams.get("token")) return null;
+    return { url: url.href, alt: image.alt || image.name || "" };
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   const origin = publicOrigin(req);
 
@@ -173,7 +208,7 @@ export default async function handler(req, res) {
   releasesUrl.searchParams.set("status", "eq.Published");
   releasesUrl.searchParams.set(
     "select",
-    "id,institution_slug,institution_name,type,heading,subheading,body,published_at,created_at"
+    "id,institution_slug,institution_name,type,heading,subheading,body,published_at,created_at,extras"
   );
   releasesUrl.searchParams.set("limit", "1");
 
@@ -207,7 +242,18 @@ export default async function handler(req, res) {
     return sendHtml(req, res, 404, errorPage("Release not found", "This release may be unpublished or moved.", origin));
   }
 
-  const verified = await fetchVerification(supabaseUrl, release.institution_slug);
+  if (req.query.image === "1") {
+    const image = await fetchReleaseImage(supabaseUrl, id, release);
+    setDocumentHeaders(res);
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Location", image?.url ?? `${origin}/og.png`);
+    return res.status(302).end();
+  }
+
+  const [verified, image] = await Promise.all([
+    fetchVerification(supabaseUrl, release.institution_slug),
+    fetchReleaseImage(supabaseUrl, id, release),
+  ]);
   const institutionName = release.institution_name || "Presspaper";
   const title = `${release.heading} - ${institutionName}`;
   const descriptionSource = release.subheading || release.body || "Public information published on Presspaper.";
@@ -219,7 +265,7 @@ export default async function handler(req, res) {
     ? publishedDate.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
     : "Date unavailable";
   const canonical = `${origin}/r/${encodeURIComponent(id)}`;
-  const ogImage = `${origin}/og.png`;
+  const ogImage = image ? `${canonical}?image=1` : `${origin}/og.png`;
   const appUrl = `${origin}/release/${encodeURIComponent(id)}`;
   const nonce = randomBytes(18).toString("base64");
 
@@ -230,6 +276,7 @@ export default async function handler(req, res) {
     description: release.subheading || "",
     ...(published ? { datePublished: published, dateModified: published } : {}),
     articleBody,
+    ...(image ? { image: ogImage } : {}),
     author: { "@type": "Organization", name: institutionName },
     publisher: { "@type": "Organization", name: "Presspaper" },
     mainEntityOfPage: canonical,
@@ -268,6 +315,7 @@ ${published ? `<meta property="article:published_time" content="${esc(published)
   h1 { font-size:34px; line-height:1.15; margin:22px 0 14px; }
   .lead { font-size:18px; color:#a2a2a2; margin:0 0 24px; }
   .meta { font-size:13px; color:#8f8f8f; display:flex; gap:14px; align-items:center; margin-bottom:28px; }
+  .cover { display:block; width:100%; height:auto; border-radius:12px; margin-bottom:28px; }
   .body { font-size:16px; color:#d4d4d4; white-space:pre-wrap; }
   .cta { display:inline-flex; align-items:center; gap:8px; margin-top:36px; background:#fff; color:#0a0a0a; font-weight:600; text-decoration:none; padding:12px 22px; border-radius:8px; }
   .rule { height:1px; background:rgba(255,255,255,.08); margin:28px 0; border:0; }
@@ -287,6 +335,7 @@ ${published ? `<meta property="article:published_time" content="${esc(published)
       <span>-</span>
       <span>${esc(formattedPublished)}</span>
     </div>
+    ${image ? `<img class="cover" src="${esc(image.url)}" alt="${esc(image.alt)}" />` : ""}
     ${articleBody ? `<div class="body">${esc(articleBody)}</div>` : ""}
     <a class="cta" href="${esc(appUrl)}">Read on Presspaper</a>
     <footer>Published on <a class="inline" href="${esc(origin)}/">Presspaper</a>, the home for public information.</footer>
@@ -294,7 +343,7 @@ ${published ? `<meta property="article:published_time" content="${esc(published)
 </body>
 </html>`;
 
-  return sendHtml(req, res, 200, html, "public, max-age=0, s-maxage=60, must-revalidate", nonce);
+  return sendHtml(req, res, 200, html, "public, max-age=0, s-maxage=60, must-revalidate", nonce, image ? supabaseUrl : "");
 }
 
 export { contentSecurityPolicy, esc, publicOrigin, safeJsonLd, validatedOrigin, xmlSafeText };

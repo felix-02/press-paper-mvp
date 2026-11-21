@@ -14,27 +14,12 @@ import { rowToRelease, formatCount } from "@/lib/releaseMap";
 import type { Institution, Release } from "@/types";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
 import { externalUrlLabel, safeExternalUrl } from "@/lib/externalUrl";
-import type { PublicInstitutionRow } from "@/lib/usePublicInstitutions";
+import { publicInstitutionFromRow, type PublicInstitutionRow } from "@/lib/usePublicInstitutions";
 import { useAuth } from "@/auth/AuthProvider";
 import { PublicFooter, PublicHeader } from "@/components/shells/PublicChrome";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 const TABS = ["Releases", "About", "Activity"] as const;
-
-function institutionFromRow(row: PublicInstitutionRow): Institution {
-  return {
-    slug: row.slug,
-    name: row.name,
-    category: row.category,
-    verified: row.verified === true,
-    color: "#606060",
-    color2: "#454545",
-    mark: "generic",
-    website: row.website || undefined,
-    location: row.location || undefined,
-    description: row.description || undefined,
-  };
-}
 
 function HeaderStat({ value, label }: { value: string; label: string }) {
   return (
@@ -122,7 +107,7 @@ export function InstitutionPublic() {
         setLookup({
           slug,
           status: "ready",
-          institution: institutionRow ? institutionFromRow(institutionRow) : null,
+          institution: institutionRow ? publicInstitutionFromRow(institutionRow) : null,
           releases: ((releaseResult.data as ReleaseRow[] | null) ?? []).map(rowToRelease),
           followers: institutionRow ? Number(institutionRow.followers_count) || 0 : null,
           releaseCount: institutionRow ? Number(institutionRow.releases_count) || 0 : null,

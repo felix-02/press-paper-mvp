@@ -36,6 +36,7 @@ export function Publish() {
     color: "#606060",
     color2: "#454545",
     mark: "generic",
+    avatarUrl: org.avatarUrl,
   };
 
   const [heading, setHeading] = useState("");

@@ -48,6 +48,31 @@ export function ReleaseCategories({ categories }: { categories: string[] }) {
   return <ul className="pp-release-categories" aria-label="Categories">{categories.map(category => <li key={category}>{category}</li>)}</ul>;
 }
 
+/** Compact release cover, using the same media order as the gallery. */
+export function ReleaseThumbnail({ files = [], scene, radius = 8 }: {
+  files?: readonly EditableAsset[];
+  scene: string;
+  radius?: number;
+}) {
+  const cover = files.find(file => file.kind === "image" || file.kind === "video");
+  const urls = useReleaseFileUrls(cover ? [cover] : []);
+  const src = cover && urls[cover.path];
+  if (!cover && scene && scene !== "none") return <MediaTile scene={scene} radius={radius} className="pp-release-thumbnail" />;
+
+  const fill: CSSProperties = { width: "100%", height: "100%", display: "block", objectFit: "cover" };
+  return (
+    <div className="pp-release-thumbnail" style={{
+      width: "100%", height: "100%", display: "grid", placeItems: "center",
+      borderRadius: radius, overflow: "hidden", background: "var(--surface-3)", color: "var(--text-muted)",
+    }}>
+      {cover && src ? cover.kind === "image"
+        ? <img src={src} alt={cover.alt || cover.name} loading="lazy" style={fill} />
+        : <video src={src} aria-label={cover.name} muted playsInline preload="metadata" style={fill} />
+        : <FileText size={16} aria-hidden />}
+    </div>
+  );
+}
+
 export function ReleaseGallery({ files, urls, scene, style }: {
   files: readonly EditableAsset[];
   urls: FileUrls;

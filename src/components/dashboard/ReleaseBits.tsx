@@ -1,5 +1,5 @@
-import type { ReleaseStatus, MediaScene } from "@/types";
-import { MediaTile } from "@/components/media/MediaTile";
+import type { Release, ReleaseStatus } from "@/types";
+import { ReleaseThumbnail } from "@/components/release/ReleaseFiles";
 
 const STATUS_STYLES: Record<ReleaseStatus, { color: string; bg: string }> = {
   Published: { color: "var(--green)", bg: "color-mix(in srgb, var(--green) 12%, transparent)" },
@@ -34,19 +34,19 @@ export function StatusPill({ status }: { status: ReleaseStatus }) {
 
 /** Fixed-size media thumbnail used inside dashboard / table rows. */
 export function MediaThumb({
-  scene,
+  release,
   w,
   h,
   radius = 8,
 }: {
-  scene: MediaScene;
+  release: Release;
   w: number;
   h: number;
   radius?: number;
 }) {
   return (
     <div style={{ width: w, height: h, flexShrink: 0 }}>
-      <MediaTile scene={scene} radius={radius} />
+      <ReleaseThumbnail files={release.extras?.files} scene={release.scene} radius={radius} />
     </div>
   );
 }

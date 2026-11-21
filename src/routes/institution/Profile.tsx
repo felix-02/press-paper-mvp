@@ -153,7 +153,7 @@ export function Profile() {
   const location = orgLocation.trim() || "Location not provided";
   const website = orgWebsite.trim() || "Website not provided";
   const category = orgCategory.trim() || "Category not provided";
-  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified", avatarUrl: profile?.avatar_url || undefined };
+  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified", avatarUrl: org.avatarUrl };
 
   // Initialise the editable fields from the loaded profile (registration data).
   useEffect(() => {
@@ -373,7 +373,8 @@ export function Profile() {
                   key={p.user_id}
                   style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px 18px", borderTop: idx === 0 ? "none" : "1px solid var(--border)" }}
                 >
-                  <Avatar initials={initialsFrom(p.full_name, p.email)} size={38} />
+                  <Avatar name={p.full_name ?? undefined} initials={initialsFrom(p.full_name, p.email)}
+                    src={p.user_id === user?.id ? profile?.avatar_url : p.avatar_url} size={38} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{p.full_name || p.email}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{p.email}</div>

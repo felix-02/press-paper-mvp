@@ -44,7 +44,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
     >
       {/* release */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
-        <MediaThumb scene={r.scene} w={52} h={38} radius={7} />
+        <MediaThumb release={r} w={52} h={38} radius={7} />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

@@ -19,17 +19,19 @@ export interface CommentNode {
   parentId: string | null;
   author: string;
   authorId: string;
+  avatarUrl?: string;
   body: string;
   time: string;
   replies: CommentNode[];
 }
 
-function rowToComment(r: CommentRow): CommentNode {
+function rowToComment(r: CommentRow, avatarUrl?: string): CommentNode {
   return {
     id: r.id,
     parentId: r.parent_id,
     author: r.author_name || "Reader",
     authorId: r.author,
+    avatarUrl,
     body: r.body,
     time: relative(r.created_at),
     replies: [],
@@ -82,18 +84,19 @@ export function useComments(releaseId: string) {
 
     void (async () => {
       try {
-        const { data, error } = await supabase
-          .from("comments")
-          .select("*")
-          .eq("release_id", releaseId)
-          .order("created_at", { ascending: true });
+        const [{ data, error }, avatars] = await Promise.all([
+          supabase.from("comments").select("*").eq("release_id", releaseId).order("created_at", { ascending: true }),
+          supabase.rpc("release_comment_avatars", { p_release_id: releaseId }),
+        ]);
         if (!active) return;
         if (error) {
           setLoadError("Comments couldn't be loaded. Try again.");
           setLoading(false);
           return;
         }
-        setRows(((data as CommentRow[] | null) ?? []).map(rowToComment));
+        const byAuthor = new Map(((avatars.data as { author: string; avatar_url: string }[] | null) ?? [])
+          .map(({ author, avatar_url }) => [author, avatar_url]));
+        setRows(((data as CommentRow[] | null) ?? []).map((row) => rowToComment(row, byAuthor.get(row.author))));
         setLoading(false);
       } catch {
         if (!active) return;

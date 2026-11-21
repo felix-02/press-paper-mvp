@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Set the Supabase URL and anon key in `.env`, then apply database migrations through `0019_release_files.sql`. See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for the full setup and super-admin bootstrap.
+Set the Supabase URL and anon key in `.env`, then apply database migrations through `0020_profile_images.sql`. See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for the full setup and super-admin bootstrap.
 
 ## Commands
 

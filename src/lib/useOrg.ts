@@ -11,6 +11,7 @@ export interface OrgMember {
   email: string;
   full_name: string | null;
   created_at: string;
+  avatar_url?: string | null;
 }
 
 export interface OrgInvite {
@@ -153,6 +154,7 @@ export function useOrg() {
 
   const activeMembers = members.filter((m) => m.status === "active");
   const pendingMembers = members.filter((m) => m.status === "pending");
+  const avatarUrl = (role === "owner" ? profile?.avatar_url : activeMembers.find((m) => m.role === "owner")?.avatar_url) || undefined;
 
   // 5-seat plan. Owner + active + pending invites all consume a seat.
   const SEAT_LIMIT = 5;
@@ -162,5 +164,5 @@ export function useOrg() {
   // Publishing additionally requires the org to have verified its domain.
   const canPublishNow = can.publish && verified;
 
-  return { slug, role, status, active, verified, can, canPublishNow, members, activeMembers, pendingMembers, invites, loading, error, available, refresh, createInvite, revokeInvite, approve, decline, setRole, seatLimit: SEAT_LIMIT, seatsUsed, seatsLeft };
+  return { slug, role, status, active, verified, avatarUrl, can, canPublishNow, members, activeMembers, pendingMembers, invites, loading, error, available, refresh, createInvite, revokeInvite, approve, decline, setRole, seatLimit: SEAT_LIMIT, seatsUsed, seatsLeft };
 }

@@ -4,7 +4,6 @@ import {
   Bell,
   Building2,
   ChevronDown,
-  FileText,
   LogOut,
   Moon,
   Search,
@@ -16,6 +15,7 @@ import {
 import { Logo } from "@/components/brand/Logo";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Avatar } from "@/components/brand/Avatar";
+import { MediaThumb } from "@/components/dashboard/ReleaseBits";
 import { Verified } from "@/components/primitives/Bits";
 import { useAuth } from "@/auth/AuthProvider";
 import { useSearch } from "@/lib/useSearch";
@@ -25,15 +25,18 @@ import { useTheme } from "@/lib/useTheme";
 import type { Institution } from "@/types";
 
 interface LiveInstitutionIdentity {
-  name: string;
-  verified: boolean;
+  slug: string;
+  name?: string;
+  verified?: boolean;
+  avatar_url?: string | null;
 }
 
 export function TopBar({ kind }: { kind: "institution" | "individual" }) {
   const { profile, user, signOut } = useAuth();
   const navigate = useNavigate();
   const { resolvedTheme, toggle: toggleTheme } = useTheme();
-  const [liveIdentity, setLiveIdentity] = useState<LiveInstitutionIdentity | null>(null);
+  const [identity, setLiveIdentity] = useState<LiveInstitutionIdentity | null>(null);
+  const liveIdentity = identity?.slug === profile?.institution_slug ? identity : null;
   const institution: Institution = {
     slug: profile?.institution_slug ?? "institution",
     name: liveIdentity?.name ?? profile?.institution_name ?? "Institution",
@@ -42,6 +45,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
     color: "#606060",
     color2: "#454545",
     mark: "generic",
+    avatarUrl: liveIdentity?.avatar_url || profile?.avatar_url || undefined,
   };
   const orgName = institution.name;
   const personName = profile?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "You";
@@ -82,15 +86,21 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       return;
     }
     let active = true;
-    void supabase.rpc("public_institution", { p_slug: slug }).then(({ data }) => {
+    const client = supabase;
+    void client.rpc("public_institution", { p_slug: slug }).then(async ({ data }) => {
       if (!active) return;
       const row = ((data as LiveInstitutionIdentity[] | null) ?? [])[0] ?? null;
-      setLiveIdentity(row);
+      if (row) {
+        setLiveIdentity({ ...row, slug });
+        return;
+      }
+      const { data: avatarUrl } = await client.rpc("institution_avatar_url", { p_slug: slug });
+      if (active) setLiveIdentity({ slug, avatar_url: typeof avatarUrl === "string" ? avatarUrl : null });
     });
     return () => {
       active = false;
     };
-  }, [kind, profile?.institution_slug]);
+  }, [kind, profile?.institution_slug, profile?.avatar_url]);
 
   // Unread tracking: a notification is unread if it's newer than the last time
   // the user opened-then-closed the notifications popup (persisted locally).
@@ -321,9 +331,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--surface-3)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-                        <FileText size={15} color="var(--text-muted)" />
-                      </span>
+                      <MediaThumb release={r} w={30} h={30} />
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0 }}>
                         <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 420 }}>{r.heading}</span>
                         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.institutionName ?? "Institution"} · {r.type}</span>
@@ -489,7 +497,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
               </>
             ) : (
               <>
-                <Avatar size={28} name={personName} />
+                <Avatar size={28} name={personName} src={profile?.avatar_url} />
                 <span style={{ fontSize: 13.5, fontWeight: 500 }}>{personName}</span>
               </>
             )}

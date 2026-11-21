@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -17,10 +17,10 @@ import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { TypeBadge } from "@/components/release/ReleaseTypeBadge";
 import { ReleaseFileList, ReleaseGallery, useReleaseFileUrls } from "@/components/release/ReleaseFiles";
 import { Verified } from "@/components/primitives/Bits";
-import type { Institution, Release } from "@/types";
+import type { Release } from "@/types";
 import { useAppStore } from "@/store/useAppStore";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
-import { rowToRelease } from "@/lib/releaseMap";
+import { releaseInstitution, rowToRelease } from "@/lib/releaseMap";
 import { useAiSummary } from "@/lib/useAiSummary";
 import { track } from "@/lib/analytics";
 import { ShareMenu } from "@/components/common/ShareMenu";
@@ -36,18 +36,7 @@ import { sanitizeRichText } from "@/lib/sanitizeHtml";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
 import { useAuth } from "@/auth/AuthProvider";
 import { usePageTitle } from "@/lib/usePageTitle";
-
-function publisherFromRelease(release: Release): Institution {
-  return {
-    slug: release.institutionSlug,
-    name: release.institutionName?.trim() || release.institutionSlug,
-    category: "Institution",
-    verified: release.institutionVerified === true,
-    color: "#606060",
-    color2: "#454545",
-    mark: "generic",
-  };
-}
+import type { PublicInstitutionRow } from "@/lib/usePublicInstitutions";
 
 function plainText(value: string | null | undefined): string {
   return (value ?? "")
@@ -211,7 +200,17 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
   const { profile: authProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const i = useMemo(() => publisherFromRelease(release), [release]);
+  const i = releaseInstitution(release);
+  const [publicAvatarUrl, setPublicAvatarUrl] = useState<string>();
+
+  useEffect(() => {
+    if (release.institutionAvatarUrl || !release.institutionSlug || !supabase) return;
+    let active = true;
+    void supabase.rpc("public_institution", { p_slug: release.institutionSlug }).then(({ data }) => {
+      if (active) setPublicAvatarUrl((data as PublicInstitutionRow[] | null)?.[0]?.avatar_url || undefined);
+    });
+    return () => { active = false; };
+  }, [release.institutionSlug, release.institutionAvatarUrl]);
 
   const [lang, setLang] = useState<string>("English");
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
@@ -351,24 +350,30 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         <div className="pp-reader-main" style={{ flex: 1, minWidth: 0 }}>
       {/* institution + actions */}
       <div className="pp-release-heading-row" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div className="pp-release-identity" style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-          <InstitutionMark institution={i} size={44} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="pp-release-publisher-line" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{i.name}</span>
-              {i.verified && <Verified size={14} />}
-              {!isOwnInstitution && (
-                <button
-                  type="button"
-                  onClick={() => toggleFollow(i.slug)}
-                  style={{ fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600, marginLeft: 4 }}
-                >
-                  {following ? "· Following" : "· Follow"}
-                </button>
-              )}
+        <div className="pp-release-identity pp-release-publisher-line" style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+          <Link
+            to={`/institution/${encodeURIComponent(i.slug)}`}
+            aria-label={`View ${i.name} profile`}
+            style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}
+          >
+            <InstitutionMark institution={{ ...i, avatarUrl: i.avatarUrl ?? publicAvatarUrl }} size={44} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{i.name}</span>
+                {i.verified && <Verified size={14} />}
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
             </div>
-            <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
-          </div>
+          </Link>
+          {!isOwnInstitution && (
+            <button
+              type="button"
+              onClick={() => toggleFollow(i.slug)}
+              style={{ alignSelf: "flex-start", marginTop: 5, fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600 }}
+            >
+              {following ? "· Following" : "· Follow"}
+            </button>
+          )}
         </div>
       </div>
 

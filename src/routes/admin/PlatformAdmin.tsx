@@ -21,9 +21,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AdminShell } from "@/components/shells/AdminShell";
+import { Avatar } from "@/components/brand/Avatar";
+import { ReleaseThumbnail } from "@/components/release/ReleaseFiles";
 import { useAuth } from "@/auth/AuthProvider";
 import { useAppStore } from "@/store/useAppStore";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { readReleaseExtras } from "@/lib/releaseAssets";
 import { supabase } from "@/lib/supabase";
 import { InlineSpinner } from "@/components/primitives/Bits";
 import {
@@ -379,6 +382,7 @@ export function PlatformAdmin() {
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>All users ({admin.users.length})</h2>
               {filteredUsers.length === 0 ? <Empty>No users match this search.</Empty> : filteredUsers.map((row, index) => (
                 <div className="pp-admin-data-row" key={row.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
+                  <Avatar name={row.full_name || row.email} src={row.avatar_url} size={30} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650, overflowWrap: "anywhere" }}>{row.full_name || row.email} {row.is_admin && <ShieldCheck size={13} color="var(--blue)" style={{ display: "inline", verticalAlign: -2 }} />}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.email} · {row.role}{row.institution_name ? ` · ${row.institution_name}` : ""}</div>
@@ -397,7 +401,7 @@ export function PlatformAdmin() {
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>All institutions ({admin.institutions.length})</h2>
               {filteredInstitutions.length === 0 ? <Empty>No institutions match this search.</Empty> : filteredInstitutions.map((row, index) => (
                 <div className="pp-admin-data-row pp-admin-institution-row" key={row.owner_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
-                  <Building2 size={18} color="var(--text-muted)" />
+                  <Avatar name={row.institution_name || row.institution_slug} src={row.avatar_url} size={30} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650 }}>{row.institution_name || row.institution_slug}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.owner_email} · {row.member_count} members · {row.release_count} posts ({row.published_count} published)</div>
@@ -422,7 +426,10 @@ export function PlatformAdmin() {
                 const busy = actionBusy === `release:${row.release_id}`;
                 return (
                   <div className="pp-admin-data-row" key={row.release_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
-                    <FileText size={18} color="var(--text-muted)" />
+                    <div style={{ width: 44, height: 34, flexShrink: 0 }}>
+                      <ReleaseThumbnail files={readReleaseExtras(row.extras, row.institution_slug, row.release_id)?.files}
+                        scene={row.scene ?? "none"} radius={6} />
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 650 }}>{row.heading}</div>
                       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.institution_name || row.institution_slug} · {row.release_type} · {row.views} views · {row.comments_count} comments</div>

@@ -52,6 +52,7 @@ export interface Release {
   institutionName?: string;
   /** Verification state supplied by the database release view. */
   institutionVerified?: boolean;
+  institutionAvatarUrl?: string;
   type: string;
   status: ReleaseStatus;
   heading: string;

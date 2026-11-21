@@ -49,6 +49,7 @@ export interface ReleaseRow {
   views?: number;
   comments_count?: number;
   institution_verified?: boolean;
+  institution_avatar_url?: string | null;
   moderation_status?: "active" | "archived" | "deleted";
   revision_count?: number;
   last_edited_at?: string | null;
