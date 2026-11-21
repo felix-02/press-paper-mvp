@@ -1,11 +1,20 @@
 -- ============================================================================
 -- PRESSPAPER - ALL MIGRATIONS (0001 -> 0021), IN ORDER, IN ONE FILE.
--- Paste this ENTIRE file into Supabase -> SQL Editor -> Run. Idempotent.
+-- For a new Presspaper database, paste this entire file into the Supabase SQL Editor.
+-- For an existing database, apply each pending file in supabase/migrations in order.
 -- After running, make yourself the platform admin (once):
 --   update public.profiles set is_admin = true where id = '<your-user-id>';
 -- Institutions are INVITE-ONLY: issue invites from the in-app Review screen.
 -- ============================================================================
 
+do $$
+begin
+  if to_regclass('public.profiles') is not null then
+    raise exception 'This setup file requires a new Presspaper database.'
+      using hint = 'Apply each pending file in supabase/migrations in order.';
+  end if;
+end;
+$$;
 
 -- ////////////////////////////////////////////////////////////////////////
 -- 0001_init.sql

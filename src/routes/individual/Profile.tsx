@@ -56,7 +56,6 @@ export function Profile() {
   const [username, setUsername] = useState<string | null>();
   const userId = user?.id;
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "You";
-  const handle = "@" + (username ?? (displayName.split(" ")[0]?.toLowerCase() || "you"));
   const bio = profile?.bio?.trim() || null;
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
@@ -97,7 +96,7 @@ export function Profile() {
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>{displayName}</h1>
                 </div>
-                <div style={{ fontSize: 13.5, color: "var(--text-muted)" }}>{handle}</div>
+                {username && <div style={{ fontSize: 13.5, color: "var(--text-muted)" }}>@{username}</div>}
               </div>
             </div>
             <div className="pp-profile-actions" style={{ display: "flex", gap: 10, paddingBottom: 6 }}>
@@ -295,6 +294,7 @@ function EditProfileModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -322,9 +322,12 @@ function EditProfileModal({
       return;
     }
 
-    const nextUsername = usernameDraft?.trim().replace(/^@/, "").toLowerCase() || null;
-    if (nextUsername && !USERNAME_PATTERN.test(nextUsername)) {
-      setError("Use 3–30 letters, numbers or underscores for your username.");
+    setError(null);
+    setUsernameError(null);
+    const usernameInput = usernameDraft?.trim();
+    const nextUsername = usernameInput ? usernameInput.replace(/^@/, "").toLowerCase() : null;
+    if (nextUsername !== null && !USERNAME_PATTERN.test(nextUsername)) {
+      setUsernameError("Use 3–30 letters, numbers or underscores for your username.");
       return;
     }
 
@@ -334,7 +337,6 @@ function EditProfileModal({
     };
     if (usernameDraft !== undefined && nextUsername !== (initialUsername ?? null)) updates.username = nextUsername;
 
-    setError(null);
     setSaving(true);
     const avatars = supabase.storage.from("profile-avatars");
     let path: string | undefined;
@@ -353,7 +355,11 @@ function EditProfileModal({
       if (saveError) {
         // Remove the upload when the server confirms that it rejected the update.
         if (path && status >= 400 && status < 500) void avatars.remove([path]);
-        setError(saveError.code === "23505" ? "That username is taken. Choose another." : "Couldn't save your profile. Please try again.");
+        if (updates.username !== undefined && saveError.code === "23505") {
+          setUsernameError("That username is taken. Choose another.");
+        } else {
+          setError("Couldn't save your profile. Please try again.");
+        }
         return;
       }
       await onSaved(updates.username);
@@ -410,7 +416,7 @@ function EditProfileModal({
         </div>
         <label htmlFor="edit-profile-name" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Full name</label>
         <input id="edit-profile-name" className="pp-input" value={name} maxLength={200} disabled={saving} onChange={(e) => setName(e.target.value)} />
-        <label htmlFor="edit-profile-username" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Username</label>
+        <label htmlFor="edit-profile-username" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Username (optional)</label>
         <input
           id="edit-profile-username"
           className="pp-input"
@@ -420,13 +426,15 @@ function EditProfileModal({
           autoCapitalize="none"
           spellCheck={false}
           disabled={saving || initialUsername === undefined}
-          aria-describedby="edit-profile-username-hint"
+          aria-invalid={Boolean(usernameError)}
+          aria-describedby={usernameError ? "edit-profile-username-hint edit-profile-username-error" : "edit-profile-username-hint"}
           onChange={(event) => {
             setUsernameDraft(event.target.value);
-            setError(null);
+            setUsernameError(null);
           }}
         />
         <div id="edit-profile-username-hint" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>3–30 letters, numbers or underscores</div>
+        {usernameError && <p id="edit-profile-username-error" role="alert" style={{ fontSize: 13, color: "var(--red)", marginTop: 6 }}>{usernameError}</p>}
         <label htmlFor="edit-profile-bio" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Bio</label>
         <textarea id="edit-profile-bio" className="pp-input" value={bio} maxLength={5000} rows={4} disabled={saving} onChange={(event) => setBio(event.target.value)} style={{ resize: "vertical" }} />
         {error && <p role="alert" style={{ fontSize: 13, color: "var(--red)", marginTop: 12 }}>{error}</p>}
