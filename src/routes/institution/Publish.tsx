@@ -505,16 +505,7 @@ export function Publish() {
             <PublishFiles files={files} urls={urls} recording={recording} onRecording={setRecording} onAdd={addFiles}
               onRemove={removeFile} onMove={moveMedia} onError={fileError}
               onChange={(path, changes) => setFiles(current => current.map(file => file.path === path ? { ...file, ...changes } : file))}
-              covers={<details className="pp-publish-transcript">
-                <summary>Choose a cover from the catalogue</summary>
-                <select className="pp-input" aria-label="Catalogue cover" value={scene} onChange={event => setScene(event.target.value)}>
-                  <option value="none">No cover</option>
-                  {SCENES.map(cover => <option value={cover.scene} key={cover.scene}>{cover.label}</option>)}
-                  {platformCovers.map(cover => <option value={cover.url} key={cover.url}>{cover.label}</option>)}
-                  {scene !== "none" && !SCENES.some(cover => cover.scene === scene) && !platformCovers.some(cover => cover.url === scene) &&
-                    <option value={scene}>Existing cover</option>}
-                </select>
-              </details>}
+              // covers={}
             />
           </div>
 
