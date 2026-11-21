@@ -64,10 +64,9 @@ export function AppShell({
     <div
       className="pp-app-min pp-app-shell"
       data-theme={resolvedTheme}
-      style={{ ...({ "--sidebar-w": collapsed ? "64px" : "248px" } as React.CSSProperties) }}
     >
       <TopBar kind={kind} />
-      <div className="pp-app-body" style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      <div className="pp-app-body" data-sidebar-collapsed={collapsed} style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {kind === "institution"
           ? <SidebarInstitution collapsed={collapsed} onToggle={toggleCollapsed} />
           : <SidebarIndividual collapsed={collapsed} onToggle={toggleCollapsed} />}

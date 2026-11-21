@@ -196,7 +196,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
         zIndex: 30,
       }}
     >
-      <div className="pp-topbar-brand" style={{ width: "var(--sidebar-w)", paddingLeft: 22, display: "flex", alignItems: "center", flexShrink: 0 }}>
+      <div className="pp-topbar-brand">
         <Logo size={19} to={kind === "institution" ? "/inst" : "/home"} />
       </div>
 

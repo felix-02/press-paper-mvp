@@ -328,6 +328,10 @@ select:-webkit-autofill {
   min-height: 0;
 }
 
+.pp-app-body[data-sidebar-collapsed="true"] {
+  --sidebar-w: 64px;
+}
+
 .pp-app-main {
   overflow: auto;
   scrollbar-gutter: stable;
@@ -355,8 +359,12 @@ select:-webkit-autofill {
 }
 
 .pp-topbar-brand {
+  width: min(248px, 24vw);
   height: 100%;
-  border-right: 1px solid var(--border-faint);
+  padding-left: 22px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .pp-app-shell[data-theme="light"] .pp-topbar-brand svg path {
@@ -1161,8 +1169,8 @@ select:-webkit-autofill {
   }
 
   .pp-topbar-brand {
-    width: auto !important;
-    padding-left: 14px !important;
+    width: auto;
+    padding-left: 14px;
   }
 
   .pp-topbar-search {
