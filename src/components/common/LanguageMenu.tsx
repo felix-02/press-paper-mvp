@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Languages, Check, Search } from "lucide-react";
-import { LANGUAGES } from "@/data/languages";
+import { LANGUAGES, postLanguageCode } from "@/data/languages";
+import { usePostText } from "@/lib/postTranslation";
 
 export function LanguageMenu({
   value,
@@ -13,6 +14,7 @@ export function LanguageMenu({
   busy?: boolean;
   languages?: string[];
 }) {
+  const text = usePostText();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -25,7 +27,10 @@ export function LanguageMenu({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const filtered = languages.filter((l) => l.toLowerCase().includes(q.trim().toLowerCase()));
+  const names = value === "English" ? null : new Intl.DisplayNames(postLanguageCode(value), { type: "language" });
+  const label = (language: string) => names?.of(postLanguageCode(language)) ?? language;
+  const search = q.trim().toLowerCase();
+  const filtered = languages.filter(language => language.toLowerCase().includes(search) || label(language).toLowerCase().includes(search));
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -36,7 +41,7 @@ export function LanguageMenu({
         style={{ fontWeight: 500 }}
       >
         <Languages size={15} />
-        {busy ? "Translating…" : value === "English" ? "Translate" : value.replace(/\s*\(.*\)$/, "")}
+        {busy ? text("Translating…") : value === "English" ? text("Translate") : label(value)}
       </button>
 
       {open && (
@@ -59,14 +64,14 @@ export function LanguageMenu({
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search languages…"
+              placeholder={text("Search languages…")}
               autoFocus
               style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13.5 }}
             />
           </div>
           <div style={{ maxHeight: 280, overflowY: "auto", padding: 6 }}>
             {filtered.length === 0 ? (
-              <div style={{ padding: "16px 12px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>No match</div>
+              <div style={{ padding: "16px 12px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" }}>{text("No match")}</div>
             ) : (
               filtered.map((l) => (
                 <button
@@ -92,7 +97,7 @@ export function LanguageMenu({
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = l === value ? "var(--surface-2)" : "transparent")}
                 >
-                  {l}
+                  {label(l)}
                   {l === value && <Check size={14} color="var(--blue)" />}
                 </button>
               ))

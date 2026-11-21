@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Tag } from "@/components/primitives/Bits";
+import { usePostText } from "@/lib/postTranslation";
 
 /** Renders up to `max` tags inline; the rest collapse into a "+N" chip that
  *  opens a small popover listing every tag. */
 export function TagList({ tags, max = 2, extra = 0 }: { tags: string[]; max?: number; extra?: number }) {
+  const text = usePostText();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -23,7 +25,7 @@ export function TagList({ tags, max = 2, extra = 0 }: { tags: string[]; max?: nu
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap", position: "relative" }} ref={ref}>
       {shown.map((t) => (
-        <Tag key={t}>{t}</Tag>
+        <Tag key={t}>{text(t)}</Tag>
       ))}
       {hiddenCount > 0 && (
         <>
@@ -67,9 +69,9 @@ export function TagList({ tags, max = 2, extra = 0 }: { tags: string[]; max?: nu
               }}
             >
               {tags.map((t) => (
-                <Tag key={t}>{t}</Tag>
+                <Tag key={t}>{text(t)}</Tag>
               ))}
-              {extra > 0 && <span style={{ fontSize: 11.5, color: "var(--text-muted)", alignSelf: "center" }}>+{extra} additional topics</span>}
+              {extra > 0 && <span style={{ fontSize: 11.5, color: "var(--text-muted)", alignSelf: "center" }}>{text("{count} additional topics", { count: `+${extra}` })}</span>}
             </div>
           )}
         </>

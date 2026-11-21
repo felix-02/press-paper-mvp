@@ -79,9 +79,12 @@ Autocapture and session recording are disabled. Application activity is also wri
 
 ## 5. Deploy Edge Functions (AI summaries + translation)
 
-AI summaries and translation stay hidden-but-graceful until these two
-functions are deployed — readers see the source summary and English only.
-To turn them on:
+AI summaries and translation require Edge Functions in the same Supabase
+project as `VITE_SUPABASE_URL`. A `404 NOT_FOUND` from the function endpoint
+means it needs to be deployed to that project. Until deployment, readers can
+still view the original release and its source summary.
+
+To enable these features:
 
 ```bash
 # once: npm install -g supabase && supabase login
@@ -91,6 +94,11 @@ supabase secrets set GEMINI_MODEL=gemini-3.5-flash
 supabase functions deploy summarize
 supabase functions deploy translate
 ```
+
+Translation defaults to `gemini-3.5-flash-lite`. Set
+`GEMINI_TRANSLATION_MODEL` in Edge Function secrets to override it.
+A custom `GEMINI_MODEL` also applies to translation when that override is
+unset. The shared setup value `gemini-3.5-flash` applies to summaries.
 
 Verify from the dashboard (Edge Functions → summarize / translate → Logs)
 or by opening any release while signed in: the Summary panel switches from

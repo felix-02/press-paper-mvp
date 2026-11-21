@@ -17,9 +17,11 @@ export function typeColor(type: string): string {
 /** Small coloured release-type pill. `solid` gives the filled-bg variant used on cards. */
 export function TypeBadge({
   type,
+  label = type,
   size = "md",
 }: {
   type: string;
+  label?: string;
   size?: "sm" | "md";
 }) {
   const color = typeColor(type);
@@ -33,7 +35,7 @@ export function TypeBadge({
         padding: size === "sm" ? "2px 8px" : "3px 9px",
       }}
     >
-      {type}
+      {label}
     </span>
   );
 }

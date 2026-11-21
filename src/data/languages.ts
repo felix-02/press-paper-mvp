@@ -70,3 +70,22 @@ export const LANGUAGES: string[] = [
   "Basque (Euskara)",
   "Galician (Galego)",
 ];
+
+const LANGUAGE_CODES: Record<string, string> = {
+  English: "en", Welsh: "cy", Spanish: "es", French: "fr", German: "de", Italian: "it",
+  Portuguese: "pt", Dutch: "nl", Polish: "pl", Romanian: "ro", Greek: "el", Czech: "cs",
+  Swedish: "sv", Norwegian: "no", Danish: "da", Finnish: "fi", Hungarian: "hu",
+  Ukrainian: "uk", Russian: "ru", Turkish: "tr", Arabic: "ar", Hebrew: "he", Hindi: "hi",
+  Bengali: "bn", Punjabi: "pa", Urdu: "ur", Tamil: "ta", Telugu: "te", Marathi: "mr",
+  Gujarati: "gu", Kannada: "kn", Malayalam: "ml", Chinese: "zh", Japanese: "ja",
+  Korean: "ko", Vietnamese: "vi", Thai: "th", Indonesian: "id", Malay: "ms", Filipino: "fil",
+  Swahili: "sw", Amharic: "am", Yoruba: "yo", Igbo: "ig", Hausa: "ha", Zulu: "zu",
+  Afrikaans: "af", Persian: "fa", Pashto: "ps", Nepali: "ne", Sinhala: "si", Khmer: "km",
+  Lao: "lo", Burmese: "my", Mongolian: "mn", Kazakh: "kk", Serbian: "sr", Croatian: "hr",
+  Bulgarian: "bg", Slovak: "sk", Slovenian: "sl", Lithuanian: "lt", Latvian: "lv",
+  Estonian: "et", Icelandic: "is", Irish: "ga", Catalan: "ca", Basque: "eu", Galician: "gl",
+};
+
+export function postLanguageCode(language: string) {
+  return LANGUAGE_CODES[language.split(" (")[0]] ?? "en";
+}

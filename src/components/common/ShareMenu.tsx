@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Share2, Check } from "lucide-react";
+import { usePostText } from "@/lib/postTranslation";
 
 interface Channel {
   label: string;
@@ -18,6 +19,7 @@ const CHANNELS: Channel[] = [
 
 /** Share dropdown with real social-share links + copy. */
 export function ShareMenu({ url, title, className }: { url: string; title: string; className?: string }) {
+  const text = usePostText();
   const [open, setOpen] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const ref = useRef<HTMLDivElement>(null);
@@ -72,7 +74,7 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
           setOpen((v) => !v);
         }}
       >
-        <Share2 size={15} /> Share
+        <Share2 size={15} /> {text("Share")}
       </button>
 
       {open && (
@@ -117,7 +119,7 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
                   <span style={{ fontSize: 11, fontWeight: 700 }}>{c.label[0]}</span>
                 )}
               </span>
-              {c.copy && copyState === "copied" ? "Copied!" : c.copy && copyState === "failed" ? "Copy failed" : c.label}
+              {text(c.copy && copyState === "copied" ? "Copied!" : c.copy && copyState === "failed" ? "Copy failed" : c.label)}
             </button>
           ))}
         </div>

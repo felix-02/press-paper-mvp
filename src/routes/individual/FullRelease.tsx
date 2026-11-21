@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -29,10 +29,12 @@ import { EditedBadge, ReactionBar } from "@/components/release/ReleaseExtras";
 import { TagList } from "@/components/common/TagList";
 import { LanguageMenu } from "@/components/common/LanguageMenu";
 import { AddToWatchlist } from "@/components/common/AddToWatchlist";
-import { translateTexts, isTranslationAvailable } from "@/lib/translate";
+import { mapPostHtml, PostLanguageContext, usePostTranslation } from "@/lib/postTranslation";
+import { postLanguageCode } from "@/data/languages";
 import { useReleaseEngagement } from "@/lib/useReleaseEngagement";
 import { isReleaseUuid, releaseShareUrl } from "@/lib/releaseUrls";
 import { sanitizeRichText } from "@/lib/sanitizeHtml";
+import { formatAsset } from "@/lib/releaseAssets";
 import { useReaderShellKind } from "@/lib/useReaderShellKind";
 import { useAuth } from "@/auth/AuthProvider";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -196,7 +198,6 @@ export function FullRelease() {
 }
 
 function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "institution" | "individual" }) {
-  usePageTitle(release.heading);
   const { profile: authProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -242,11 +243,37 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
   const plainBody = !bodyIsHtml ? release.body?.trim() ?? "" : "";
   const authoredText = useMemo(() => plainText(release.body), [release.body]);
   const hasRichBody = bodyIsHtml && !!safeBody.trim();
-  const hasAuthoredBody = hasRichBody || !!plainBody;
+  const richSources = useMemo(() => {
+    const texts: string[] = [];
+    if (safeBody) mapPostHtml(safeBody, source => {
+      texts.push(source);
+      return source;
+    });
+    return texts;
+  }, [safeBody]);
 
   // AI is server-generated from the database release. The only fallback is the
   // publisher-authored subheading; no client-side summary copy is invented.
   const ai = useAiSummary(release, release.subheading.trim(), authoredText || release.subheading);
+  const postSources = useMemo(() => [
+    release.heading, release.subheading, release.type, release.time, plainBody, ai.summary,
+    ...release.tags, ...richSources,
+    ...(release.extras?.files.flatMap(file => [
+      file.alt ?? "", file.transcript ?? "", file.kind === "audio" || file.kind === "document" ? formatAsset(file) : "",
+    ]) ?? []),
+  ], [release, ai.summary, plainBody, richSources]);
+  const translationFailed = useCallback((description: string) => {
+    pushToast({ title: "Couldn't translate", description, variant: "error" });
+    setLang("English");
+  }, [pushToast]);
+  const { text, addTexts, translating, translated } = usePostTranslation(lang, postSources, translationFailed);
+  const loadingTranslation = translating && !translated;
+  const title = text(release.heading);
+  const subtitle = text(release.subheading);
+  const overview = text(plainBody) || subtitle;
+  const summary = text(ai.summary);
+  const displayedBody = useMemo(() => translated && safeBody ? mapPostHtml(safeBody, text) : safeBody, [safeBody, text, translated]);
+  usePageTitle(title);
 
   // Real, per-release engagement (views counter + real comment count).
   const eng = useReleaseEngagement(
@@ -266,62 +293,17 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
     track("release_viewed", { id: release.id, type: release.type });
   }, [release.id]);
 
-  const [tr, setTr] = useState<{ title: string; subtitle: string; overview: string; summary: string } | null>(null);
-  const [translating, setTranslating] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    if (lang === "English") {
-      setTranslating(false);
-      setTr(null);
-      return;
-    }
-    if (!isTranslationAvailable()) {
-      setTranslating(false);
-      pushToast({ title: "Translation unavailable", description: "Deploy the translate function to enable other languages.", variant: "error" });
-      setLang("English");
-      return;
-    }
-    setTranslating(true);
-    const sourceOverview = authoredText || release.subheading;
-    const fields = [release.heading, release.subheading, sourceOverview, ai.summary];
-    translateTexts(lang, fields).then((out) => {
-      if (!active) return;
-      setTranslating(false);
-      if (out === fields || out.length !== fields.length) {
-        pushToast({ title: "Couldn't translate", description: "Please try again.", variant: "error" });
-        setLang("English");
-        return;
-      }
-      setTr({
-        title: out[0],
-        subtitle: out[1],
-        overview: out[2],
-        summary: out[3],
-      });
-    });
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang, release.id, release.heading, release.subheading, authoredText, ai.summary, pushToast]);
-
-  const translated = lang !== "English" && !!tr;
-  const title = translated ? tr!.title : release.heading;
-  const subtitle = translated ? tr!.subtitle : release.subheading;
-  const overview = translated ? tr!.overview : authoredText || release.subheading;
-  const summary = translated ? tr!.summary : ai.summary;
-
   const onSave = () => {
     const now = toggleSaved(release.id);
-    pushToast({ title: now ? "Saved" : "Removed from saved", variant: now ? "success" : "info" });
+    pushToast({ title: text(now ? "Saved" : "Removed from saved"), variant: now ? "success" : "info" });
   };
 
   const shareUrl = releaseShareUrl(release);
 
   const downloadRelease = () => {
-    const text = [release.heading, release.subheading, authoredText].filter(Boolean).join("\n\n");
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const body = hasRichBody ? plainText(displayedBody) : text(plainBody);
+    const content = [title, subtitle, body].filter(Boolean).join("\n\n");
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -337,13 +319,15 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
 
   return (
     <AppShell kind={shellKind} maxWidth={1180}>
+      <PostLanguageContext.Provider value={{ text, addTexts }}>
+      <div className="pp-post-reader" lang={translated ? postLanguageCode(lang) : "en"} dir="auto">
       <button
         type="button"
         onClick={goBack}
         className="pp-link-muted"
         style={{ marginBottom: 18, fontSize: 13.5 }}
       >
-        <ArrowLeft size={15} /> Back
+        <ArrowLeft size={15} /> {text("Back")}
       </button>
 
       <div className="pp-reader-layout" style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
@@ -353,16 +337,16 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         <div className="pp-release-identity pp-release-publisher-line" style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
           <Link
             to={`/institution/${encodeURIComponent(i.slug)}`}
-            aria-label={`View ${i.name} profile`}
+            aria-label={text("View {name} profile", { name: i.name })}
             style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}
           >
             <InstitutionMark institution={{ ...i, avatarUrl: i.avatarUrl ?? publicAvatarUrl }} size={44} />
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{i.name}</span>
-                {i.verified && <Verified size={14} />}
+                {i.verified && <Verified size={14} label={text("Verified")} />}
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{release.time}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>{text(release.time)}</div>
             </div>
           </Link>
           {!isOwnInstitution && (
@@ -371,7 +355,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
               onClick={() => toggleFollow(i.slug)}
               style={{ alignSelf: "flex-start", marginTop: 5, fontSize: 12.5, color: following ? "var(--text-muted)" : "var(--blue)", fontWeight: 600 }}
             >
-              {following ? "· Following" : "· Follow"}
+              · {text(following ? "Following" : "Follow")}
             </button>
           )}
         </div>
@@ -379,17 +363,17 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
 
       {/* title */}
       <div style={{ marginTop: 18 }}>
-        <TypeBadge type={release.type} />
+        <TypeBadge type={release.type} label={text(release.type)} />
         <h1 style={{ fontSize: 32, fontWeight: 700, letterSpacing: "0", lineHeight: 1.15, marginTop: 12 }}>{title}</h1>
         <p style={{ fontSize: 16, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 12, maxWidth: 720 }}>{subtitle}</p>
 
         {/* live engagement + tags */}
         <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 16, flexWrap: "wrap" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-            <Eye size={15} /> {eng.isLiveViews ? eng.views.toLocaleString() : release.views} views
+            <Eye size={15} /> {eng.isLiveViews ? eng.views.toLocaleString(postLanguageCode(lang)) : release.views} {text((eng.isLiveViews ? eng.views : Number(release.views)) === 1 ? "view" : "views")}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-            <MessageSquare size={15} /> {commentsLabel} comments
+            <MessageSquare size={15} /> {commentsLabel} {text(commentsLabel === "1" ? "comment" : "comments")}
           </span>
           {(release.tags.length > 0 || release.extraTags) && <TagList tags={release.tags} max={3} extra={release.extraTags} />}
           <EditedBadge release={release} />
@@ -403,20 +387,20 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         <div id="release-actions" className="pp-card pp-release-action-bar" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 14, padding: 10, scrollMarginTop: 20 }}>
           <button type="button" onClick={onSave} className={saved ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-outline"}>
             <Bookmark size={15} fill={saved ? "var(--blue)" : "none"} color={saved ? "var(--blue)" : "currentColor"} />
-            {saved ? "Saved" : "Save"}
+            {text(saved ? "Saved" : "Save")}
           </button>
           <AddToWatchlist releaseId={release.id} />
-          <ShareMenu url={shareUrl} title={release.heading} />
+          <ShareMenu url={shareUrl} title={title} />
           {attachments.length > 0 && (
             <button type="button" onClick={() => setAttachmentsOpen((open) => !open)} className="pp-btn pp-btn-outline" aria-expanded={attachmentsOpen}>
-              <Paperclip size={15} /> Attachments ({attachments.length})
+              <Paperclip size={15} /> {text("Attachments ({count})", { count: attachments.length })}
             </button>
           )}
           <button type="button" onClick={downloadRelease} className="pp-btn pp-btn-outline">
-            <Download size={15} /> Download
+            <Download size={15} /> {text("Download")}
           </button>
           <button type="button" onClick={() => window.print()} className="pp-btn pp-btn-outline">
-            <Printer size={15} /> Print
+            <Printer size={15} /> {text("Print")}
           </button>
         </div>
 
@@ -424,46 +408,15 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
       </div>
 
           {/* release body */}
-          {translated && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 12.5,
-                color: "var(--blue)",
-                background: "rgba(123, 123, 123, 0.1)",
-                border: "1px solid rgba(123, 123, 123, 0.25)",
-                borderRadius: "var(--r-pill)",
-                padding: "5px 12px",
-                marginTop: 24,
-              }}
-            >
-              <Languages size={14} /> Translated to {lang.replace(/\s*\(.*\)$/, "")}
-            </div>
-          )}
-
-          <Section title="Overview">
-            {!translated && hasRichBody ? (
-              <div className="pp-prose" dangerouslySetInnerHTML={{ __html: safeBody }} />
-            ) : !translated && plainBody ? (
-              <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{plainBody}</p>
+          <Section title={text("Overview")}>
+            {hasRichBody ? (
+              <div className="pp-prose" dangerouslySetInnerHTML={{ __html: displayedBody }} />
             ) : overview ? (
-              <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7 }}>{overview}</p>
+              <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{overview}</p>
             ) : (
-              <p style={{ fontSize: 14, color: "var(--text-muted)" }}>No body content was provided for this release.</p>
+              <p style={{ fontSize: 14, color: "var(--text-muted)" }}>{text("No body content was provided for this release.")}</p>
             )}
           </Section>
-
-          {translated && hasAuthoredBody && (
-            <Section title="Original release text">
-              {hasRichBody ? (
-                <div className="pp-prose" dangerouslySetInnerHTML={{ __html: safeBody }} />
-              ) : (
-                <p style={{ fontSize: 15, color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{plainBody}</p>
-              )}
-            </Section>
-          )}
 
           {/* reactions */}
           <div style={{ marginTop: 26 }}>
@@ -471,7 +424,7 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
           </div>
 
           {/* comments */}
-          <Section id="comments" title="Comments">
+          <Section id="comments" title={text("Comments")}>
             <CommentThread releaseId={release.id} canModerate={isOwnInstitution} onCommentPosted={() => setCommentDelta((count) => count + 1)} />
           </Section>
         </div>
@@ -479,41 +432,40 @@ function ReleaseDetail({ release, shellKind }: { release: Release; shellKind: "i
         {/* rail */}
         <aside className="pp-reader-rail" style={{ width: 330, flexShrink: 0, display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 0 }}>
           {/* translate */}
-          <RailPanel title="Translate" icon={<Languages size={16} color="var(--text-muted)" />}>
+          <RailPanel title={text("Translate")} icon={<Languages size={16} color="var(--text-muted)" />}>
             <LanguageMenu
               value={lang}
               onChange={setLang}
-              busy={translating}
+              busy={loadingTranslation}
             />
-            <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, lineHeight: 1.5 }}>
-              Translate the published headline and content. The original release text remains available below.
-            </p>
           </RailPanel>
 
           {/* AI summary */}
-          <RailPanel id="ai-summary" title={ai.isAi && !translated ? "AI Summary" : "Summary"} icon={<Sparkles size={16} color="var(--purple)" />} accent="var(--text)">
-            {(ai.loading && !translated) || translating ? (
+          <RailPanel id="ai-summary" title={text(ai.isAi ? "AI Summary" : "Summary")} icon={<Sparkles size={16} color="var(--purple)" />} accent="var(--text)">
+            {(ai.loading && !translated) || loadingTranslation ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {[100, 92, 70].map((w) => (
                   <div key={w} style={{ height: 11, width: `${w}%`, borderRadius: 4, background: "linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2))", backgroundSize: "200% 100%", animation: "pp-shimmer 1.2s ease-in-out infinite" }} />
                 ))}
                 <span style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Sparkles size={11} /> {translating ? "Translating…" : "Summarising…"}
+                  <Sparkles size={11} /> {text(loadingTranslation ? "Translating…" : "Summarising…")}
                 </span>
               </div>
             ) : (
               <>
                 <p style={{ fontSize: 13.5, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-                  {summary || "No summary is available for this release."}
+                  {summary || text("No summary is available for this release.")}
                 </p>
                 <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Sparkles size={11} /> {ai.isAi && !translated ? "AI-generated. Verify important information." : translated ? "Translated summary" : "Source summary"}
+                  <Sparkles size={11} /> {text(ai.isAi ? "AI-generated. Verify important information." : "Source summary")}
                 </div>
               </>
             )}
           </RailPanel>
         </aside>
       </div>
+      </div>
+      </PostLanguageContext.Provider>
     </AppShell>
   );
 }

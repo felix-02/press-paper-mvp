@@ -3,8 +3,10 @@ import { ListPlus, Plus, Check } from "lucide-react";
 import { useWatchlists } from "@/lib/useWatchlists";
 import { useAppStore } from "@/store/useAppStore";
 import { InlineSpinner } from "@/components/primitives/Bits";
+import { usePostText } from "@/lib/postTranslation";
 
 export function AddToWatchlist({ releaseId }: { releaseId: string }) {
+  const text = usePostText();
   const { lists, available, create, addItem, inList } = useWatchlists();
   const pushToast = useAppStore((s) => s.pushToast);
   const [open, setOpen] = useState(false);
@@ -25,13 +27,13 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
 
   const add = async (id: string, listName: string, already: boolean) => {
     if (already) {
-      pushToast({ title: `Already in ${listName}`, variant: "info" });
+      pushToast({ title: text("Already in {name}", { name: listName }), variant: "info" });
       return;
     }
     setBusyKey(id);
     try {
       const added = await addItem(id, releaseId);
-      pushToast({ title: added ? `Added to ${listName}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
+      pushToast({ title: added ? text("Added to {name}", { name: listName }) : text("Couldn't update watchlist"), variant: added ? "success" : "info" });
     } finally {
       setBusyKey(null);
     }
@@ -45,11 +47,11 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
       const wl = await create(n);
       if (wl) {
         const added = await addItem(wl.id, releaseId);
-        pushToast({ title: added ? `Added to ${wl.name}` : "Couldn't update watchlist", variant: added ? "success" : "info" });
+        pushToast({ title: added ? text("Added to {name}", { name: wl.name }) : text("Couldn't update watchlist"), variant: added ? "success" : "info" });
         setName("");
         setCreating(false);
       } else {
-        pushToast({ title: "Couldn't create watchlist", variant: "error" });
+        pushToast({ title: text("Couldn't create watchlist"), variant: "error" });
       }
     } finally {
       setBusyKey(null);
@@ -59,7 +61,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button type="button" className="pp-btn pp-btn-outline" onClick={() => setOpen((v) => !v)}>
-        <ListPlus size={15} /> Add to list
+        <ListPlus size={15} /> {text("Add to list")}
       </button>
 
       {open && (
@@ -78,11 +80,11 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0", padding: "6px 10px" }}>
-            Add to watchlist
+            {text("Add to watchlist")}
           </div>
           <div style={{ maxHeight: 220, overflowY: "auto" }}>
             {lists.length === 0 && !creating && (
-              <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>No watchlists yet.</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{text("No watchlists yet.")}</div>
             )}
             {lists.map((l) => {
               const done = inList(l.id, releaseId);
@@ -108,7 +110,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
             <div style={{ display: "flex", gap: 6, padding: "8px 6px 4px" }}>
               <input
                 className="pp-input"
-                placeholder="List name"
+                placeholder={text("List name")}
                 value={name}
                 maxLength={80}
                 autoFocus
@@ -119,7 +121,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
                 style={{ padding: "7px 10px", fontSize: 13 }}
               />
               <button type="button" onClick={createAndAdd} disabled={!name.trim() || busyKey !== null} aria-busy={busyKey === "new"} className="pp-btn pp-btn-blue" style={{ padding: "7px 12px", fontSize: 12.5, opacity: name.trim() && !busyKey ? 1 : 0.6 }}>
-                {busyKey === "new" ? <InlineSpinner /> : "Add"}
+                {busyKey === "new" ? <InlineSpinner /> : text("Add")}
               </button>
             </div>
           ) : (
@@ -128,7 +130,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
               onClick={() => setCreating(true)}
               style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 10px", borderRadius: "var(--r-md)", fontSize: 13.5, color: "var(--blue)", fontWeight: 600, marginTop: 4, borderTop: "1px solid var(--border)", background: "transparent" }}
             >
-              <Plus size={15} /> Create new list
+              <Plus size={15} /> {text("Create new list")}
             </button>
           )}
         </div>

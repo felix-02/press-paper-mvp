@@ -7,11 +7,17 @@ import { supabase } from "@/lib/supabase";
 import { useAppStore } from "@/store/useAppStore";
 import { InlineSpinner } from "@/components/primitives/Bits";
 import { Skeleton } from "@/components/primitives/Skeleton";
+import { usePostText } from "@/lib/postTranslation";
+
+function commentTexts(tree: CommentNode[]): string[] {
+  return tree.flatMap(comment => [comment.body, comment.time, ...commentTexts(comment.replies)]);
+}
 
 export function CommentThread({ releaseId, canModerate = false, onCommentPosted }: { releaseId: string; canModerate?: boolean; onCommentPosted?: () => void }) {
   const { profile, user } = useAuth();
   const pushToast = useAppStore((s) => s.pushToast);
   const { tree, post, posting, loading, loadError, postError, reload } = useComments(releaseId);
+  const text = usePostText([...commentTexts(tree), loadError, postError]);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
@@ -52,10 +58,10 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
     try {
       const { error } = await supabase.from("comments").delete().eq("id", id);
       if (error) {
-        pushToast({ title: "Couldn't remove comment", variant: "error" });
+        pushToast({ title: text("Couldn't remove comment"), variant: "error" });
         return;
       }
-      pushToast({ title: "Comment removed", variant: "info" });
+      pushToast({ title: text("Comment removed"), variant: "info" });
       reload();
     } finally {
       setRemovingId(null);
@@ -68,10 +74,10 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
         <Avatar name={c.author} src={c.authorId === user?.id ? profile?.avatar_url : c.avatarUrl} size={depth ? 30 : 36} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.author}</span>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {c.time}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.author === "Reader" ? text("Reader") : c.author}</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {text(c.time)}</span>
           </div>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 5 }}>{c.body}</p>
+          <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.55, marginTop: 5 }}>{text(c.body)}</p>
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
             {(canModerate || (user && c.authorId === user.id)) && (
               <button
@@ -79,10 +85,10 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
                 onClick={() => void removeComment(c.id)}
                 disabled={removingId !== null}
                 aria-busy={removingId === c.id}
-                title={canModerate ? "Remove this comment from your release" : "Delete your comment"}
+                title={text(canModerate ? "Remove this comment from your release" : "Delete your comment")}
                 style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--text-muted)" }}
               >
-                {removingId === c.id ? <InlineSpinner size={12} /> : <Trash2 size={12} />} {removingId === c.id ? "Removing…" : "Remove"}
+                {removingId === c.id ? <InlineSpinner size={12} /> : <Trash2 size={12} />} {text(removingId === c.id ? "Removing…" : "Remove")}
               </button>
             )}
             {depth === 0 && (
@@ -94,7 +100,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
                 }}
                 style={{ fontSize: 12.5, color: "var(--text-muted)" }}
               >
-                Reply
+                {text("Reply")}
               </button>
             )}
           </div>
@@ -105,7 +111,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
               <div style={{ flex: 1 }}>
                 <textarea
                   className="pp-input"
-                  placeholder={`Reply to ${c.author}…`}
+                  placeholder={text("Reply to {name}…", { name: c.author === "Reader" ? text("Reader") : c.author })}
                   value={replyDraft}
                   maxLength={4000}
                   onChange={(e) => setReplyDraft(e.target.value)}
@@ -115,7 +121,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
                 />
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
                   <button type="button" onClick={() => setReplyTo(null)} className="pp-btn pp-btn-ghost" style={{ padding: "6px 12px", fontSize: 12.5 }}>
-                    Cancel
+                    {text("Cancel")}
                   </button>
                   <button
                     type="button"
@@ -125,7 +131,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
                     className="pp-btn pp-btn-blue"
                     style={{ padding: "6px 14px", fontSize: 12.5, opacity: posting || loading || loadError || !replyDraft.trim() ? 0.6 : 1 }}
                   >
-                    {postingTarget === c.id ? <><InlineSpinner size={12} /> Posting…</> : "Reply"}
+                    {postingTarget === c.id && <InlineSpinner size={12} />} {text(postingTarget === c.id ? "Posting…" : "Reply")}
                   </button>
                 </div>
               </div>
@@ -149,7 +155,7 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
         <div style={{ flex: 1 }}>
           <textarea
             className="pp-input"
-            placeholder="Add a thoughtful comment…"
+            placeholder={text("Add a thoughtful comment…")}
             value={draft}
             disabled={loading || Boolean(loadError)}
             maxLength={4000}
@@ -169,18 +175,18 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
               className="pp-btn pp-btn-blue"
               style={{ padding: "7px 16px", fontSize: 13, opacity: posting || loading || loadError || !draft.trim() ? 0.6 : 1 }}
             >
-              {postingTarget === "root" ? <><InlineSpinner /> Posting…</> : "Comment"}
+              {postingTarget === "root" && <InlineSpinner />} {text(postingTarget === "root" ? "Posting…" : "Comment")}
             </button>
           </div>
         </div>
       </div>
 
       {postError && (
-        <div role="alert" style={{ margin: "-10px 0 18px 48px", color: "var(--red)", fontSize: 13 }}>{postError}</div>
+        <div role="alert" style={{ margin: "-10px 0 18px 48px", color: "var(--red)", fontSize: 13 }}>{text(postError)}</div>
       )}
 
       {loading ? (
-        <div role="status" aria-label="Loading comments" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div role="status" aria-label={text("Loading comments")} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {[0, 1].map((item) => (
             <div key={item} style={{ display: "flex", gap: 12 }} aria-hidden="true">
               <Skeleton w={36} h={36} r={999} />
@@ -193,12 +199,12 @@ export function CommentThread({ releaseId, canModerate = false, onCommentPosted 
         </div>
       ) : loadError ? (
         <div role="alert" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, color: "var(--text-secondary)", fontSize: 13.5 }}>
-          <span>{loadError}</span>
-          <button type="button" className="pp-btn pp-btn-outline" onClick={reload} style={{ padding: "6px 12px", fontSize: 12.5 }}>Try again</button>
+          <span>{text(loadError)}</span>
+          <button type="button" className="pp-btn pp-btn-outline" onClick={reload} style={{ padding: "6px 12px", fontSize: 12.5 }}>{text("Try again")}</button>
         </div>
       ) : tree.length === 0 ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontSize: 13.5 }}>
-          <MessageSquare size={15} /> Be the first to comment on this release.
+          <MessageSquare size={15} /> {text("Be the first to comment on this release.")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>{tree.map((c) => renderNode(c, 0))}</div>

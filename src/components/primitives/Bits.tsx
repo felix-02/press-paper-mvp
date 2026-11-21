@@ -13,8 +13,8 @@ export function InlineSpinner({ size = 14 }: { size?: number }) {
 }
 
 /** Blue verified check used beside institution + user names. */
-export function Verified({ size = 15 }: { size?: number }) {
-  return <BadgeCheck size={size} className="pp-verified" strokeWidth={2.2} aria-label="Verified" />;
+export function Verified({ size = 15, label = "Verified" }: { size?: number; label?: string }) {
+  return <BadgeCheck size={size} className="pp-verified" strokeWidth={2.2} aria-label={label} />;
 }
 
 /** Green / red change indicator, e.g. "+16% vs last 30 days". */

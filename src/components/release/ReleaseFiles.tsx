@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, FileText, Film, Music2 } from "luc
 import { MediaTile } from "@/components/media/MediaTile";
 import { formatAsset, RELEASE_FILES_BUCKET, type EditableAsset } from "@/lib/releaseAssets";
 import { supabase } from "@/lib/supabase";
+import { usePostText } from "@/lib/postTranslation";
 
 type FileUrls = Record<string, string>;
 
@@ -11,11 +12,12 @@ function downloadUrl(src: string, name: string): string {
 }
 
 function GalleryVideo({ src, name }: { src: string; name: string }) {
+  const text = usePostText();
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="pp-release-gallery-empty">
     <Film size={22} aria-hidden />
-    <span>This video cannot play in this browser.</span>
-    <a className="pp-btn pp-btn-outline" href={downloadUrl(src, name)} download={name}><Download size={14} /> Download video</a>
+    <span>{text("This video cannot play in this browser.")}</span>
+    <a className="pp-btn pp-btn-outline" href={downloadUrl(src, name)} download={name}><Download size={14} /> {text("Download video")}</a>
   </div>;
   return <video src={src} aria-label={name} controls playsInline preload="metadata" onError={() => setFailed(true)} />;
 }
@@ -79,6 +81,7 @@ export function ReleaseGallery({ files, urls, scene, style }: {
   scene: string;
   style?: CSSProperties;
 }) {
+  const text = usePostText();
   const media = files.filter(file => file.kind === "image" || file.kind === "video");
   const [selected, setSelected] = useState<string | null>(null);
   const index = Math.max(0, media.findIndex(file => file.path === selected));
@@ -88,25 +91,25 @@ export function ReleaseGallery({ files, urls, scene, style }: {
   const step = (direction: number) => setSelected(media[(index + direction + media.length) % media.length].path);
 
   return (
-    <div className="pp-release-gallery" role="group" aria-label="Release media" style={style}>
+    <div className="pp-release-gallery" role="group" aria-label={text("Release media")} style={style}>
       <div className="pp-release-gallery-frame">
         {file ? (
           src ? file.kind === "video"
             ? <GalleryVideo key={src} src={src} name={file.name} />
-            : <img src={src} alt={file.alt || file.name} loading="lazy" />
+            : <img src={src} alt={file.alt ? text(file.alt) : file.name} loading="lazy" />
             : <div className="pp-release-gallery-empty"><Film size={22} />{file.name}</div>
         ) : <MediaTile scene={scene} radius={12} />}
         {media.length > 1 && (
           <>
-            <button type="button" className="pp-gallery-prev" onClick={() => step(-1)} aria-label="Previous media"><ChevronLeft size={16} /></button>
-            <button type="button" className="pp-gallery-next" onClick={() => step(1)} aria-label="Next media"><ChevronRight size={16} /></button>
+            <button type="button" className="pp-gallery-prev" onClick={() => step(-1)} aria-label={text("Previous media")}><ChevronLeft size={16} /></button>
+            <button type="button" className="pp-gallery-next" onClick={() => step(1)} aria-label={text("Next media")}><ChevronRight size={16} /></button>
             <span className="pp-gallery-count" role="status">{index + 1} / {media.length}</span>
           </>
         )}
       </div>
       {media.length > 1 && (
         <div className="pp-gallery-dots">
-          {media.map((item, position) => <button key={item.path} type="button" aria-label={`Show media ${position + 1}`} aria-pressed={index === position} onClick={() => setSelected(item.path)} />)}
+          {media.map((item, position) => <button key={item.path} type="button" aria-label={text("Show media {count}", { count: position + 1 })} aria-pressed={index === position} onClick={() => setSelected(item.path)} />)}
         </div>
       )}
     </div>
@@ -119,6 +122,7 @@ export function ReleaseFileList({ files, urls, actions, showTranscripts = true }
   actions?: (file: EditableAsset) => ReactNode;
   showTranscripts?: boolean;
 }) {
+  const text = usePostText();
   const resources = files.filter(file => file.kind === "audio" || file.kind === "document");
   if (!resources.length) return null;
   return (
@@ -128,13 +132,13 @@ export function ReleaseFileList({ files, urls, actions, showTranscripts = true }
           {file.kind === "audio" ? <Music2 size={18} aria-hidden /> : <FileText size={18} aria-hidden />}
           <div className="pp-release-file-info">
             <strong title={file.name}>{file.name}</strong>
-            <span>{formatAsset(file)}{file.kind === "audio" && file.transcript ? " · Transcript added" : ""}</span>
+            <span>{text(formatAsset(file))}{file.kind === "audio" && file.transcript && <> · {text("Transcript added")}</>}</span>
             {file.kind === "audio" && urls[file.path] && <audio controls src={urls[file.path]} preload="none" aria-label={file.name} />}
-            {showTranscripts && file.kind === "audio" && file.transcript && <details><summary>Transcript</summary><p>{file.transcript}</p></details>}
+            {showTranscripts && file.kind === "audio" && file.transcript && <details><summary>{text("Transcript")}</summary><p>{text(file.transcript)}</p></details>}
           </div>
           {actions ? actions(file) : file.kind === "document" && urls[file.path] && (
             <a className="pp-file-icon-button" href={downloadUrl(urls[file.path], file.name)}
-              download={file.name} aria-label={`Download ${file.name}`} title={`Download ${file.name}`}>
+              download={file.name} aria-label={text("Download {name}", { name: file.name })} title={text("Download {name}", { name: file.name })}>
               <Download size={16} />
             </a>
           )}

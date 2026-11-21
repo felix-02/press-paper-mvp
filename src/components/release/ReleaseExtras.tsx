@@ -6,11 +6,21 @@ import { useAppStore } from "@/store/useAppStore";
 import type { Release } from "@/types";
 import { InlineSpinner } from "@/components/primitives/Bits";
 import { Skeleton } from "@/components/primitives/Skeleton";
+import { usePostText } from "@/lib/postTranslation";
+
+function revisionBody(body: string | null) {
+  return body?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ?? "";
+}
+
+function revisionDate(date: string) {
+  return new Date(date).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 /** "Edited" chip + read-only previous-versions viewer (release_revisions). */
 export function EditedBadge({ release }: { release: Release }) {
   const [open, setOpen] = useState(false);
   const [revisions, setRevisions] = useState<{ id: string; heading: string; subheading: string | null; body: string | null; created_at: string }[] | null>(null);
+  const text = usePostText(revisions?.flatMap(rev => [rev.heading, rev.subheading, revisionBody(rev.body), revisionDate(rev.created_at)]));
 
   useEffect(() => {
     if (!open || revisions !== null || !supabase) return;
@@ -29,38 +39,38 @@ export function EditedBadge({ release }: { release: Release }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="This release was edited after publication — view previous versions"
+        title={text("This release was edited after publication — view previous versions")}
         style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "var(--text-muted)", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "var(--r-pill)", padding: "3px 10px" }}
       >
-        <History size={12} /> Edited
+        <History size={12} /> {text("Edited")}
       </button>
       {open && (
         <div className="pp-modal-layer" onClick={() => setOpen(false)} style={{ display: "grid", placeItems: "center", padding: 20 }}>
-          <div role="dialog" aria-modal="true" aria-label="Previous versions" onClick={(e) => e.stopPropagation()} className="pp-card pp-modal-dialog" style={{ width: "100%", maxWidth: 640, maxHeight: "80vh", overflowY: "auto", padding: 22 }}>
+          <div role="dialog" aria-modal="true" aria-label={text("Previous versions")} onClick={(e) => e.stopPropagation()} className="pp-card pp-modal-dialog" style={{ width: "100%", maxWidth: 640, maxHeight: "80vh", overflowY: "auto", padding: 22 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700 }}>Previous versions</h3>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ color: "var(--text-muted)" }}><X size={18} /></button>
+              <h3 style={{ fontSize: 17, fontWeight: 700 }}>{text("Previous versions")}</h3>
+              <button type="button" onClick={() => setOpen(false)} aria-label={text("Close")} style={{ color: "var(--text-muted)" }}><X size={18} /></button>
             </div>
-            <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 14 }}>Read-only record of this release before each published edit. Newest first.</p>
+            <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 14 }}>{text("Read-only record of this release before each published edit. Newest first.")}</p>
             {revisions === null ? (
-              <div role="status" aria-label="Loading previous versions" style={{ padding: "18px 0", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div role="status" aria-label={text("Loading previous versions")} style={{ padding: "18px 0", display: "flex", flexDirection: "column", gap: 10 }}>
                 <Skeleton w={128} h={11} />
                 <Skeleton w="72%" h={15} />
                 <Skeleton w="100%" h={64} r={8} />
               </div>
             ) : revisions.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No previous versions recorded.</div>
+              <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>{text("No previous versions recorded.")}</div>
             ) : (
               revisions.map((rev, idx) => (
                 <div key={rev.id} style={{ borderTop: idx === 0 ? "none" : "1px solid var(--border)", padding: "14px 0" }}>
                   <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginBottom: 6 }}>
-                    Version {revisions.length - idx} · until {new Date(rev.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {text("Version {count}", { count: revisions.length - idx })} · {text("until {date}", { date: text(revisionDate(rev.created_at)) })}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 650 }}>{rev.heading}</div>
-                  {rev.subheading && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>{rev.subheading}</div>}
+                  <div style={{ fontSize: 15, fontWeight: 650 }}>{text(rev.heading)}</div>
+                  {rev.subheading && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>{text(rev.subheading)}</div>}
                   {rev.body && (
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 8, whiteSpace: "pre-wrap", maxHeight: 140, overflowY: "auto", background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
-                      {rev.body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                      {text(revisionBody(rev.body))}
                     </div>
                   )}
                 </div>
@@ -84,6 +94,7 @@ const REACTIONS: { key: string; emoji: string; label: string }[] = [
 
 /** Like + five standard reactions; one active reaction per user per release. */
 export function ReactionBar({ releaseId }: { releaseId: string }) {
+  const text = usePostText();
   const { user } = useAuth();
   const pushToast = useAppStore((s) => s.pushToast);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -108,7 +119,7 @@ export function ReactionBar({ releaseId }: { releaseId: string }) {
 
   const react = async (key: string) => {
     if (!supabase || !user) {
-      pushToast({ title: "Sign in to react", variant: "info" });
+      pushToast({ title: text("Sign in to react"), variant: "info" });
       return;
     }
     if (busyKey) return;
@@ -129,12 +140,12 @@ export function ReactionBar({ releaseId }: { releaseId: string }) {
     setBusyKey(null);
     if (result.error) {
       setMine(previous);
-      pushToast({ title: "Couldn't save your reaction", variant: "error" });
+      pushToast({ title: text("Couldn't save your reaction"), variant: "error" });
     }
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }} aria-label="Reactions">
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }} aria-label={text("Reactions")}>
       {REACTIONS.map(({ key, emoji, label }) => {
         const isMine = mine === key;
         const count = counts[key] ?? 0;
@@ -145,7 +156,7 @@ export function ReactionBar({ releaseId }: { releaseId: string }) {
             onClick={() => void react(key)}
             disabled={busyKey !== null}
             aria-busy={busyKey === key}
-            title={label}
+            title={text(label)}
             aria-pressed={isMine}
             style={{
               display: "inline-flex",

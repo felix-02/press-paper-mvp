@@ -16,6 +16,9 @@ const MAX_OUTPUT_TEXT_LENGTH = 8_000;
 const MAX_TOTAL_OUTPUT_LENGTH = 24_000;
 const RATE_LIMIT = 30;
 const RATE_WINDOW_MS = 60_000;
+const DEFAULT_TRANSLATION_MODEL = "gemini-3.5-flash-lite";
+const FALLBACK_TRANSLATION_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_TIMEOUT_MS = 60_000;
 
 const TARGET_LANGUAGES = new Set([
   "Afrikaans",
@@ -100,10 +103,12 @@ interface RateBucket {
 
 class RequestFailure extends Error {
   status: number;
+  upstreamStatus?: number;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, upstreamStatus?: number) {
     super(message);
     this.status = status;
+    this.upstreamStatus = upstreamStatus;
   }
 }
 
@@ -142,11 +147,20 @@ function isTimeout(error: unknown) {
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
-async function fetchWithTimeout(url: URL, options: RequestInit, timeoutMs: number) {
+async function fetchJsonWithTimeout<T>(url: URL, options: RequestInit, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const data: T | null = response.ok
+      ? await response.json().catch((error) => {
+        if (controller.signal.aborted) throw error;
+        return null;
+      })
+      : null;
+    return { ok: response.ok, status: response.status, headers: response.headers, data };
+  } catch {
+    throw new RequestFailure(controller.signal.aborted ? 504 : 502, "Translation service unavailable");
   } finally {
     clearTimeout(timeout);
   }
@@ -248,15 +262,15 @@ async function authenticatedUser(req: Request, supabaseUrl: string, anonKey: str
   if (!/^Bearer\s+\S+$/i.test(authorization)) return null;
 
   const url = new URL("/auth/v1/user", supabaseUrl);
-  const response = await fetchWithTimeout(
+  const response = await fetchJsonWithTimeout<{ id?: unknown }>(
     url,
     { headers: { apikey: anonKey, Authorization: authorization, Accept: "application/json" } },
     4_000
   );
   if (response.status === 401 || response.status === 403) return null;
-  if (!response.ok) throw new RequestFailure(503, "Translation service unavailable");
+  if (!response.ok) throw new RequestFailure(503, "Translation service unavailable", response.status);
 
-  const user = (await response.json().catch(() => null)) as { id?: unknown } | null;
+  const user = response.data;
   return user && typeof user.id === "string" && UUID.test(user.id) ? { id: user.id, authorization } : null;
 }
 
@@ -267,7 +281,7 @@ async function enforceSharedQuota(
   action: "summarize" | "translate"
 ) {
   const url = new URL("/rest/v1/rpc/consume_ai_quota", supabaseUrl);
-  const response = await fetchWithTimeout(
+  const response = await fetchJsonWithTimeout<boolean>(
     url,
     {
       method: "POST",
@@ -280,10 +294,17 @@ async function enforceSharedQuota(
     },
     4_000
   );
-  if (!response.ok) throw new RequestFailure(503, "Translation service unavailable");
-  if ((await response.json().catch(() => false)) !== true) {
+  if (!response.ok) throw new RequestFailure(503, "Translation service unavailable", response.status);
+  if (response.data !== true) {
     throw new RequestFailure(429, "Translation rate limit exceeded");
   }
+}
+
+function retryAfterMs(value: string | null) {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? Math.max(0, timestamp - Date.now()) : 0;
 }
 
 async function callGemini(apiKey: string, model: string, target: string, texts: string[]) {
@@ -293,33 +314,50 @@ async function callGemini(apiKey: string, model: string, target: string, texts: 
     "Return only a JSON array of translated strings in the same order.\n\n" +
     JSON.stringify(texts);
 
-  const url = new URL(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`
-  );
-  const response = await fetchWithTimeout(
-    url,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 4_096,
-          responseMimeType: "application/json",
-        },
-      }),
-    },
-    20_000
-  );
+  const request = (attemptModel: string, timeoutMs: number) => {
+    const url = new URL(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(attemptModel)}:generateContent`
+    );
+    const useMinimalThinking = attemptModel === DEFAULT_TRANSLATION_MODEL || attemptModel === FALLBACK_TRANSLATION_MODEL;
+    return fetchJsonWithTimeout<{
+      candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }>;
+    }>(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 4_096,
+            responseMimeType: "application/json",
+            ...(useMinimalThinking ? { thinkingConfig: { thinkingLevel: "minimal" } } : {}),
+          },
+        }),
+      },
+      timeoutMs
+    );
+  };
 
+  const deadline = performance.now() + GEMINI_TIMEOUT_MS;
+  let response = await request(model, GEMINI_TIMEOUT_MS);
+  if (response.status === 503) {
+    const delay = Math.max(1000 + Math.random() * 400, retryAfterMs(response.headers.get("Retry-After")));
+    if (delay < deadline - performance.now()) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      const remainingMs = Math.floor(deadline - performance.now());
+      if (remainingMs > 0) {
+        response = await request(model === DEFAULT_TRANSLATION_MODEL ? FALLBACK_TRANSLATION_MODEL : model, remainingMs);
+      }
+    }
+  }
+
+  if (response.status === 503) throw new RequestFailure(503, "Translation service is temporarily unavailable", response.status);
   if (response.status === 429) throw new RequestFailure(429, "Translation service is busy");
-  if (!response.ok) throw new RequestFailure(502, "Translation service unavailable");
+  if (!response.ok) throw new RequestFailure(502, "Translation service unavailable", response.status);
 
-  const data = (await response.json().catch(() => null)) as
-    | { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }> }
-    | null;
-  const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const output = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof output !== "string") throw new RequestFailure(502, "Translation service unavailable");
 
   const cleaned = output.trim().replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
@@ -349,11 +387,13 @@ Deno.serve(async (req: Request) => {
   }
 
   let fallbackTexts: string[] = [];
+  let stage = "configuration";
   try {
     const supabaseUrl = serviceOrigin(Deno.env.get("SUPABASE_URL"));
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     if (!supabaseUrl || !anonKey) throw new RequestFailure(503, "Translation service unavailable");
 
+    stage = "authentication";
     const user = await authenticatedUser(req, supabaseUrl, anonKey);
     if (!user) {
       return json(
@@ -363,8 +403,10 @@ Deno.serve(async (req: Request) => {
       );
     }
     checkRateLimit(user.id);
+    stage = "quota";
     await enforceSharedQuota(supabaseUrl, anonKey, user.authorization, "translate");
 
+    stage = "request";
     const payload = await readPayload(req);
     if (Array.isArray(payload.texts) && payload.texts.every((item) => typeof item === "string")) {
       fallbackTexts = payload.texts as string[];
@@ -372,17 +414,27 @@ Deno.serve(async (req: Request) => {
     const texts = validateTexts(payload.texts);
     const target = normalizeTarget(payload.target);
 
+    stage = "configuration";
     const apiKey = Deno.env.get("GEMINI_API_KEY");
-    const model = Deno.env.get("GEMINI_MODEL") || "gemini-3.5-flash";
+    const sharedModel = Deno.env.get("GEMINI_MODEL");
+    const model = Deno.env.get("GEMINI_TRANSLATION_MODEL")
+      || (sharedModel === "gemini-3.5-flash" ? undefined : sharedModel)
+      || DEFAULT_TRANSLATION_MODEL;
     if (!apiKey || !MODEL.test(model)) throw new RequestFailure(503, "Translation service unavailable");
 
+    stage = "provider";
     const translated = await callGemini(apiKey, model, target, texts);
     return json({ texts: translated });
   } catch (error) {
-    if (error instanceof RequestFailure) {
-      return json({ texts: fallbackTexts, error: error.message }, error.status);
+    const failure = error instanceof RequestFailure ? error : null;
+    const status = failure?.status ?? (isTimeout(error) ? 504 : 500);
+    if (status >= 500) {
+      console.error("Translation request failed", { stage, status, upstreamStatus: failure?.upstreamStatus });
     }
-    const status = isTimeout(error) ? 504 : 500;
-    return json({ texts: fallbackTexts, error: "Translation service unavailable" }, status);
+    return json({
+      texts: fallbackTexts,
+      error: failure?.message ?? "Translation service unavailable",
+      ...(status >= 500 ? { stage } : {}),
+    }, status);
   }
 });
