@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase, isSupabaseConfigured, type ReleaseRow } from "@/lib/supabase";
 import { rowToRelease } from "@/lib/releaseMap";
-import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
+import type { usePublicInstitutions } from "@/lib/usePublicInstitutions";
 import type { Release, Institution } from "@/types";
 
 function dedupe(list: Release[]): Release[] {
@@ -20,12 +20,11 @@ export interface SearchResults {
 }
 
 /** Global search over moderation-safe database institutions and releases. */
-export function useSearch(query: string): SearchResults {
+export function useSearch(query: string, directory: ReturnType<typeof usePublicInstitutions>): SearchResults {
   const q = query.trim().toLowerCase().slice(0, 100);
   const [live, setLive] = useState<Release[]>([]);
   const [releaseLoading, setReleaseLoading] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
-  const directory = usePublicInstitutions();
 
   useEffect(() => {
     if (!q || !isSupabaseConfigured || !supabase) {

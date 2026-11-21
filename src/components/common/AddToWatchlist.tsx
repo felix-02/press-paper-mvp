@@ -59,7 +59,7 @@ export function AddToWatchlist({ releaseId }: { releaseId: string }) {
   };
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="pp-release-menu-anchor" style={{ position: "relative" }}>
       <button type="button" className="pp-btn pp-btn-outline" onClick={() => setOpen((v) => !v)}>
         <ListPlus size={15} /> {text("Add to list")}
       </button>

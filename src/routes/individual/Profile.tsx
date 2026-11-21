@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarDays, LogOut, Pencil, Bookmark, UserPlus, X, Compass } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
@@ -18,6 +18,9 @@ import { usePageTitle } from "@/lib/usePageTitle";
 import type { Institution } from "@/types";
 
 const TABS = ["Following", "Saved", "Activity"] as const;
+const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
@@ -50,8 +53,10 @@ export function Profile() {
     setParams(p);
   };
   const [editing, setEditing] = useState(false);
+  const [username, setUsername] = useState<string | null>();
+  const userId = user?.id;
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "You";
-  const handle = "@" + (displayName.split(" ")[0]?.toLowerCase() || "you");
+  const handle = "@" + (username ?? (displayName.split(" ")[0]?.toLowerCase() || "you"));
   const bio = profile?.bio?.trim() || null;
   const joined = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
@@ -60,6 +65,17 @@ export function Profile() {
   // still exists, otherwise the raw slug — never an invented display name.
   const institutionNameForSlug = (slug: string): string =>
     directory.institutions.find((institution) => institution.slug === slug)?.name ?? slug;
+
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let active = true;
+    void supabase.from("profiles").select("username").eq("id", userId).maybeSingle().then(({ data }) => {
+      if (active) setUsername(data?.username ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   const logout = async () => {
     await signOut();
@@ -77,7 +93,7 @@ export function Profile() {
               <div style={{ borderRadius: 999, border: "4px solid var(--surface-1)", lineHeight: 0 }}>
                 <Avatar size={88} name={displayName} src={profile?.avatar_url} />
               </div>
-              <div style={{ paddingBottom: 6 }}>
+              <div style={{ minWidth: 0, overflowWrap: "anywhere", paddingBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>{displayName}</h1>
                 </div>
@@ -219,27 +235,18 @@ export function Profile() {
         </>
       )}
 
-      {editing && (
+      {editing && userId && (
         <EditProfileModal
+          userId={userId}
           initialName={displayName}
           initialBio={bio ?? ""}
+          initialUsername={username}
+          initialAvatar={profile?.avatar_url}
           onClose={() => setEditing(false)}
-          onSave={async (name, nextBio) => {
-            if (supabase && user) {
-              const cleanName = name.trim();
-              const cleanBio = nextBio.trim();
-              if (!cleanName || cleanName.length > 200 || cleanBio.length > 5000) {
-                pushToast({ title: "Check your profile details", description: "Names can use 200 characters and bios 5,000.", variant: "info" });
-                return;
-              }
-              const { error } = await supabase.from("profiles").update({ full_name: cleanName, bio: cleanBio || null }).eq("id", user.id);
-              if (error) {
-                pushToast({ title: "Couldn't save", description: "Check the name and try again.", variant: "error" });
-                return;
-              }
-              await refreshProfile();
-            }
+          onSaved={async (nextUsername) => {
+            if (nextUsername !== undefined) setUsername(nextUsername);
             setEditing(false);
+            await refreshProfile();
             pushToast({ title: "Profile updated", variant: "success" });
           }}
         />
@@ -265,63 +272,179 @@ const activityIcon = (bg: string): React.CSSProperties => ({
 });
 
 function EditProfileModal({
+  userId,
   initialName,
   initialBio,
+  initialUsername,
+  initialAvatar,
   onClose,
-  onSave,
+  onSaved,
 }: {
+  userId: string;
   initialName: string;
   initialBio: string;
+  initialUsername?: string | null;
+  initialAvatar?: string | null;
   onClose: () => void;
-  onSave: (name: string, bio: string) => void | Promise<void>;
+  onSaved: (username?: string | null) => Promise<void>;
 }) {
   const [name, setName] = useState(initialName);
   const [bio, setBio] = useState(initialBio);
+  const [usernameDraft, setUsernameDraft] = useState<string>();
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !saving) onClose();
     };
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  }, [onClose, saving]);
+
+  useEffect(() => {
+    if (!photo) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (saving || !name.trim()) return;
+    if (!supabase) {
+      setError("Profile editing is unavailable. Please try again.");
+      return;
+    }
+
+    const nextUsername = usernameDraft?.trim().replace(/^@/, "").toLowerCase() || null;
+    if (nextUsername && !USERNAME_PATTERN.test(nextUsername)) {
+      setError("Use 3–30 letters, numbers or underscores for your username.");
+      return;
+    }
+
+    const updates: { full_name: string; bio: string | null; username?: string | null; avatar_url?: string } = {
+      full_name: name.trim(),
+      bio: bio.trim() || null,
+    };
+    if (usernameDraft !== undefined && nextUsername !== (initialUsername ?? null)) updates.username = nextUsername;
+
+    setError(null);
+    setSaving(true);
+    const avatars = supabase.storage.from("profile-avatars");
+    let path: string | undefined;
+    try {
+      if (photo) {
+        path = `${userId}/${crypto.randomUUID()}.${photo.type.split("/")[1]}`;
+        const { error: uploadError } = await avatars.upload(path, photo, { cacheControl: "31536000" });
+        if (uploadError) {
+          setError("Couldn't upload your profile photo. Please try again.");
+          return;
+        }
+        updates.avatar_url = avatars.getPublicUrl(path).data.publicUrl;
+      }
+
+      const { error: saveError, status } = await supabase.from("profiles").update(updates).eq("id", userId).select("id").single();
+      if (saveError) {
+        // Remove the upload when the server confirms that it rejected the update.
+        if (path && status >= 400 && status < 500) void avatars.remove([path]);
+        setError(saveError.code === "23505" ? "That username is taken. Choose another." : "Couldn't save your profile. Please try again.");
+        return;
+      }
+      await onSaved(updates.username);
+    } catch {
+      setError("Couldn't save your profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div
       className="pp-modal-layer"
-      onClick={onClose}
-      style={{ display: "grid", placeItems: "center", padding: 20 }}
+      onClick={saving ? undefined : onClose}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: 20 }}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onClick={(e) => e.stopPropagation()} className="pp-card pp-modal-dialog" style={{ width: "100%", maxWidth: 440, padding: 22 }}>
+      <form role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" onClick={(e) => e.stopPropagation()} onSubmit={save} className="pp-card pp-modal-dialog" style={{ width: "100%", maxWidth: 440, padding: 22, flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
           <h3 id="edit-profile-title" style={{ fontSize: 17, fontWeight: 700 }}>Edit profile</h3>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ color: "var(--text-muted)" }}>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close" style={{ color: "var(--text-muted)" }}>
             <X size={18} />
           </button>
         </div>
-        <label style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Full name</label>
-        <input className="pp-input" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} autoFocus />
-        <label style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Bio</label>
-        <textarea className="pp-input" value={bio} maxLength={5000} rows={5} onChange={(event) => setBio(event.target.value)} style={{ resize: "vertical" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          {previewUrl ? (
+            <img src={previewUrl} alt="New profile photo preview" width={60} height={60} style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+          ) : (
+            <Avatar size={60} name={name || initialName} src={initialAvatar} />
+          )}
+          <div style={{ minWidth: 0 }}>
+            <label htmlFor="edit-profile-photo" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Profile photo or logo</label>
+            <input
+              id="edit-profile-photo"
+              type="file"
+              accept={AVATAR_TYPES.join(",")}
+              aria-describedby="edit-profile-photo-hint"
+              disabled={saving}
+              style={{ width: "100%", fontSize: 13 }}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (!file) return;
+                if (!AVATAR_TYPES.includes(file.type) || !file.size || file.size > AVATAR_MAX_BYTES) {
+                  event.currentTarget.value = "";
+                  setPhoto(null);
+                  setError("Choose a PNG, JPEG or WebP image up to 2 MB.");
+                  return;
+                }
+                setPhoto(file);
+                setError(null);
+              }}
+            />
+            <div id="edit-profile-photo-hint" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>PNG, JPEG or WebP up to 2 MB</div>
+          </div>
+        </div>
+        <label htmlFor="edit-profile-name" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Full name</label>
+        <input id="edit-profile-name" className="pp-input" value={name} maxLength={200} disabled={saving} onChange={(e) => setName(e.target.value)} />
+        <label htmlFor="edit-profile-username" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Username</label>
+        <input
+          id="edit-profile-username"
+          className="pp-input"
+          value={usernameDraft ?? initialUsername ?? ""}
+          placeholder={initialUsername === undefined ? "Loading…" : "Choose a username"}
+          maxLength={31}
+          autoCapitalize="none"
+          spellCheck={false}
+          disabled={saving || initialUsername === undefined}
+          aria-describedby="edit-profile-username-hint"
+          onChange={(event) => {
+            setUsernameDraft(event.target.value);
+            setError(null);
+          }}
+        />
+        <div id="edit-profile-username-hint" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>3–30 letters, numbers or underscores</div>
+        <label htmlFor="edit-profile-bio" style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", margin: "14px 0 6px" }}>Bio</label>
+        <textarea id="edit-profile-bio" className="pp-input" value={bio} maxLength={5000} rows={4} disabled={saving} onChange={(event) => setBio(event.target.value)} style={{ resize: "vertical" }} />
+        {error && <p role="alert" style={{ fontSize: 13, color: "var(--red)", marginTop: 12 }}>{error}</p>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-          <button type="button" onClick={onClose} className="pp-btn pp-btn-ghost">
+          <button type="button" onClick={onClose} disabled={saving} className="pp-btn pp-btn-ghost">
             Cancel
           </button>
           <button
-            type="button"
+            type="submit"
             className="pp-btn pp-btn-primary"
             disabled={saving || !name.trim()}
-            onClick={async () => {
-              setSaving(true);
-              await onSave(name.trim(), bio.trim());
-              setSaving(false);
-            }}
             style={{ opacity: saving || !name.trim() ? 0.7 : 1 }}
             aria-busy={saving}
           >
             {saving ? <><InlineSpinner /> Saving…</> : "Save"}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

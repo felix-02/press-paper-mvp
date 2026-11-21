@@ -170,7 +170,7 @@ function WatchlistsPanel() {
       </div>
 
       {loading ? (
-        <div role="status" aria-label="Loading watchlists" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <div className="pp-watchlist-grid" role="status" aria-label="Loading watchlists">
           {[0, 1].map((i) => (
             <ListRowSkeleton key={i} media={false} />
           ))}
@@ -182,7 +182,7 @@ function WatchlistsPanel() {
           body="Group the releases you're tracking — consultations, statistics, anything. Create one, then add releases from any release page."
         />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <div className="pp-watchlist-grid">
           {lists.map((l) => (
             <div key={l.id} className="pp-card" style={{ padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               {editingId === l.id ? (

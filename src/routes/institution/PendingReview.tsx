@@ -45,7 +45,7 @@ export function PendingReview({ onRefresh }: { onRefresh?: () => Promise<void> |
       </header>
 
       <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
-        <div className="pp-card pp-rise" style={{ width: "100%", maxWidth: 480, padding: 32, textAlign: "center" }}>
+        <div className="pp-card pp-rise" style={{ width: "100%", maxWidth: 480, padding: "clamp(18px, 6vw, 32px)", textAlign: "center", overflowWrap: "anywhere" }}>
           <span style={{ width: 56, height: 56, borderRadius: 16, background: "rgba(245,158,11,0.12)", display: "grid", placeItems: "center", margin: "0 auto 18px" }}>
             <Clock size={26} color="var(--amber)" />
           </span>
@@ -59,8 +59,9 @@ export function PendingReview({ onRefresh }: { onRefresh?: () => Promise<void> |
             We review every institution to keep the platform impersonation-free.
           </p>
 
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 18, fontSize: 12.5, color: "var(--text-muted)", background: "var(--surface-2)", padding: "6px 12px", borderRadius: "var(--r-pill)" }}>
-            <ShieldCheck size={14} /> Signed in as {user?.email ?? "your invited email"}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, maxWidth: "100%", marginTop: 18, fontSize: 12.5, color: "var(--text-muted)", background: "var(--surface-2)", padding: "6px 12px", borderRadius: "var(--r-pill)" }}>
+            <ShieldCheck size={14} style={{ flexShrink: 0 }} />
+            <span style={{ minWidth: 0 }}>Signed in as {user?.email ?? "your invited email"}</span>
           </div>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 22 }}>

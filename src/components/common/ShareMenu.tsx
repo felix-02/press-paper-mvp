@@ -64,7 +64,7 @@ export function ShareMenu({ url, title, className }: { url: string; title: strin
   };
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className="pp-release-menu-anchor" style={{ position: "relative" }}>
       <button
         type="button"
         className={className ?? "pp-btn pp-btn-outline"}

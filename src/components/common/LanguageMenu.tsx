@@ -46,7 +46,7 @@ export function LanguageMenu({
 
       {open && (
         <div
-          className="pp-popover"
+          className="pp-popover pp-language-popover"
           style={{
             position: "absolute",
             top: "calc(100% + 8px)",

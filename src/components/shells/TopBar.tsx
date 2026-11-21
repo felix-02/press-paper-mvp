@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
+  BarChart3,
   Building2,
   ChevronDown,
+  LifeBuoy,
   LogOut,
   Moon,
   Search,
@@ -20,6 +22,7 @@ import { Verified } from "@/components/primitives/Bits";
 import { useAuth } from "@/auth/AuthProvider";
 import { useSearch } from "@/lib/useSearch";
 import { useNotifications } from "@/lib/useNotifications";
+import { usePublicInstitutions } from "@/lib/usePublicInstitutions";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { useTheme } from "@/lib/useTheme";
 import type { Institution } from "@/types";
@@ -55,12 +58,20 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const results = useSearch(query);
+  const directory = usePublicInstitutions();
+  const results = useSearch(query, directory);
   const notifications = useNotifications();
   const hasSearchResults = results.institutions.length > 0 || results.releases.length > 0;
   const wrapRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    setNotifOpen(false);
+    setAccountOpen(false);
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, []);
 
   // Global search shortcut: "/" or ⌘K / Ctrl+K focuses the search box.
   useEffect(() => {
@@ -69,15 +80,15 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        openSearch();
       } else if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        openSearch();
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [openSearch]);
 
   useEffect(() => {
     const slug = profile?.institution_slug;
@@ -151,6 +162,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
         setNotifOpen(false);
         setAccountOpen(false);
         if (accountOpen) accountButtonRef.current?.focus();
+        if (searchOpen && searchButtonRef.current?.offsetWidth) searchButtonRef.current.focus();
       }
     }
     document.addEventListener("mousedown", onDoc);
@@ -159,7 +171,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [accountOpen]);
+  }, [accountOpen, searchOpen]);
 
   const go = (to: string) => {
     setSearchOpen(false);
@@ -201,7 +213,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       </div>
 
       {/* search */}
-      <div className="pp-topbar-search" style={{ flex: 1, display: "flex", justifyContent: "center", padding: "0 24px", position: "relative" }}>
+      <div id="pp-global-search" className="pp-topbar-search" data-open={searchOpen} style={{ flex: 1, display: "flex", justifyContent: "center", padding: "0 24px", position: "relative" }}>
         <div style={{ width: "100%", maxWidth: 540, position: "relative" }}>
           <div
             style={{
@@ -218,6 +230,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
             <Search size={16} />
             <input
               ref={searchInputRef}
+              aria-label="Search institutions, topics or issues"
               value={query}
               maxLength={100}
               onChange={(e) => {
@@ -333,7 +346,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                     >
                       <MediaThumb release={r} w={30} h={30} />
                       <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 420 }}>{r.heading}</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{r.heading}</span>
                         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.institutionName ?? "Institution"} · {r.type}</span>
                       </span>
                     </button>
@@ -359,6 +372,17 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
       <div className="pp-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 14, paddingRight: 22, flexShrink: 0, position: "relative" }}>
         <button
           type="button"
+          ref={searchButtonRef}
+          className="pp-shell-icon-btn pp-mobile-search-btn"
+          aria-label={searchOpen ? "Close search" : "Search"}
+          aria-expanded={searchOpen}
+          aria-controls="pp-global-search"
+          onClick={() => searchOpen ? setSearchOpen(false) : openSearch()}
+        >
+          {searchOpen ? <X size={17} /> : <Search size={17} />}
+        </button>
+        <button
+          type="button"
           className="pp-shell-icon-btn pp-theme-shortcut"
           aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
           title={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
@@ -372,7 +396,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
           {resolvedTheme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
 
-        <div style={{ position: "relative" }}>
+        <div className="pp-notification-anchor">
           <button
             type="button"
             className="pp-shell-icon-btn"
@@ -434,6 +458,7 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                       color: "#606060",
                       color2: "#454545",
                       mark: "generic",
+                      avatarUrl: n.institutionAvatarUrl || directory.institutions.find((entry) => entry.slug === n.slug)?.avatarUrl,
                     };
                     const unread = n.ts > lastSeen;
                     return (
@@ -525,6 +550,10 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                     <SettingsIcon size={16} />
                     <span>Settings</span>
                   </Link>
+                  <Link to="/inst/audience" className="pp-account-menu-row pp-compact-menu-link" onClick={() => setAccountOpen(false)}>
+                    <BarChart3 size={16} />
+                    <span>Audience</span>
+                  </Link>
                 </>
               ) : (
                 <Link to="/me" className="pp-account-menu-row" onClick={() => setAccountOpen(false)}>
@@ -532,6 +561,11 @@ export function TopBar({ kind }: { kind: "institution" | "individual" }) {
                   <span>Your profile</span>
                 </Link>
               )}
+
+              <Link to="/help" className="pp-account-menu-row pp-compact-menu-link" onClick={() => setAccountOpen(false)}>
+                <LifeBuoy size={16} />
+                <span>Help Centre</span>
+              </Link>
 
               <button type="button" className="pp-account-menu-row" onClick={toggleTheme}>
                 {resolvedTheme === "dark" ? <Moon size={16} /> : <Sun size={16} />}

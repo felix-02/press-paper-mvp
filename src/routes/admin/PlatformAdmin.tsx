@@ -306,10 +306,10 @@ export function PlatformAdmin() {
 
   return (
     <AdminShell maxWidth={1320}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 18 }}>
+      <div className="pp-admin-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, marginBottom: 18 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}><ShieldCheck size={22} color="var(--blue)" /></span>
+            <span style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}><ShieldCheck size={22} color="var(--blue)" /></span>
             <div>
               <h1 style={{ fontSize: 25, fontWeight: 750 }}>Global administration</h1>
               <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginTop: 2 }}>Users, institutions, posts, activity and immutable moderation history.</p>
@@ -321,7 +321,7 @@ export function PlatformAdmin() {
 
       <nav className="pp-tabs" aria-label="Administration sections" style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" onClick={() => setTab(id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
+          <button key={id} type="button" aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", padding: "10px 11px", fontSize: 13, color: tab === id ? "var(--text)" : "var(--text-muted)", fontWeight: tab === id ? 650 : 500, borderBottom: `2px solid ${tab === id ? "var(--blue)" : "transparent"}` }}>
             <Icon size={15} /> {label}
           </button>
         ))}
@@ -383,7 +383,7 @@ export function PlatformAdmin() {
               {filteredUsers.length === 0 ? <Empty>No users match this search.</Empty> : filteredUsers.map((row, index) => (
                 <div className="pp-admin-data-row" key={row.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <Avatar name={row.full_name || row.email} src={row.avatar_url} size={30} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="pp-admin-row-main" style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650, overflowWrap: "anywhere" }}>{row.full_name || row.email} {row.is_admin && <ShieldCheck size={13} color="var(--blue)" style={{ display: "inline", verticalAlign: -2 }} />}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.email} · {row.role}{row.institution_name ? ` · ${row.institution_name}` : ""}</div>
                     {row.status_reason && row.account_status !== "active" && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 3 }}>{row.status_reason}</div>}
@@ -402,7 +402,7 @@ export function PlatformAdmin() {
               {filteredInstitutions.length === 0 ? <Empty>No institutions match this search.</Empty> : filteredInstitutions.map((row, index) => (
                 <div className="pp-admin-data-row pp-admin-institution-row" key={row.owner_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <Avatar name={row.institution_name || row.institution_slug} src={row.avatar_url} size={30} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="pp-admin-row-main" style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 650 }}>{row.institution_name || row.institution_slug}</div>
                     <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.owner_email} · {row.member_count} members · {row.release_count} posts ({row.published_count} published)</div>
                   </div>
@@ -430,7 +430,7 @@ export function PlatformAdmin() {
                       <ReleaseThumbnail files={readReleaseExtras(row.extras, row.institution_slug, row.release_id)?.files}
                         scene={row.scene ?? "none"} radius={6} />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="pp-admin-row-main" style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 650 }}>{row.heading}</div>
                       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{row.institution_name || row.institution_slug} · {row.release_type} · {row.views} views · {row.comments_count} comments</div>
                       {row.moderation_reason && row.moderation_status !== "active" && <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 3 }}>{row.moderation_reason}</div>}
@@ -453,7 +453,7 @@ export function PlatformAdmin() {
             <section className="pp-card pp-scroll-region" aria-label="User activity" tabIndex={0} style={{ padding: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>User activity ({admin.activity.length})</h2>
               {admin.activity.length === 0 ? <Empty>No user activity has been recorded yet.</Empty> : admin.activity.map((event, index) => (
-                <div className="pp-admin-data-row" key={event.event_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
+                <div className="pp-admin-data-row pp-admin-log-row" key={event.event_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(180px, 1fr) minmax(220px, 1.2fr) auto", gap: 12, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
                   <span><strong>{event.actor_email ?? event.actor_name ?? "Unknown user"}</strong><small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.actor_role ?? "unknown role"}</small></span>
                   <span>{event.event_type}<small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.target_type ?? "event"}{event.target_id ? ` · ${event.target_id}` : ""}</small></span>
                   <code style={{ fontSize: 11.5, color: "var(--text-muted)", overflowWrap: "anywhere" }}>{safeMetadata(event.metadata)}</code>
@@ -469,7 +469,7 @@ export function PlatformAdmin() {
               <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 3 }}>Immutable admin audit log ({admin.audit.length})</h2>
               <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 10 }}>Recorded in the same database transaction as each privileged mutation.</p>
               {admin.audit.length === 0 ? <Empty>No privileged actions have been recorded yet.</Empty> : admin.audit.map((event: AdminAuditEvent, index) => (
-                <div className="pp-admin-data-row" key={event.audit_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px,.8fr) minmax(180px,1fr) minmax(220px,1.3fr) auto", gap: 12, alignItems: "center", padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
+                <div className="pp-admin-data-row pp-admin-log-row" key={event.audit_id} style={{ display: "grid", gridTemplateColumns: "minmax(180px,.8fr) minmax(180px,1fr) minmax(220px,1.3fr) auto", gap: 12, alignItems: "center", padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)", fontSize: 13 }}>
                   <span><strong>{event.actor_email ?? event.actor_id}</strong></span>
                   <span>{event.action}<small style={{ display: "block", color: "var(--text-muted)", marginTop: 2 }}>{event.target_type} · {event.target_id}</small></span>
                   <span style={{ color: "var(--text-secondary)" }}>{event.reason ?? "No reason supplied"}</span>
@@ -534,8 +534,8 @@ export function PlatformAdmin() {
                   const consumed = !!invite.consumed_at;
                   const expired = !consumed && new Date(invite.expires_at).getTime() <= Date.now();
                   return (
-                    <div key={invite.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
-                      <div style={{ flex: 1 }}><strong style={{ fontSize: 13.5 }}>{invite.org_name}</strong><span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{invite.email} · expires {formatDate(invite.expires_at)}</span></div>
+                    <div key={invite.id} className="pp-admin-invite-row" style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
+                      <div className="pp-admin-row-main" style={{ flex: 1, minWidth: 0 }}><strong style={{ fontSize: 13.5 }}>{invite.org_name}</strong><span style={{ display: "block", fontSize: 12.5, color: "var(--text-muted)", marginTop: 2 }}>{invite.email} · expires {formatDate(invite.expires_at)}</span></div>
                       <StatusPill value={consumed ? "accepted" : expired ? "expired" : "pending"} />
                       {!consumed && <button type="button" disabled={actionBusy !== null} aria-busy={actionBusy === `invite:${invite.id}`} onClick={() => void revokeInvite(invite.id)} className="pp-btn pp-btn-ghost" style={{ padding: "5px 8px", fontSize: 12, color: "var(--red)" }}>{actionBusy === `invite:${invite.id}` ? <InlineSpinner /> : <X size={13} />} Revoke</button>}
                     </div>

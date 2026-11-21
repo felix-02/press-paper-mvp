@@ -33,6 +33,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
   const dash = (v?: string) => (v && v.length ? v : "—");
   return (
     <div
+      className="pp-release-table-row"
       style={{
         display: "grid",
         gridTemplateColumns: COLS,
@@ -43,7 +44,7 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
       }}
     >
       {/* release */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
+      <div className="pp-release-table-primary" style={{ display: "flex", gap: 12, alignItems: "center", minWidth: 0 }}>
         <MediaThumb release={r} w={52} h={38} radius={7} />
         <div style={{ minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -62,15 +63,15 @@ function Row({ r, onActions }: { r: Release; onActions: (release: Release) => vo
         </div>
       </div>
 
-      <div><TypeBadge type={r.type} /></div>
-      <div><StatusPill status={r.status} /></div>
-      <div>
+      <div data-label="Type"><TypeBadge type={r.type} /></div>
+      <div data-label="Status"><StatusPill status={r.status} /></div>
+      <div data-label="Date">
         <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{dash(r.publishedDate)}</div>
         {r.publishedTime ? <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 1 }}>{r.publishedTime}</div> : null}
       </div>
-      <div style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.views)}</div>
-      <div style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.engagement)}</div>
-      <div style={{ textAlign: "right" }}>
+      <div data-label="Views" style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.views)}</div>
+      <div data-label="Engagement" style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "right" }}>{dash(r.engagement)}</div>
+      <div className="pp-release-table-action" style={{ textAlign: "right" }}>
         <button type="button" onClick={() => onActions(r)} style={{ color: "var(--text-muted)", padding: 4 }} aria-label={`Actions for ${r.heading}`}>
           <MoreHorizontal size={17} />
         </button>
@@ -265,8 +266,9 @@ export function Releases() {
       />
 
       {/* toolbar */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
+      <div className="pp-release-filters" style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center" }}>
         <div
+          className="pp-release-search-field"
           style={{
             display: "flex",
             alignItems: "center",
@@ -282,6 +284,7 @@ export function Releases() {
         >
           <Search size={16} />
           <input
+            aria-label="Search releases"
             value={query}
             disabled={loading || Boolean(loadError)}
             onChange={(e) => setQuery(e.target.value)}
@@ -289,12 +292,12 @@ export function Releases() {
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--text)", fontSize: 13.5 }}
           />
         </div>
-        <select value={typeFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
+        <select aria-label="Release type" value={typeFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setTypeFilter(e.target.value)} style={selectStyle}>
           {TYPE_OPTIONS.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select value={statusFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+        <select aria-label="Release status" value={statusFilter} disabled={loading || Boolean(loadError)} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
@@ -328,7 +331,7 @@ export function Releases() {
       ) : !loadError ? (
         <>
           <div className="pp-card pp-release-table" role="region" aria-label="Releases table" tabIndex={0}>
-            <div style={{ display: "grid", gridTemplateColumns: COLS, gap: 14, padding: "13px 18px", background: "var(--surface-2)" }}>
+            <div className="pp-release-table-head" style={{ display: "grid", gridTemplateColumns: COLS, gap: 14, padding: "13px 18px", background: "var(--surface-2)" }}>
               <HeaderCell>Release</HeaderCell>
               <HeaderCell>Type</HeaderCell>
               <HeaderCell>Status</HeaderCell>

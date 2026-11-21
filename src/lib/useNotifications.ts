@@ -12,6 +12,7 @@ export interface AppNotification {
   ts: number; // numeric timestamp for unread comparison
   institutionName: string;
   institutionVerified: boolean;
+  institutionAvatarUrl?: string;
 }
 
 /** Recent releases from the institutions the user follows, with timestamps. */
@@ -53,6 +54,7 @@ export function useNotifications(): AppNotification[] {
               ts: Date.parse(row.published_at ?? row.created_at) || 0,
               institutionName: row.institution_name?.trim() || row.institution_slug,
               institutionVerified: row.institution_verified === true,
+              institutionAvatarUrl: row.institution_avatar_url || undefined,
             };
           })
         );

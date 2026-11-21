@@ -145,9 +145,9 @@ export function InstitutionTeam() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {org.pendingMembers.map((m, index) => (
-              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
+              <div key={m.user_id} className="pp-team-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                 <Disc text={initials(m.full_name, m.email)} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pp-team-identity" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{m.full_name || m.email}</div>
                   <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{m.email} · invited as {ROLE_LABEL[m.role]}</div>
                 </div>
@@ -230,9 +230,9 @@ export function InstitutionTeam() {
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>Pending invites</div>
               {org.invites.map((inv, index) => (
-                <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
+                <div key={inv.id} className="pp-team-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                   <Clock size={15} color="var(--text-muted)" />
-                  <span style={{ flex: 1, fontSize: 13.5 }}>{inv.email}</span>
+                  <span className="pp-team-identity" style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>{inv.email}</span>
                   <RoleBadge role={inv.role} />
                   <button type="button" onClick={() => void runAction(`revoke:${inv.id}`, () => org.revokeInvite(inv.id), "Invite revoked")} disabled={actionKey !== null} aria-busy={actionKey === `revoke:${inv.id}`} aria-label="Revoke invite" style={{ color: "var(--text-muted)", padding: 5 }}>
                     {actionKey === `revoke:${inv.id}` ? <InlineSpinner /> : <X size={15} />}
@@ -255,9 +255,9 @@ export function InstitutionTeam() {
             const isOwner = m.role === "owner";
             const canEditRole = org.can.approve && !isOwner; // owner-only role management
             return (
-              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
+              <div key={m.user_id} className="pp-team-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderTop: index === 0 ? "none" : "1px solid var(--border)" }}>
                 <Disc text={initials(m.full_name, m.email)} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="pp-team-identity" style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{m.full_name || m.email}</div>
                   <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{m.email} · {ROLE_DESC[m.role]}</div>
                 </div>
