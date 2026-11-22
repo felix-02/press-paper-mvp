@@ -1,420 +1,421 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Globe, MapPin, ShieldCheck, Pencil, UserPlus, Check, Upload } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Check, ExternalLink, Globe, Info, Lock, MapPin, Pencil, Tag, Upload, UserPlus } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
-import { PageHeader, Panel } from "@/components/dashboard/Panels";
+import { Panel } from "@/components/dashboard/Panels";
 import { InstitutionMark } from "@/components/brand/InstitutionMark";
 import { Avatar } from "@/components/brand/Avatar";
 import { InlineSpinner, Verified } from "@/components/primitives/Bits";
 import { useAppStore } from "@/store/useAppStore";
 import { useAuth } from "@/auth/AuthProvider";
-import { useOrg } from "@/lib/useOrg";
+import { ORG_ROLE_LABEL, useOrg } from "@/lib/useOrg";
 import { supabase } from "@/lib/supabase";
-import { safeExternalUrl } from "@/lib/externalUrl";
+import { externalUrlLabel, safeExternalUrl } from "@/lib/externalUrl";
 import { usePageTitle } from "@/lib/usePageTitle";
+import type { PublicInstitutionRow } from "@/lib/usePublicInstitutions";
 import type { Institution } from "@/types";
 
-function CheckRow({ label }: { label: string }) {
+const DETAIL_FIELDS = [
+  { key: "location", label: "Headquarters", maxLength: 300 },
+  { key: "website", label: "Website", maxLength: 500 },
+  { key: "description", label: "Description", maxLength: 5000 },
+] as const;
+
+type EditableOrganisationDetails = Record<(typeof DETAIL_FIELDS)[number]["key"], string>;
+
+const VERIFICATION_BENEFITS = [
+  "Publish official releases to the public",
+  "Show the verified badge on your profile and on every release",
+  "Reach people through smart alerts based on what matters to them",
+];
+
+interface VerificationDetails {
+  verification_domain?: string | null;
+  verified_at?: string | null;
+}
+
+const verificationDateFormat = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+});
+
+function DetailRows({ rows, className }: { rows: [string, ReactNode][]; className: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, color: "var(--text-secondary)" }}>
-      <span style={{ width: 18, height: 18, borderRadius: 999, background: "rgba(173, 173, 173, 0.14)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-        <Check size={11} color="var(--green)" strokeWidth={3} />
-      </span>
-      {label}
-    </div>
+    <dl className={className}>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value || "—"}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
-function VerifiedBlock({ domain, since }: { domain?: string | null; since?: string | null }) {
-  const sinceLabel = since ? new Date(since).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
-  return (
-    <>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "8px 4px 4px" }}>
-        <div style={{ width: 56, height: 56, borderRadius: 999, background: "rgba(123, 123, 123, 0.12)", display: "grid", placeItems: "center" }}>
-          <ShieldCheck size={28} className="pp-verified" />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
-          <span style={{ fontSize: 15.5, fontWeight: 700 }}>Verified Institution</span>
-          <Verified size={15} />
-        </div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginTop: 8 }}>
-          Verified as an official public institution{sinceLabel ? ` since ${sinceLabel}` : ""}.
-        </p>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-        <CheckRow label="Identity confirmed" />
-        {domain && <CheckRow label={`Work email domain recorded (${domain})`} />}
-        <CheckRow label="Publishing verification active" />
-      </div>
-    </>
-  );
-}
-
-function VerificationPanel({ orgVerified }: { orgVerified: boolean }) {
-  const { profile } = useAuth();
-  const status = profile?.verification_status ?? "unverified";
-  const storedDomain = profile?.verification_domain ?? "";
-
-  if (orgVerified || status === "verified") return <VerifiedBlock domain={storedDomain || null} since={profile?.verified_at} />;
-
-  if (status === "rejected") {
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", background: "var(--danger-soft)", padding: "3px 9px", borderRadius: 999 }}>NOT APPROVED</span>
-        </div>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          This institution account wasn't approved. If you believe this is a mistake, contact support from your organisation's official email and we'll review it again.
-        </p>
-      </div>
-    );
+function Verification({ status, since, domain }: { status: string; since?: string | null; domain?: string | null }) {
+  const verified = status === "verified";
+  const timestamp = since ? Date.parse(since) : NaN;
+  const verifiedSince = Number.isFinite(timestamp) ? verificationDateFormat.format(timestamp) : null;
+  const nextReview = verifiedSince ? new Date(timestamp) : null;
+  if (nextReview) {
+    const month = nextReview.getUTCMonth();
+    nextReview.setUTCFullYear(nextReview.getUTCFullYear() + 1);
+    if (nextReview.getUTCMonth() !== month) nextReview.setUTCDate(0);
   }
-
-  // pending / unverified — awaiting admin review (no DNS, no setup).
+  const inviteBenefit = domain
+    ? `Invite team members who use an @${domain} email address`
+    : "Invite team members who use an official organisation email address";
+  const statusLabel = verified ? "Verified" : status === "rejected" ? "Not approved" : "Pending review";
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <ShieldCheck size={18} color="var(--amber)" />
-        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--amber)", background: "rgba(166, 166, 166, 0.12)", padding: "3px 9px", borderRadius: 999 }}>PENDING REVIEW</span>
+    <Panel
+      title="Verification"
+      style={{ gridArea: "verification" }}
+      action={
+        <span className="pp-org-profile-status" data-status={status}>
+          {verified && <Verified size={13} label="" />}
+          {statusLabel}
+        </span>
+      }
+    >
+      {verified ? (
+        <>
+          <DetailRows className="pp-org-profile-metadata" rows={[
+            ["Verified Since", verifiedSince],
+            ["Verified Domain", domain],
+            ["Next Review", nextReview && <time dateTime={nextReview.toISOString().slice(0, 10)} title="One year after verification">
+              {verificationDateFormat.format(nextReview)}
+            </time>],
+          ]} />
+          <div className="pp-org-profile-benefits">
+            <h3>What verification allows</h3>
+            <ul>
+              {[...VERIFICATION_BENEFITS, inviteBenefit].map((label) => (
+                <li key={label}><Check size={14} aria-hidden="true" />{label}</li>
+              ))}
+            </ul>
+          </div>
+        </>
+      ) : (
+        <p className="pp-org-profile-note">
+          {status === "rejected"
+            ? "Contact Presspaper from your organisation’s official email to request another review."
+            : "A Presspaper reviewer will verify your institution using its work-email domain."}
+        </p>
+      )}
+      <div className="pp-org-profile-callout">
+        <Info size={14} aria-hidden="true" />
+        <span>
+          {verified
+            ? "Changes to your organisation name, category or domain are reviewed by Presspaper before they appear publicly. Your badge stays active during the review"
+            : "Presspaper reviews requests to change your organisation name or verified domain."}
+        </span>
       </div>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-        {storedDomain ? (
-          <>We've recorded your organisation domain <strong style={{ color: "var(--text)" }}>{storedDomain}</strong>. A Presspaper reviewer will approve your account shortly.</>
-        ) : (
-          <>Your institution account is awaiting review by a Presspaper reviewer.</>
-        )}
-      </p>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginTop: 8 }}>
-        Once approved you'll get the verified badge and can publish. Verification is based on your work-email domain — no DNS setup needed.
-      </p>
-    </div>
+      <Link to="/contact" className="pp-link-muted pp-org-profile-request">
+        Request a Change <ArrowRight size={14} aria-hidden="true" />
+      </Link>
+    </Panel>
   );
-}
-
-function initialsFrom(name: string | null, email: string): string {
-  const base = name?.trim() || email;
-  const parts = base.split(/[\s@.]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || base[0]?.toUpperCase() || "?";
 }
 
 export function Profile() {
   usePageTitle("Organisation profile");
   const pushToast = useAppStore((s) => s.pushToast);
-  const navigate = useNavigate();
   const { user, profile, profileReady, profileError, refreshProfile } = useAuth();
   const org = useOrg();
-  const i: Institution = {
-    slug: profile?.institution_slug || "institution",
-    name: profile?.institution_name?.trim() || "Your organisation",
-    category: profile?.org_category?.trim() || "Institution",
-    verified: org.verified,
+  const { slug, role, active, verified } = org;
+  const canEditProfile = active && role === "owner";
+  const [publicDetails, setPublicDetails] = useState<PublicInstitutionRow | null>(null);
+  const [teamVerification, setTeamVerification] = useState<{ slug: string; details: VerificationDetails | null } | null>(null);
+  const [draft, setDraft] = useState<EditableOrganisationDetails | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!supabase || !slug || !active || role === "owner") return;
+    let current = true;
+    const client = supabase;
+    void client.rpc("public_institution", { p_slug: slug }).then(({ data }) => {
+      if (current) setPublicDetails((data as PublicInstitutionRow[] | null)?.[0] ?? null);
+    });
+    void client.rpc("org_verification_details", { p_slug: slug }).then(({ data }) => {
+      if (current) setTeamVerification({ slug, details: (data as VerificationDetails[] | null)?.[0] ?? null });
+    });
+    return () => { current = false; };
+  }, [slug, role, active]);
+
+  // Team members see the organisation's public details, which live on the owner profile.
+  const publicOrg = role !== "owner" && publicDetails?.slug === slug ? publicDetails : null;
+  const displayName = publicOrg?.name || profile?.institution_name?.trim() || "Your organisation";
+  const category = (publicOrg ? publicOrg.category : profile?.org_category)?.trim();
+  const details: EditableOrganisationDetails = publicOrg ? {
+    location: publicOrg.location?.trim() || "",
+    website: publicOrg.website?.trim() || "",
+    description: publicOrg.description?.trim() || "",
+  } : {
+    location: profile?.org_location?.trim() || "",
+    website: profile?.org_website?.trim() || "",
+    description: profile?.org_description?.trim() || (canEditProfile ? profile?.bio?.trim() : "") || "",
+  };
+  const website = safeExternalUrl(details.website);
+  const activeTeamVerification = active && teamVerification?.slug === slug ? teamVerification.details : null;
+  const verification = canEditProfile ? profile : activeTeamVerification;
+  const status = verified ? "verified" : (canEditProfile ? profile?.verification_status : null) ?? "unverified";
+  const institution: Institution = {
+    slug: slug ?? "institution",
+    name: displayName,
+    category: category || "Institution",
+    verified: status === "verified",
     color: "#606060",
     color2: "#454545",
     mark: "generic",
+    avatarUrl: org.avatarUrl || publicOrg?.avatar_url || undefined,
   };
-  const vstatus = org.verified ? "verified" : profile?.verification_status ?? "unverified";
-  const canEditProfile = org.role === "owner";
-  const [orgName, setOrgName] = useState(profile?.institution_name ?? "");
-  const [bio, setBio] = useState(profile?.org_description || profile?.bio || "");
-  const [orgWebsite, setOrgWebsite] = useState(profile?.org_website ?? "");
-  const [orgLocation, setOrgLocation] = useState(profile?.org_location ?? "");
-  const [orgCategory, setOrgCategory] = useState(profile?.org_category ?? "");
-  const [saving, setSaving] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const busy = saving || uploadingLogo;
 
   const uploadLogo = async (file: File) => {
-    if (!supabase || !user || !profile?.institution_slug) return;
-    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 2 * 1024 * 1024) {
-      pushToast({ title: "Use a square PNG, JPEG or WebP under 2 MB", variant: "info" });
+    if (!supabase || !user || !slug || !canEditProfile || busy) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type) || !file.size || file.size > 2 * 1024 * 1024) {
+      pushToast({ title: "Use a square PNG, JPEG or WebP up to 2 MB", variant: "info" });
       return;
     }
+
     setUploadingLogo(true);
-    const path = `${profile.institution_slug}/logo-${Date.now()}.${file.type.split("/")[1]}`;
-    const { error: uploadError } = await supabase.storage.from("org-media").upload(path, file, { cacheControl: "31536000" });
-    if (uploadError) {
+    try {
+      const path = `${slug}/logo-${Date.now()}.${file.type.split("/")[1]}`;
+      const storage = supabase.storage.from("org-media");
+      const { error: uploadError } = await storage.upload(path, file, { cacheControl: "31536000" });
+      if (uploadError) {
+        pushToast({ title: "Couldn't upload the logo", description: uploadError.message, variant: "error" });
+        return;
+      }
+      const { data: { publicUrl } } = storage.getPublicUrl(path);
+      const { error } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id).select("id").single();
+      if (error) {
+        pushToast({ title: "Couldn't save the logo", variant: "error" });
+        return;
+      }
+      await refreshProfile();
+      pushToast({ title: "Logo updated", description: "Readers now see it across the platform.", variant: "success" });
+    } catch {
+      pushToast({ title: "Couldn't update the logo", variant: "error" });
+    } finally {
       setUploadingLogo(false);
-      pushToast({ title: "Couldn't upload the logo", description: uploadError.message, variant: "error" });
-      return;
     }
-    const { data } = supabase.storage.from("org-media").getPublicUrl(path);
-    const url = data?.publicUrl;
-    const { error: saveError } = url
-      ? await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id)
-      : { error: new Error("no url") } as { error: Error };
-    setUploadingLogo(false);
-    if (saveError) {
-      pushToast({ title: "Couldn't save the logo", variant: "error" });
-      return;
-    }
-    await refreshProfile();
-    pushToast({ title: "Logo updated", description: "Readers now see it across the platform.", variant: "success" });
   };
-  const displayName = orgName.trim() || profile?.institution_name?.trim() || "Your organisation";
-  const location = orgLocation.trim() || "Location not provided";
-  const website = orgWebsite.trim() || "Website not provided";
-  const category = orgCategory.trim() || "Category not provided";
-  const markedInstitution = { ...i, name: displayName, category, verified: vstatus === "verified", avatarUrl: org.avatarUrl };
 
-  // Initialise the editable fields from the loaded profile (registration data).
-  useEffect(() => {
-    if (profile) {
-      setOrgName(profile.institution_name || "");
-      setBio(profile.org_description || profile.bio || "");
-      setOrgWebsite(profile.org_website || "");
-      setOrgLocation(profile.org_location || "");
-      setOrgCategory(profile.org_category || "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile]);
-
-  const saveProfile = async () => {
-    const cleanBio = bio.trim();
-    const cleanWebsite = orgWebsite.trim() ? safeExternalUrl(orgWebsite) : null;
-    const cleanLocation = orgLocation.trim();
-    const cleanCategory = orgCategory.trim();
-    if (!canEditProfile) {
-      pushToast({ title: "Only the organisation owner can edit this profile", variant: "info" });
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft || busy || !canEditProfile || !supabase || !user) return;
+    const website = safeExternalUrl(draft.website);
+    if (draft.website.trim() && !website) {
+      pushToast({ title: "Enter a valid website address", variant: "info" });
       return;
     }
-    if (
-      cleanBio.length > 5000
-      || cleanLocation.length > 300
-      || cleanCategory.length > 100
-      || (orgWebsite.trim() && !cleanWebsite)
-    ) {
-      pushToast({ title: "Check the profile details", description: "Use a valid website and keep each field within its limit.", variant: "info" });
-      return;
-    }
-    if (!supabase || !user) {
-      pushToast({ title: "Couldn't save", description: "Reconnect your account and try again.", variant: "error" });
-      return;
-    }
+    const description = draft.description.trim();
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
-      org_description: cleanBio,
-      bio: cleanBio,
-      org_website: cleanWebsite,
-      org_location: cleanLocation || null,
-      org_category: cleanCategory || null,
-    }).eq("id", user.id);
-    setSaving(false);
-    if (error) {
-      pushToast({ title: "Couldn't save", description: "Review the details and try again.", variant: "error" });
-      return;
+    try {
+      const { error } = await supabase.from("profiles").update({
+        org_description: description,
+        bio: description,
+        org_website: website,
+        org_location: draft.location.trim() || null,
+      }).eq("id", user.id).select("id").single();
+      if (error) {
+        pushToast({ title: "Couldn't save the profile", description: "Review the details and try again.", variant: "error" });
+        return;
+      }
+      setDraft(null);
+      await refreshProfile();
+      pushToast({ title: "Profile updated", description: "Your organisation details have been saved.", variant: "success" });
+    } catch {
+      pushToast({ title: "Couldn't save the profile", variant: "error" });
+    } finally {
+      setSaving(false);
     }
-    await refreshProfile();
-    pushToast({ title: "Profile updated", description: "Your organisation details have been saved.", variant: "success" });
   };
 
-  if (!profileReady) {
+  if (!profileReady || profileError || !profile) {
+    const unavailable = profileReady && (profileError || !profile);
     return (
       <AppShell kind="institution" maxWidth={1180}>
-        <div className="pp-card" role="status" style={{ padding: 36, textAlign: "center", color: "var(--text-secondary)" }}>Loading organisation profile…</div>
+        <div className="pp-card pp-org-profile-empty" role={unavailable ? "alert" : "status"}>
+          {unavailable ? profileError ?? "Organisation profile data is unavailable." : "Loading organisation profile…"}
+        </div>
       </AppShell>
     );
   }
 
-  if (profileError || !profile) {
-    return (
-      <AppShell kind="institution" maxWidth={1180}>
-        <PageHeader title="Organisation Profile" subtitle="Manage how your organisation appears on Presspaper." />
-        <div className="pp-card" role="alert" style={{ padding: 36, textAlign: "center", color: "var(--text-secondary)" }}>{profileError ?? "Organisation profile data is unavailable."}</div>
-      </AppShell>
-    );
-  }
-
+  const workspaceStatus = org.loading ? "Loading…" : org.error ? "Unavailable" : null;
+  const verifiedChip = institution.verified && (
+    <span className="pp-org-profile-verified-chip"><Lock size={11} aria-hidden="true" /> Verified</span>
+  );
+  const lockedFields = [
+    { id: "organisation-name", label: "Organisation Name", value: displayName },
+    { id: "organisation-category", label: "Category", value: category ?? "" },
+  ];
+  const lockedRows: [string, ReactNode][] = lockedFields.map(({ label, value }) => [
+    label,
+    value && <span className="pp-org-profile-verified-name">{value}{verifiedChip}</span>,
+  ]);
   return (
     <AppShell kind="institution" maxWidth={1180}>
-      <PageHeader title="Organisation Profile" subtitle={`Manage how ${displayName} appears on Presspaper.`} />
+      <div className="pp-org-profile">
+        <header className="pp-org-profile-heading">
+          <div>
+            <h1>Organisation Profile</h1>
+            <p>Manage how your organisation appears to the public.</p>
+          </div>
+          {slug && verified && (
+            <Link to={`/institution/${encodeURIComponent(slug)}`} target="_blank" rel="noopener noreferrer" className="pp-link-muted">
+              View Public Profile <ExternalLink size={14} aria-hidden="true" />
+            </Link>
+          )}
+        </header>
 
-      {/* header card */}
-      <div className="pp-card" style={{ overflow: "hidden", marginBottom: 18 }}>
-        <div style={{ height: 110, background: "linear-gradient(125deg, #555555 0%, #171717 100%)", position: "relative" }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.18)" }} />
-        </div>
-        <div style={{ padding: "0 24px 22px" }}>
-          <div className="pp-profile-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -34 }}>
-            <div className="pp-profile-identity" style={{ display: "flex", alignItems: "flex-end", gap: 16 }}>
-              <div style={{ borderRadius: 18, border: "4px solid var(--surface-1)", lineHeight: 0 }}>
-                <InstitutionMark institution={markedInstitution} size={80} shape="square" />
-              </div>
-              <div style={{ paddingBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0" }}>{displayName}</h2>
-                  {vstatus === "verified" ? (
-                    <Verified size={16} />
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: vstatus === "pending" ? "var(--amber)" : "var(--text-muted)",
-                        background: vstatus === "pending" ? "rgba(166, 166, 166, 0.12)" : "var(--surface-2)",
-                        border: "1px solid var(--border)",
-                        padding: "2px 9px",
-                        borderRadius: 999,
-                      }}
-                    >
-                      {vstatus === "pending" ? "Pending" : "Unverified"}
-                    </span>
-                  )}
-                </div>
-              </div>
+        <section className="pp-card pp-org-profile-summary" aria-label="Organisation identity">
+          <InstitutionMark institution={institution} size={86} shape="square" />
+          <div className="pp-org-profile-identity">
+            <div className="pp-org-profile-name">
+              <h2>{displayName}</h2>
+              {institution.verified && <Verified size={19} />}
+            </div>
+            <div className="pp-org-profile-facts">
+              {category && <span><Tag size={14} aria-hidden="true" />{category}</span>}
+              {details.location && <span><MapPin size={14} aria-hidden="true" />{details.location}</span>}
+              {website && (
+                <a href={website} target="_blank" rel="noopener noreferrer">
+                  <Globe size={14} aria-hidden="true" />{externalUrlLabel(website)}
+                </a>
+              )}
             </div>
             {canEditProfile && (
-              <div className="pp-profile-actions" style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                <label className="pp-btn pp-btn-outline" style={{ cursor: "pointer" }}>
-                  {uploadingLogo ? <InlineSpinner /> : <Upload size={14} />} {uploadingLogo ? "Uploading…" : "Update logo"}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    style={{ display: "none" }}
-                    disabled={uploadingLogo}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = "";
-                      if (file) void uploadLogo(file);
-                    }}
-                  />
-                </label>
-                <button type="button" onClick={() => document.getElementById("organisation-description")?.focus()} className="pp-btn pp-btn-outline">
-                  <Pencil size={14} /> Edit profile
+              <div className="pp-org-profile-logo-action">
+                <button
+                  type="button"
+                  className="pp-btn pp-btn-outline pp-org-profile-action"
+                  disabled={busy || draft !== null}
+                  aria-busy={uploadingLogo}
+                  onClick={() => logoInput.current?.click()}
+                >
+                  {uploadingLogo ? <InlineSpinner /> : <Upload size={14} aria-hidden="true" />}
+                  {uploadingLogo ? "Uploading…" : "Update Logo"}
                 </button>
+                <input
+                  ref={logoInput}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) void uploadLogo(file);
+                  }}
+                />
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 20, marginTop: 16, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{category}</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><MapPin size={14} /> {location}</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--blue)" }}><Globe size={14} /> {website}</span>
-          </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 18, alignItems: "start" }}>
-        {/* left column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Panel title="Organisation details">
-            <div className="pp-responsive-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <label style={{ display: "block" }}>
-                <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Organisation name</span>
-                <input id="organisation-name" className="pp-input" value={orgName} maxLength={160} disabled readOnly />
-                <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>Contact a platform administrator to change the verified organisation name.</span>
-              </label>
-              <label style={{ display: "block" }}>
-                <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Category</span>
-                <input className="pp-input" value={orgCategory} maxLength={100} disabled={!canEditProfile} onChange={(event) => setOrgCategory(event.target.value)} />
-              </label>
-              <label style={{ display: "block" }}>
-                <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Location (HQ)</span>
-                <input className="pp-input" value={orgLocation} maxLength={300} disabled={!canEditProfile} onChange={(event) => setOrgLocation(event.target.value)} />
-              </label>
-              <label style={{ display: "block", gridColumn: "1 / -1" }}>
-                <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Website</span>
-                <input className="pp-input" value={orgWebsite} maxLength={500} disabled={!canEditProfile} onChange={(event) => setOrgWebsite(event.target.value)} />
-              </label>
-              <label style={{ display: "block", gridColumn: "1 / -1" }}>
-                <span style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Description</span>
-                <textarea
-                  className="pp-input"
-                  id="organisation-description"
-                  rows={3}
-                  value={bio}
-                  maxLength={5000}
-                  disabled={!canEditProfile}
-                  onChange={(e) => setBio(e.target.value)}
-                  style={{ resize: "vertical", lineHeight: 1.6, fontFamily: "inherit" }}
-                />
-              </label>
-            </div>
-            {canEditProfile && <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
-              <button type="button" onClick={() => {
-                setOrgName(profile.institution_name || "");
-                setBio(profile.org_description || profile.bio || "");
-                setOrgWebsite(profile.org_website || "");
-                setOrgLocation(profile.org_location || "");
-                setOrgCategory(profile.org_category || "");
-              }} className="pp-btn pp-btn-ghost">Cancel</button>
-              <button
-                type="button"
-                className="pp-btn pp-btn-primary"
-                onClick={saveProfile}
-                disabled={saving}
-                aria-busy={saving}
-                style={{ opacity: saving ? 0.7 : 1 }}
-              >
-                {saving ? <><InlineSpinner /> Saving…</> : "Save changes"}
+        <div className="pp-org-profile-grid">
+          <Panel
+            title="Organisation Details"
+            style={{ gridArea: "details" }}
+            bodyStyle={draft ? undefined : { padding: "6px 20px" }}
+            action={canEditProfile && !draft ? (
+              <button type="button" className="pp-btn pp-btn-outline pp-org-profile-action" disabled={busy} onClick={() => setDraft(details)}>
+                <Pencil size={14} aria-hidden="true" /> Edit
               </button>
-            </div>}
+            ) : undefined}
+          >
+            {canEditProfile && draft ? (
+              <form className="pp-org-profile-form" onSubmit={saveProfile}>
+                {lockedFields.map(({ id, label, value }) => (
+                  <div key={id} className="pp-org-profile-locked-field">
+                    <div className="pp-org-profile-verified-name">
+                      <label htmlFor={id}>{label}</label>
+                      {value && verifiedChip}
+                    </div>
+                    <input id={id} className="pp-input" value={value} placeholder="—" disabled />
+                  </div>
+                ))}
+                {DETAIL_FIELDS.map(({ key, label, maxLength }, index) => (
+                  <label key={key}>
+                    <span>{label}</span>
+                    {key === "description" ? (
+                      <textarea className="pp-input" value={draft[key]} rows={4} maxLength={maxLength} disabled={saving}
+                        onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />
+                    ) : (
+                      <input className="pp-input" value={draft[key]} maxLength={maxLength} disabled={saving} autoFocus={index === 0}
+                        inputMode={key === "website" ? "url" : undefined}
+                        onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />
+                    )}
+                  </label>
+                ))}
+                <div className="pp-org-profile-form-actions">
+                  <button type="button" className="pp-btn pp-btn-ghost" onClick={() => setDraft(null)} disabled={saving}>Cancel</button>
+                  <button type="submit" className="pp-btn pp-btn-primary" disabled={saving} aria-busy={saving}>
+                    {saving ? <><InlineSpinner /> Saving…</> : "Save changes"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <DetailRows className="pp-org-profile-details" rows={[
+                ...lockedRows,
+                ["Headquarters", details.location],
+                ["Website", website ? <a href={website} target="_blank" rel="noopener noreferrer">{details.website}</a> : details.website],
+                ["Description", details.description],
+              ]} />
+            )}
           </Panel>
+
+          <Verification status={status} since={verification?.verified_at} domain={verification?.verification_domain} />
 
           <Panel
-            title="Authorised people"
-            action={
-              org.can.invite ? (
-                <button type="button" onClick={() => navigate("/inst/team")} className="pp-btn pp-btn-outline" style={{ padding: "6px 13px", fontSize: 13 }}>
-                  <UserPlus size={14} /> Invite
-                </button>
-              ) : undefined
-            }
+            title="Authorised People"
+            style={{ gridArea: "people" }}
             bodyStyle={{ padding: 0 }}
+            action={org.can.invite ? (
+              <Link to="/inst/team#invite-member" className="pp-btn pp-btn-outline pp-org-profile-action">
+                <UserPlus size={14} aria-hidden="true" /> Invite Member
+              </Link>
+            ) : undefined}
           >
             {org.loading ? (
-              <div role="status" style={{ padding: 18, fontSize: 13.5, color: "var(--text-muted)" }}>Loading team members…</div>
+              <p className="pp-org-profile-empty" role="status">Loading team members…</p>
             ) : org.error ? (
-              <div role="alert" style={{ padding: 18, fontSize: 13.5, color: "var(--text-muted)" }}>{org.error}</div>
-            ) : !org.available ? (
-              <div style={{ padding: 18, fontSize: 13.5, color: "var(--text-muted)" }}>Organisation team data is unavailable for this account.</div>
-            ) : org.activeMembers.length === 0 ? (
-              <div style={{ padding: 18, fontSize: 13.5, color: "var(--text-muted)" }}>No active members yet.</div>
+              <p className="pp-org-profile-empty" role="alert">{org.error}</p>
+            ) : !org.available || org.activeMembers.length === 0 ? (
+              <p className="pp-org-profile-empty">{org.available ? "No active members yet." : "Organisation team data is unavailable."}</p>
             ) : (
-              org.activeMembers.map((p, idx) => (
-                <div
-                  key={p.user_id}
-                  style={{ display: "flex", alignItems: "center", gap: 13, padding: "14px 18px", borderTop: idx === 0 ? "none" : "1px solid var(--border)" }}
-                >
-                  <Avatar name={p.full_name ?? undefined} initials={initialsFrom(p.full_name, p.email)}
-                    src={p.user_id === user?.id ? profile?.avatar_url : p.avatar_url} size={38} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{p.full_name || p.email}</div>
-                    <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{p.email}</div>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: p.role === "owner" ? "var(--amber)" : "var(--text-secondary)", background: "var(--surface-3)", padding: "3px 10px", borderRadius: 999, textTransform: "capitalize" }}>
-                    {p.role}
-                  </span>
-                </div>
-              ))
+              <ul className="pp-org-profile-roster pp-divided-list">
+                {org.activeMembers.map((member) => (
+                  <li key={member.user_id}>
+                    <Avatar name={member.full_name || member.email}
+                      src={member.user_id === user?.id ? profile.avatar_url : member.avatar_url} size={36} />
+                    <div className="pp-org-profile-member">
+                      <strong>{member.full_name || member.email}</strong>
+                      {member.full_name && <span>{member.email}</span>}
+                    </div>
+                    <span className="pp-org-profile-role">{ORG_ROLE_LABEL[member.role]}</span>
+                  </li>
+                ))}
+              </ul>
             )}
             {org.available && (
-              <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)" }}>
-                <button type="button" onClick={() => navigate("/inst/team")} className="pp-link-muted" style={{ fontSize: 13 }}>
-                  Manage team & roles →
-                </button>
+              <div className="pp-org-profile-team-footer">
+                <Link to="/inst/team" className="pp-link-muted">
+                  Manage Team and Roles <ArrowRight size={14} aria-hidden="true" />
+                </Link>
               </div>
             )}
           </Panel>
-        </div>
 
-        {/* right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Panel title="Verification">
-            <VerificationPanel orgVerified={org.verified} />
-          </Panel>
-
-          <Panel title="Workspace access">
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[
-                ["Your role", org.loading ? "Loading…" : org.error ? "Unavailable" : org.role ? `${org.role[0].toUpperCase()}${org.role.slice(1)}` : "No active role"],
-                ["Active members", org.loading ? "Loading…" : org.error ? "Unavailable" : String(org.activeMembers.length)],
-                ["Pending invitations", org.loading ? "Loading…" : org.error ? "Unavailable" : String(org.invites.length)],
-                ["Verification", vstatus === "verified" ? "Verified" : "Not verified"],
-              ].map(([k, v]) => (
-                <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{k}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{v}</span>
-                </div>
-              ))}
-            </div>
+          <Panel title="Workspace Access" style={{ gridArea: "access" }}>
+            <DetailRows className="pp-org-profile-metadata" rows={[
+              ["Your role", workspaceStatus ?? (role ? ORG_ROLE_LABEL[role] : "No active role")],
+              ["Active members", workspaceStatus ?? String(org.activeMembers.length)],
+              ["Pending invitations", workspaceStatus ?? (org.can.invite ? String(org.invites.length) : "—")],
+            ]} />
           </Panel>
         </div>
       </div>

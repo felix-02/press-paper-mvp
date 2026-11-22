@@ -1458,6 +1458,359 @@ select:-webkit-autofill {
   padding: 20px;
 }
 
+.pp-org-profile-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.pp-org-profile-heading h1 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pp-org-profile-heading p {
+  margin-top: 7px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pp-org-profile-heading .pp-link-muted {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.pp-org-profile-summary {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 22px;
+  margin-bottom: 16px;
+}
+
+.pp-org-profile-identity,
+.pp-org-profile-member {
+  min-width: 0;
+}
+
+.pp-org-profile-name,
+.pp-org-profile-facts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.pp-org-profile-name h2 {
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.22;
+}
+
+.pp-org-profile-name svg,
+.pp-org-profile-facts svg,
+.pp-org-profile-callout svg {
+  flex-shrink: 0;
+}
+
+.pp-org-profile-facts {
+  margin-top: 5px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pp-org-profile-facts > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pp-org-profile-facts a,
+.pp-org-profile-details a {
+  color: var(--text);
+}
+
+.pp-org-profile-facts a:hover,
+.pp-org-profile-details a:hover {
+  text-decoration: underline;
+}
+
+.pp-org-profile-logo-action {
+  margin-top: 11px;
+}
+
+.pp-org-profile .pp-org-profile-action {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pp-org-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-areas: "details verification" "people verification" "access verification";
+  align-items: start;
+  gap: 16px;
+}
+
+.pp-org-profile-grid > :nth-child(-n + 2) > :first-child {
+  min-height: 67px;
+}
+
+.pp-org-profile-details,
+.pp-org-profile-metadata {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pp-org-profile-details > div {
+  display: grid;
+  grid-template-columns: minmax(118px, 28%) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.pp-org-profile-details > div + div {
+  border-top: 1px solid var(--border);
+}
+
+.pp-org-profile-details dt,
+.pp-org-profile-metadata dt {
+  color: var(--text-secondary);
+}
+
+.pp-org-profile-details dd,
+.pp-org-profile-metadata dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.pp-org-profile-details > div:last-child dd {
+  white-space: pre-wrap;
+}
+
+.pp-org-profile-verified-name {
+  display: flex;
+  gap: 6px 9px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pp-org-profile-verified-chip,
+.pp-org-profile-role,
+.pp-org-profile-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pp-org-profile-verified-chip {
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 2px 7px;
+}
+
+.pp-org-profile-status,
+.pp-org-profile-role {
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.pp-org-profile-status[data-status="verified"] {
+  background: var(--text);
+  color: var(--surface-1);
+}
+
+.pp-org-profile-status[data-status="verified"] svg {
+  color: inherit;
+}
+
+.pp-org-profile-status[data-status="rejected"] {
+  background: var(--danger-soft);
+  color: var(--red);
+}
+
+.pp-org-profile-metadata {
+  display: grid;
+  gap: 12px;
+}
+
+.pp-org-profile-metadata > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.pp-org-profile-metadata dd {
+  text-align: right;
+  font-weight: 600;
+}
+
+.pp-org-profile-benefits {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pp-org-profile-benefits h3 {
+  margin: 0 0 9px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.pp-org-profile-benefits ul,
+.pp-org-profile-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pp-org-profile-benefits ul {
+  display: grid;
+  gap: 9px;
+}
+
+.pp-org-profile-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pp-org-profile-benefits li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  padding: 2px;
+}
+
+.pp-org-profile-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 16px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.pp-org-profile-callout svg {
+  margin-top: 2px;
+}
+
+.pp-org-profile-request {
+  margin-top: 12px;
+}
+
+.pp-org-profile-roster > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+}
+
+.pp-org-profile-member {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  font-size: 13px;
+}
+
+.pp-org-profile-member span {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.pp-org-profile-role {
+  flex-shrink: 0;
+}
+
+.pp-org-profile-team-footer {
+  border-top: 1px solid var(--border);
+  padding: 11px 20px;
+}
+
+.pp-org-profile-empty,
+.pp-org-profile-note {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pp-org-profile-empty {
+  padding: 18px 20px;
+}
+
+.pp-org-profile-form,
+.pp-org-profile-form label,
+.pp-org-profile-locked-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pp-org-profile-form {
+  gap: 13px;
+}
+
+.pp-org-profile-locked-field .pp-input {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.pp-org-profile-form textarea {
+  resize: vertical;
+}
+
+.pp-org-profile-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .pp-org-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "details" "verification" "people" "access";
+  }
+
+  .pp-org-profile-summary {
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .pp-org-profile-name h2 {
+    font-size: 20px;
+  }
+
+  .pp-org-profile-details > div {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
 .pp-publish-form {
   padding: clamp(16px, 2vw, 24px);
   min-width: 0;
@@ -1896,6 +2249,8 @@ select:-webkit-autofill {
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  box-shadow: inset 0 -1px var(--border);
 }
 
 .pp-tabs > button {
@@ -2087,6 +2442,7 @@ select:-webkit-autofill {
 /* Type badge */
 .pp-badge {
   display: inline-flex;
+  width: fit-content;
   align-items: center;
   font-size: 11.5px;
   font-weight: 600;

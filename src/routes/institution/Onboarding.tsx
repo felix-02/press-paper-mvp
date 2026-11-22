@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Building2, Globe, FileText, Check, ArrowRight, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { useAuth } from "@/auth/AuthProvider";
@@ -19,12 +19,16 @@ export function InstitutionOnboarding() {
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile?.institution_name ?? "");
-  const [category, setCategory] = useState(profile?.org_category ?? "");
+  const [selectedCategory, setCategory] = useState("");
   const [website, setWebsite] = useState(profile?.org_website ?? "");
   const [location, setLocation] = useState(profile?.org_location ?? "");
   const [description, setDescription] = useState(profile?.org_description ?? "");
   const [saving, setSaving] = useState(false);
 
+  if (profile?.onboarding_complete) return <Navigate to="/inst" replace />;
+
+  const savedCategory = profile?.org_category?.trim();
+  const category = savedCategory || selectedCategory;
   const steps = ["Organisation", "Details", "About"];
   const cleanWebsite = safeExternalUrl(website);
   const canNext = step === 0
@@ -45,7 +49,7 @@ export function InstitutionOnboarding() {
       const { data, error } = await supabase
         .from("profiles")
         .update({
-          org_category: category,
+          ...(!savedCategory && { org_category: category }),
           org_website: cleanWebsite,
           org_location: location.trim(),
           org_description: description.trim(),
@@ -87,7 +91,7 @@ export function InstitutionOnboarding() {
           <div style={{ textAlign: "center", marginBottom: 8 }}>
             <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0" }}>Set up your organisation</h1>
             <p style={{ fontSize: 14.5, color: "var(--text-secondary)", marginTop: 6 }}>
-              A few details so readers know who's publishing. You can edit these later in Profile.
+              Add the details readers will see on your organisation profile.
             </p>
           </div>
 
@@ -129,26 +133,30 @@ export function InstitutionOnboarding() {
                 </div>
                 <div style={field}>
                   <label style={labelStyle}>Type of organisation</label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {CATEGORIES.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setCategory(c)}
-                        style={{
-                          fontSize: 13,
-                          padding: "7px 13px",
-                          borderRadius: "var(--r-pill)",
-                          border: `1px solid ${category === c ? "transparent" : "var(--border)"}`,
-                          background: category === c ? "var(--surface-3)" : "transparent",
-                          color: category === c ? "var(--text)" : "var(--text-secondary)",
-                          fontWeight: category === c ? 600 : 500,
-                        }}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+                  {savedCategory ? (
+                    <p style={{ fontSize: 14 }}>{savedCategory}</p>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {CATEGORIES.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setCategory(c)}
+                          style={{
+                            fontSize: 13,
+                            padding: "7px 13px",
+                            borderRadius: "var(--r-pill)",
+                            border: `1px solid ${category === c ? "transparent" : "var(--border)"}`,
+                            background: category === c ? "var(--surface-3)" : "transparent",
+                            color: category === c ? "var(--text)" : "var(--text-secondary)",
+                            fontWeight: category === c ? 600 : 500,
+                          }}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}

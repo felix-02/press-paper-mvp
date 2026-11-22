@@ -4,6 +4,13 @@ import { useAuth } from "@/auth/AuthProvider";
 
 export type OrgRole = "owner" | "admin" | "editor" | "viewer";
 
+export const ORG_ROLE_LABEL: Record<OrgRole, string> = {
+  owner: "Owner",
+  admin: "Publisher",
+  editor: "Editor",
+  viewer: "Analyst",
+};
+
 export interface OrgMember {
   user_id: string;
   role: OrgRole;

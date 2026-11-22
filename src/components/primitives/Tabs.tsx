@@ -14,7 +14,7 @@ export function Tabs<T extends string>({
   style?: React.CSSProperties;
 }) {
   return (
-    <div className="pp-tabs" role="tablist" style={{ display: "flex", gap: 26, borderBottom: "1px solid var(--border)", ...style }}>
+    <div className="pp-tabs" role="tablist" style={{ display: "flex", gap: 26, ...style }}>
       {tabs.map((tab) => {
         const selected = active === tab;
         return (
@@ -30,7 +30,6 @@ export function Tabs<T extends string>({
               padding: "10px 2px",
               color: selected ? "var(--text)" : "var(--text-muted)",
               borderBottom: `2px solid ${selected ? "var(--text)" : "transparent"}`,
-              marginBottom: -1,
               transition: "color 140ms ease, border-color 140ms ease",
             }}
           >

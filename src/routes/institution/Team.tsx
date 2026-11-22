@@ -1,14 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Users, UserPlus, ShieldCheck, Check, X, Copy, Clock, Crown, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/shells/AppShell";
-import { useOrg, type OrgRole } from "@/lib/useOrg";
+import { ORG_ROLE_LABEL as ROLE_LABEL, useOrg, type OrgRole } from "@/lib/useOrg";
 import { useAppStore } from "@/store/useAppStore";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { InlineSpinner } from "@/components/primitives/Bits";
 
-// Database roles stay permission-oriented; the labels match the institution
-// profile language supplied in the product screens.
-const ROLE_LABEL: Record<OrgRole, string> = { owner: "Owner", admin: "Publisher", editor: "Editor", viewer: "Analyst" };
 const ROLE_DESC: Record<OrgRole, string> = {
   owner: "Full access, approves members",
   admin: "Manage team & publish",
@@ -47,12 +45,20 @@ function initials(name: string | null, email: string) {
 export function InstitutionTeam() {
   usePageTitle("Team");
   const org = useOrg();
+  const { hash } = useLocation();
+  const inviteSection = useRef<HTMLElement>(null);
   const pushToast = useAppStore((s) => s.pushToast);
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<OrgRole>("editor");
   const [lastLink, setLastLink] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [actionKey, setActionKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (hash !== "#invite-member" || !org.can.invite) return;
+    inviteSection.current?.scrollIntoView({ block: "start" });
+    inviteSection.current?.focus({ preventScroll: true });
+  }, [hash, org.can.invite]);
 
   if (!org.available) {
     return (
@@ -165,9 +171,9 @@ export function InstitutionTeam() {
 
       {/* Invite (owner/admin) */}
       {org.can.invite && (
-        <section className="pp-card" style={{ padding: 20, marginBottom: 18 }}>
+        <section id="invite-member" ref={inviteSection} tabIndex={-1} aria-labelledby="invite-member-title" className="pp-card" style={{ padding: 20, marginBottom: 18, scrollMarginTop: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <h2 style={{ fontSize: 15.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+            <h2 id="invite-member-title" style={{ fontSize: 15.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
               <UserPlus size={17} /> Invite a teammate
             </h2>
             <span style={{ fontSize: 12.5, color: org.seatsLeft === 0 ? "var(--amber)" : "var(--text-muted)" }}>

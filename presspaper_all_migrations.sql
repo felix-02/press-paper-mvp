@@ -1,5 +1,5 @@
 -- ============================================================================
--- PRESSPAPER - ALL MIGRATIONS (0001 -> 0022), IN ORDER, IN ONE FILE.
+-- PRESSPAPER - ALL MIGRATIONS (0001 -> 0024), IN ORDER, IN ONE FILE.
 -- For a new Presspaper database, paste this entire file into the Supabase SQL Editor.
 -- For an existing database, apply each pending file in supabase/migrations in order.
 -- After running, make yourself the platform admin (once):
@@ -5054,3 +5054,74 @@ where length(r.target_id) between 1 and 200
         and r.created_at + case when r.event_type = 'release_viewed' then interval '5 seconds' else interval '0' end
       and (e.metadata ->> 'watchlist_id') is not distinct from (r.metadata ->> 'watchlist_id')
   );
+
+
+-- ////////////////////////////////////////////////////////////////////////
+-- 0023_org_verification_details.sql
+-- ////////////////////////////////////////////////////////////////////////
+-- Read the verified owner's organisation details from the workspace.
+create or replace function public.org_verification_details(p_slug text)
+returns table(verification_domain text, verified_at timestamptz)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.verification_domain, p.verified_at
+  from public.org_members m
+  join public.profiles p on p.id = m.user_id
+  where m.institution_slug = p_slug
+    and m.role = 'owner'
+    and m.status = 'active'
+    and p.role = 'institution'
+    and p.institution_slug = p_slug
+    and p.account_status = 'active'
+    and p.verification_status = 'verified'
+    and public.is_org_member(p_slug, auth.uid())
+  limit 1;
+$$;
+
+revoke all on function public.org_verification_details(text) from public, anon, authenticated;
+grant execute on function public.org_verification_details(text) to authenticated;
+
+
+-- ////////////////////////////////////////////////////////////////////////
+-- 0024_lock_org_category.sql
+-- ////////////////////////////////////////////////////////////////////////
+-- Owners can set a category during initial setup. Later changes are privileged.
+create or replace function public.lock_org_category()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user not in ('anon', 'authenticated') then
+    return new;
+  end if;
+
+  if old.role = 'institution' and old.onboarding_complete is true and new.onboarding_complete is not true then
+    raise exception 'Organisation setup is already complete.' using errcode = '42501';
+  end if;
+
+  if new.org_category is distinct from old.org_category and (
+    old.role = 'institution'
+    and old.verification_status = 'verified'
+    and old.onboarding_complete is not true
+    and new.onboarding_complete is true
+    and nullif(btrim(old.org_category), '') is null
+    and nullif(btrim(new.org_category), '') is not null
+    and public.org_role(old.institution_slug, auth.uid()) = 'owner'
+  ) is not true then
+    raise exception 'Organisation category can only be set during initial setup.' using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.lock_org_category() from public, anon, authenticated;
+
+drop trigger if exists trg_lock_org_category on public.profiles;
+create trigger trg_lock_org_category
+  before update of org_category, onboarding_complete on public.profiles
+  for each row execute function public.lock_org_category();

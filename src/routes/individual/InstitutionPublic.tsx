@@ -134,7 +134,7 @@ export function InstitutionPublic() {
   const seen = new Set<string>();
   const releases = liveReleases
     .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
-  const releasesScroll = useInfiniteScroll(releases.length, 10, slug);
+  const releasesScroll = useInfiniteScroll(tab === "Releases" ? releases.length : 0, 10, slug);
 
   const onFollow = () => {
     if (!i) return;
@@ -186,71 +186,57 @@ export function InstitutionPublic() {
 
   return (
     <InstitutionShell kind={shellKind} maxWidth={900}>
-      {/* header */}
-      <div className="pp-card" style={{ overflow: "hidden" }}>
-        <div
-          style={{
-            height: 120,
-            background: "linear-gradient(125deg, #555555 0%, #171717 100%)",
-            position: "relative",
-          }}
-        >
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.18)" }} />
-        </div>
-        <div style={{ padding: "0 24px 22px" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: -36 }}>
-            <div style={{ borderRadius: 18, border: "4px solid var(--surface-1)", lineHeight: 0 }}>
-              <InstitutionMark institution={i} size={84} shape="square" />
-            </div>
-            <div style={{ display: "flex", gap: 10, paddingBottom: 6 }}>
-              {websiteUrl && (
-                <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="pp-btn pp-btn-ghost">
-                  <Globe size={15} /> Visit website
-                </a>
-              )}
-              {configured && !user ? (
-                <Link to={`/login?next=${encodeURIComponent(`/institution/${i.slug}`)}`} className="pp-btn pp-btn-blue" style={{ minWidth: 104 }}>
-                  Follow
-                </Link>
-              ) : isOwnInstitution ? (
-                <span style={{ fontSize: 12.5, color: "var(--text-muted)", alignSelf: "center" }}>This is your organisation's public page</span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onFollow}
-                  className={following ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-blue"}
-                  style={{ minWidth: 104 }}
-                >
-                  {following ? "Following" : "Follow"}
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
-            <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "0" }}>{i.name}</h1>
-            {i.verified && <Verified size={17} />}
-          </div>
-          <div style={{ display: "flex", gap: 18, marginTop: 12, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{i.category}</span>
-            {i.location && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <MapPin size={14} /> {i.location}
-              </span>
-            )}
-            {websiteUrl && websiteLabel && (
-              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--blue)" }}>
-                {websiteLabel} <ArrowUpRight size={13} />
+      <header className="pp-card" style={{ padding: "clamp(16px, 3vw, 24px)", overflowWrap: "anywhere" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+          <InstitutionMark institution={i} size={84} shape="square" />
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            {websiteUrl && (
+              <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="pp-btn pp-btn-ghost">
+                <Globe size={15} /> Visit website
               </a>
             )}
-          </div>
-
-          <div style={{ display: "flex", gap: 26, marginTop: 18 }}>
-            <HeaderStat value={followerLabel} label="followers" />
-            <HeaderStat value={releaseLabel} label="releases" />
+            {configured && !user ? (
+              <Link to={`/login?next=${encodeURIComponent(`/institution/${i.slug}`)}`} className="pp-btn pp-btn-blue" style={{ minWidth: 104 }}>
+                Follow
+              </Link>
+            ) : isOwnInstitution ? (
+              <span style={{ fontSize: 12.5, color: "var(--text-muted)", alignSelf: "center" }}>This is your organisation's public page</span>
+            ) : (
+              <button
+                type="button"
+                onClick={onFollow}
+                className={following ? "pp-btn pp-btn-ghost" : "pp-btn pp-btn-blue"}
+                style={{ minWidth: 104 }}
+              >
+                {following ? "Following" : "Follow"}
+              </button>
+            )}
           </div>
         </div>
-      </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
+          <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: "0" }}>{i.name}</h1>
+          {i.verified && <Verified size={17} />}
+        </div>
+        <div style={{ display: "flex", gap: 18, marginTop: 12, fontSize: 13, color: "var(--text-muted)", flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{i.category}</span>
+          {i.location && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <MapPin size={14} /> {i.location}
+            </span>
+          )}
+          {websiteUrl && websiteLabel && (
+            <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--blue)" }}>
+              {websiteLabel} <ArrowUpRight size={13} />
+            </a>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 26, marginTop: 18 }}>
+          <HeaderStat value={followerLabel} label="followers" />
+          <HeaderStat value={releaseLabel} label="releases" />
+        </div>
+      </header>
 
       {/* tabs */}
       <Tabs tabs={TABS} active={tab} onChange={setTab} style={{ marginTop: 26, marginBottom: 22 }} />
