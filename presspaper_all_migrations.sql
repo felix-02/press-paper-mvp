@@ -1,5 +1,5 @@
 -- ============================================================================
--- PRESSPAPER - ALL MIGRATIONS (0001 -> 0024), IN ORDER, IN ONE FILE.
+-- PRESSPAPER - ALL MIGRATIONS (0001 -> 0025), IN ORDER, IN ONE FILE.
 -- For a new Presspaper database, paste this entire file into the Supabase SQL Editor.
 -- For an existing database, apply each pending file in supabase/migrations in order.
 -- After running, make yourself the platform admin (once):
@@ -5125,3 +5125,11 @@ drop trigger if exists trg_lock_org_category on public.profiles;
 create trigger trg_lock_org_category
   before update of org_category, onboarding_complete on public.profiles
   for each row execute function public.lock_org_category();
+
+
+-- ////////////////////////////////////////////////////////////////////////
+-- 0025_release_extras_permissions.sql
+-- ////////////////////////////////////////////////////////////////////////
+-- The release CHECK constraint runs under the role writing the release.
+revoke execute on function public.valid_release_extras(jsonb, text, uuid) from public, anon;
+grant execute on function public.valid_release_extras(jsonb, text, uuid) to authenticated;

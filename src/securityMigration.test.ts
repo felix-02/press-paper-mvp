@@ -11,6 +11,7 @@ const readerProfilesSql = readFileSync(new URL("../supabase/migrations/0021_read
 const readerActivitySql = readFileSync(new URL("../supabase/migrations/0022_reader_activity.sql", import.meta.url), "utf8");
 const orgVerificationSql = readFileSync(new URL("../supabase/migrations/0023_org_verification_details.sql", import.meta.url), "utf8");
 const lockOrgCategorySql = readFileSync(new URL("../supabase/migrations/0024_lock_org_category.sql", import.meta.url), "utf8");
+const releaseExtrasPermissionsSql = readFileSync(new URL("../supabase/migrations/0025_release_extras_permissions.sql", import.meta.url), "utf8");
 const aggregate = readFileSync(new URL("../presspaper_all_migrations.sql", import.meta.url), "utf8");
 
 describe("security migration", () => {
@@ -49,7 +50,8 @@ describe("security migration", () => {
     expect(aggregate).toContain(readerProfilesSql);
     expect(aggregate).toContain(readerActivitySql);
     expect(aggregate).toContain(orgVerificationSql);
-    expect(aggregate.endsWith(lockOrgCategorySql)).toBe(true);
+    expect(aggregate).toContain(lockOrgCategorySql);
+    expect(aggregate.endsWith(releaseExtrasPermissionsSql)).toBe(true);
   });
 });
 

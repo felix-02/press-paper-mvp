@@ -2,9 +2,9 @@
 
 ## 1. Apply the schema
 
-For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0024` in order.
+For a new project, run [presspaper_all_migrations.sql](./presspaper_all_migrations.sql) in the Supabase SQL Editor. It contains migrations `0001` through `0025` in order.
 
-For an existing project, apply only the individual files after its current migration version, in order. If your project is on `0023`, run [0024_lock_org_category.sql](./supabase/migrations/0024_lock_org_category.sql) by itself in the Supabase SQL Editor.
+For an existing project, apply only the individual files after its current migration version, in order. If an institute sees `permission denied for function valid_release_extras`, run [0025_release_extras_permissions.sql](./supabase/migrations/0025_release_extras_permissions.sql) by itself in the Supabase SQL Editor.
 
 - `0015_security_hardening.sql` replaces broad legacy grants, hardens invitation and organisation authority, adds abuse limits, and requires duplicate active owners to be reconciled.
 - `0016_super_admin_moderation.sql` adds account/post moderation, admin-only read and mutation RPCs, activity and audit logs, safe Realtime publication, and removes the obsolete verification token.
@@ -16,6 +16,7 @@ For an existing project, apply only the individual files after its current migra
 - [0022_reader_activity.sql](./supabase/migrations/0022_reader_activity.sql) adds each reader's private activity timeline and restores older interactions from retained source rows.
 - [0023_org_verification_details.sql](./supabase/migrations/0023_org_verification_details.sql) lets active team members read their organisation's verified domain and approval date.
 - [0024_lock_org_category.sql](./supabase/migrations/0024_lock_org_category.sql) locks the organisation category after initial setup.
+- [0025_release_extras_permissions.sql](./supabase/migrations/0025_release_extras_permissions.sql) lets signed-in publishers execute the release files and categories validator when saving a post.
 
 Before applying `0015` to established data, reconcile duplicate active owners:
 
